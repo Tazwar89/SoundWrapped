@@ -21,6 +21,6 @@ public class SoundCloudController {
 	@GetMapping("/test-credentials")
 	public ResponseEntity<String> testCredential() {
 		//Return the fact that environment variables were loaded
-		return ResponseEntity.ok("Loaded CLIENT_ID: " + clientId + " and REDIRECT_URI: " + redirectUri);
+		return ResponseEntity.ok("Loaded CLIENT_ID: " + clientId + ", CLIENT_SECRET: " + clientSecret + " and REDIRECT_URI: " + redirectUri);
 	}
 }

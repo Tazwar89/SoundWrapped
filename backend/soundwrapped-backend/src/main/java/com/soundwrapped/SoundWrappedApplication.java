@@ -1,4 +1,4 @@
-package com.soundwrapped.soundwrapped_backend;
+package com.soundwrapped;
 
 import io.github.cdimascio.dotenv.Dotenv;
 import org.springframework.boot.SpringApplication;
