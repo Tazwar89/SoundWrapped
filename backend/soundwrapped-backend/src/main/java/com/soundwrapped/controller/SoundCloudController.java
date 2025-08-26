@@ -11,7 +11,7 @@ public class SoundCloudController {
 
 	public SoundCloudController() {
 		//Load environment variables from .env
-		Dotenv dotenv = Dotenv.configure().directory("../").filename(".env").load();
+		Dotenv dotenv = Dotenv.configure().directory("./").filename(".env").load();
 
 		clientId = dotenv.get("CLIENT_ID");
 		clientSecret = dotenv.get("CLIENT_SECRET");
