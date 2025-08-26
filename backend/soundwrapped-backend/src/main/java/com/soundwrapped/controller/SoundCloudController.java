@@ -1,14 +1,12 @@
 package com.soundwrapped.controller;
 
 import com.soundwrapped.service.SoundCloudService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/soundcloud")
 public class SoundCloudController {
-	@Autowired
 	private final SoundCloudService soundCloudService;
 
 	public SoundCloudController(SoundCloudService soundCloudService) {
