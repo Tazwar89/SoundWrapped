@@ -11,3 +11,9 @@ I plan to use SoundCloud’s API to:
 - **Frontend:** React (Next.js optional)
 - **Backend:** Node.js + Express
 - **API:** SoundCloud API
+
+## Getting Started
+1. Clone the repo:
+   ```bash
+   git clone https://github.com/<your-username>/SoundWrapped.git
+   ```
