@@ -10,13 +10,9 @@ public class SoundWrappedApplication {
 		//Load .env from backend folder
 		Dotenv dotenv = Dotenv.configure().directory("../").filename(".env").load(); //Relative to soundwrapped-backend/src/main/java
 
-		String clientId = dotenv.get("CLIENT_ID");
-		String clientSecret = dotenv.get("CLIENT_SECRET");
-		String redirectUri = dotenv.get("REDIRECT_URI");
-
-		System.out.println("CLIENT_ID: " + clientId);
-		System.out.println("CLIENT_SECRET: " + clientSecret);
-		System.out.println("REDIRECT_URI: " + redirectUri);
+		System.out.println("CLIENT_ID: " + dotenv.get("CLIENT_ID"));
+		System.out.println("CLIENT_SECRET: " + dotenv.get("CLIENT_SECRET"));
+		System.out.println("REDIRECT_URI: " + dotenv.get("REDIRECT_URI"));
 
 		SpringApplication.run(SoundWrappedApplication.class, args);
 	}
