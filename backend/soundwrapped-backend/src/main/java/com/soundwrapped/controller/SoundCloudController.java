@@ -1,26 +1,37 @@
 package com.soundwrapped.controller;
 
-import io.github.cdimascio.dotenv.Dotenv;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.http.ResponseEntity;
+import com.soundwrapped.service.SoundCloudService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import java.util.Map;
 
 @RestController
+@RequestMapping("/api/soundcloud")
 public class SoundCloudController {
-	private final String clientId, clientSecret, redirectUri;
+	@Autowired
+	private final SoundCloudService soundCloudService;
 
-	public SoundCloudController() {
-		//Load environment variables from .env
-		Dotenv dotenv = Dotenv.configure().directory("./").filename(".env").load();
-
-		clientId = dotenv.get("CLIENT_ID");
-		clientSecret = dotenv.get("CLIENT_SECRET");
-		redirectUri = dotenv.get("REDIRECT_URI");
+	public SoundCloudController(SoundCloudService soundCloudService) {
+		this.soundCloudService = soundCloudService;
 	}
 
-	@GetMapping("/test-credentials")
-	public ResponseEntity<String> testCredential() {
-		//Return the fact that environment variables were loaded
-		return ResponseEntity.ok("Loaded CLIENT_ID: " + clientId + ", CLIENT_SECRET: " + clientSecret + " and REDIRECT_URI: " + redirectUri);
+	@GetMapping("/profile")
+	public Map<String, Object> getUserProfile(@RequestParam String accessToken) {
+		return soundCloudService.getUserProfile(accessToken);
+	}
+
+	@GetMapping("/favorites")
+	public Map<String, Object> getUserFavorites(@RequestParam String accessToken) {
+		return soundCloudService.getUserFavorites(accessToken);
+	}
+
+	@GetMapping("/playlists")
+	public Map<String, Object> getUserPlaylists(@RequestParam String accessToken) {
+		return soundCloudService.getUserPlaylists(accessToken);
+	}
+
+	@GetMapping("/followers")
+	public Map<String, Object> getUserFollowers(@RequestParam String accessToken) {
+		return soundCloudService.getUserFollowers(accessToken);
 	}
 }
