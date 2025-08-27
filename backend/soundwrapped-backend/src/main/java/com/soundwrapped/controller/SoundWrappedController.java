@@ -55,7 +55,7 @@ public class SoundWrappedController {
 		wrapped.put("playlists", profile.get("playlist_count"));
 		wrapped.put("comments", profile.get("comments_count"));
 
-		//Aaccount age in years
+		//Account age in years
 		String createdAt = (String) profile.get("created_at");
 
 		if (createdAt != null) {
