@@ -4,7 +4,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
-import java.util.Map;
+import java.util.*;
+
+/**
+ * SoundCloudService
+ * 
+ * @author Tazwar Sikder
+ */
 
 @Service
 public class SoundCloudService {
@@ -12,14 +18,46 @@ public class SoundCloudService {
 	private String soundCloudApiBaseUrl;
 	private final RestTemplate restTemplate = new RestTemplate();
 
-	//Used for making GET requests
+	/**
+	 * Sends HTTP GET requests (using Spring's RestTemplate utility) to the URL with
+	 * user's authorization code, and returns response data
+	 * 
+	 * @param url         the SoundCloud endpoint to call
+	 * @param accessToken an access token for user authentication
+	 * @return            JSON response body as a Map (for a single track)
+	 */
 	private Map<String, Object> makeGetRequest(String url, String accessToken) {
 		HttpHeaders headers = new HttpHeaders();
 		headers.setBearerAuth(accessToken);
 		HttpEntity<String> entity = new HttpEntity<String>(headers);
-		ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+		ResponseEntity<Map> trackData = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
 
-		return response.getBody();
+		return trackData.getBody();
+	}
+
+	/**
+	 * "Overloaded" version of makeGetRequest to send GET requests for endpoints
+	 * returning paginated JSON arrays
+	 * 
+	 * @param url         the SoundCloud endpoint to call
+	 * @param accessToken an access token for user authentication
+	 * @return            JSON response body as a Map (for multiple tracks)
+	 */
+	private List<Map<String, Object>> fetchPaginatedResults(String initialUrl, String accessToken) {
+		List<Map<String, Object>> paginatedResults = new ArrayList<Map<String, Object>>();
+
+		while (initialUrl != null) {
+			Map<String, Object> response = makeGetRequest(initialUrl, accessToken);
+			List<Map<String, Object>> pageResults = (List<Map<String, Object>>) response.get("collection");
+
+			if (paginatedResults != null) {
+				paginatedResults.addAll(pageResults);
+			}
+
+			initialUrl = (String) response.get("next_href");
+		}
+
+		return paginatedResults;
 	}
 
 	public Map<String, Object> getUserProfile(String accessToken) {
@@ -28,21 +66,27 @@ public class SoundCloudService {
 		return makeGetRequest(url, accessToken);
 	}
 
-	public Map<String, Object> getUserFavorites(String accessToken) {
+	public List<Map<String, Object>> getUserFavorites(String accessToken) {
 		String url = soundCloudApiBaseUrl + "/me/favorites";
 
-		return makeGetRequest(url, accessToken);
+		return fetchPaginatedResults(url, accessToken);
     }
 
-	public Map<String, Object> getUserPlaylists(String accessToken) {
-		String url = soundCloudApiBaseUrl + "/me/playlists";
+	public List<Map<String, Object>> getUserPlaylists(String accessToken) {
+		String url = soundCloudApiBaseUrl + "/me/playlists?linked_partitioning=true&limit=50";
 
-		return makeGetRequest(url, accessToken);
+		return fetchPaginatedResults(url, accessToken);
     }
 
-	public Map<String, Object> getUserFollowers(String accessToken) {
-    	String url = soundCloudApiBaseUrl + "/me/followers";
+	public List<Map<String, Object>> getUserFollowers(String accessToken) {
+    	String url = soundCloudApiBaseUrl + "/me/followers?linked_partitioning=true&limit=50";
 
-    	return makeGetRequest(url, accessToken);
+    	return fetchPaginatedResults(url, accessToken);
     }
+
+	public List<Map<String, Object>> getUserTracks(String accessToken) {
+		String url = soundCloudApiBaseUrl + "/me/tracks?linked_partitioning=true&limit=50";
+
+		return fetchPaginatedResults(url, accessToken);
+	}
 }
