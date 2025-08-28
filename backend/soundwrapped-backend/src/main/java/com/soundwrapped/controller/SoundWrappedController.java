@@ -81,10 +81,15 @@ public class SoundWrappedController {
 		long totalDurationMs = tracks.stream()
 				.mapToLong(track -> ((Number) track.getOrDefault("duration", 0))
 				.longValue()).sum();
-		wrapped.put("totalListeningHours", totalDurationMs / 1000.0 / 60.0 / 60.0);
+		double totalDurationHours = totalDurationMs / 1000.0 / 60.0 / 60.0;
+		wrapped.put("totalListeningHours", totalDurationHours);
 
 		int followers = (int) profile.getOrDefault("followers_count", 0);
 		wrapped.put("funFact", followers > 1000 ? "You're pretty famous! 🎉" : "Every star starts small 🥹");
+
+		//Assuming reading speed of 50 pages/book and book length of 300 pages
+		int estimatedBooksRead = (int) (totalDurationHours * 50 / 300);
+		wrapped.put("booksYouCouldHaveRead", estimatedBooksRead);
 
 		//Top 5 tracks by play count
 		List<Map<String, Object>> topTracks = tracks.stream()
@@ -101,9 +106,7 @@ public class SoundWrappedController {
 						.longValue())).limit(5).toList();
 		wrapped.put("topPlaylists", topPlaylists);
 
-		List<Map<String, Object>> likes = soundCloudService
-				.getUserLikes(accessToken);
-
+		List<Map<String, Object>> likes = soundCloudService.getUserLikes(accessToken);
 		Map<String, Integer> artistCounts = new HashMap<>();
 		Map<String, Long> artistListeningMs = new HashMap<>();
 
@@ -146,6 +149,9 @@ public class SoundWrappedController {
 				.sorted((a, b) -> Double.compare(b.getValue(), a.getValue())).limit(5)
 				.map(Map.Entry::getKey).toList();
 		wrapped.put("topArtistsByHours", topArtistsByHours);
+
+		//Global music taste placeholder
+		wrapped.put("globalTasteComparison", "Listeners in New York, Berlin and Tokyo share your musical taste! 🎧");
 
 		return wrapped;
 	}

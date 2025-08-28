@@ -4,6 +4,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.ZonedDateTime;
 import java.util.*;
 
 /**
@@ -104,9 +107,10 @@ public class SoundCloudService {
 	 */
 	public Map<String, Object> getWrappedLikes(String accessToken) {
 		List<Map<String, Object>> likes = getUserLikes(accessToken);
-		List<Map<String, Object>> tracks = getUserTracks(accessToken);
 		Map<String, Integer> artistCounts = new HashMap<String, Integer>();
 		Map<String, Long> artistListeningMs = new HashMap<String, Long>();
+		Map<Integer, Integer> yearCounts = new HashMap<Integer, Integer>();
+		List<Map<String, Object>> repostedTracks = new ArrayList<Map<String, Object>>();
 
 		//Count top liked artists
 		for (Map<String, Object> track : likes) {
@@ -114,19 +118,37 @@ public class SoundCloudService {
 
 			if (user != null) {
 				String artistName = (String) user.get("username");
-				artistCounts.put(artistName, artistCounts.getOrDefault(artistName, 0) + 1);
-			}
-		}
-		
-		//Sum track durations per top liked artist
-		for (Map<String, Object> track : tracks) {
-			Map<String, Object> user = (Map<String, Object>) track.get("user");
 
-			if (user != null) {
-				String artistName = (String) user.get("username");
-				long durationMs = ((Number) track.getOrDefault("duration", 0)).longValue();
-				artistListeningMs.put(artistName, artistListeningMs
-						.getOrDefault(artistName, 0L) + durationMs);
+				if (artistName != null) {
+					//Count likes per artist
+					artistCounts.put(artistName, artistCounts.getOrDefault(artistName, 0) + 1);
+
+					//Sum listening time for liked tracks
+					long durationMs = ((Number) track.getOrDefault("duration", 0)).longValue();
+					artistListeningMs.put(artistName, artistListeningMs.getOrDefault(artistName, 0L) + durationMs);
+				}
+			}
+
+			Object createdAtObj = track.get("created_at");
+
+			if (createdAtObj instanceof String createdAtStr) {
+				SimpleDateFormat original = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss Z");
+				Date parsedDate = null;
+
+				try {
+					parsedDate = original.parse(createdAtStr);
+				}
+
+				catch (ParseException pe) {
+					System.out.println("Invalid date: " + createdAtStr);
+				}
+
+				//Formatted convention for locale-based ZonedDateTime
+				SimpleDateFormat formatted = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
+				String formattedDate = formatted.format(parsedDate);
+				ZonedDateTime createdDate = ZonedDateTime.parse((CharSequence) formattedDate);
+				int year = createdDate.getYear();
+				yearCounts.put(year, yearCounts.getOrDefault(year, 0) + 1);
 			}
 		}
 
@@ -136,12 +158,13 @@ public class SoundCloudService {
 				.map(Map.Entry::getKey).toList();
 
 		//Top 5 most reposted tracks
-		List<Map<String, Object>> topRepostedTracks = tracks.stream()
-				.sorted((a, b) -> Long.compare(((Number) b.getOrDefault("reposts_count", 0))
-				.longValue(), ((Number) a.getOrDefault("reposts_count", 0)).longValue()))
-				.limit(5).toList();
+		List<Map<String, Object>> topRepostedTracks = repostedTracks.stream()
+				.sorted((a, b) -> {
+					return ((Integer) b.get("reposts_safe")).compareTo((Integer) a.get("reposts_safe"));
+				}).limit(5).map(track -> Map.of("title", track
+						.getOrDefault("title", "Unknown"), "reposts", track.get("reposts_safe"))).toList();
 
-		// Convert artist listening times to hours
+		//Convert artist listening times to hours
 		Map<String, Double> artistListeningHours = new HashMap<>();
 
 		for (Map.Entry<String, Long> entry : artistListeningMs.entrySet()) {
@@ -149,10 +172,14 @@ public class SoundCloudService {
 			artistListeningHours.put(entry.getKey(), hours);
 		}
 
-		// Top 5 artists by total listening hours
+		//Top 5 artists by total listening hours
 		List<String> topArtistsByHours = artistListeningHours.entrySet().stream()
 				.sorted((a, b) -> Double.compare(b.getValue(), a.getValue())).limit(5)
 				.map(Map.Entry::getKey).toList();
+
+		String peakYear = yearCounts.entrySet().stream().max(Map.Entry.comparingByValue())
+				.map(entry -> entry.getKey() + " (" + entry.getValue() + " likes)")
+				.orElse("No data");
 
 		Map<String, Object> wrappedData = new HashMap<>();
 		wrappedData.put("topArtists", topArtistNames);
@@ -160,7 +187,8 @@ public class SoundCloudService {
 		wrappedData.put("topRepostedTracks", topRepostedTracks);
 		wrappedData.put("artistListeningHours", artistListeningHours);
 		wrappedData.put("topArtistsbyHours", topArtistsByHours);
+		wrappedData.put("peakYear", peakYear);
 
 		return wrappedData;
-	}	
+	}
 }
