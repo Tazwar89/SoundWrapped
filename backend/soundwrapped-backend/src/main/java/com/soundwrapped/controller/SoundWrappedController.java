@@ -71,36 +71,19 @@ public class SoundWrappedController {
 		wrapped.put("commentsPosted", profile.get("comments_count"));
 		wrapped.put("remainingUploadQuotaSeconds", profile.get("upload_seconds_left"));
 
-		//Account age in years
 		String createdAt = (String) profile.get("created_at");
 
 		if (createdAt != null) {
 			wrapped.put("accountAgeYears", calculateAccountAgeYears(createdAt));
 		}
 
-		//Total listening time (if track durations are available)
 		List<Map<String, Object>> tracks = soundCloudService.getUserTracks(accessToken);
 		long totalDurationMs = tracks.stream()
 				.mapToLong(track -> ((Number) track.getOrDefault("duration", 0))
 				.longValue()).sum();
-		double totalHours = totalDurationMs / 1000.0 / 60.0 / 60.0; // milliseconds -> seconds -> minutes -> hours
-		wrapped.put("totalListeningHours", totalHours);
-		
-		// Example "fun insights"
+		wrapped.put("totalListeningHours", totalDurationMs / 1000.0 / 60.0 / 60.0);
+
 		int followers = (int) profile.getOrDefault("followers_count", 0);
-		int following = (int) profile.getOrDefault("followings_count", 0);
-
-		if (following > 0) {
-			wrapped.put("followerToFollowingRatio", (double) followers / following);
-		}
-
-		int numTracks = (int) profile.getOrDefault("track_count", 0);
-		int likes = (int) profile.getOrDefault("public_favorites_count", 0);
-
-		if (numTracks > 0) {
-			wrapped.put("avgLikesPerTrack", (double) likes / numTracks);
-		}
-
 		wrapped.put("funFact", followers > 1000 ? "You're pretty famous! 🎉" : "Every star starts small 🥹");
 
 		//Top 5 tracks by play count
@@ -108,18 +91,62 @@ public class SoundWrappedController {
 				.sorted((a, b) -> Long.compare(
 						((Number) b.getOrDefault("playback_count", 0)).longValue(),
 						((Number) a.getOrDefault("playback_count", 0)).longValue()))
-				.limit(5)
-				.collect(Collectors.toList());
+				.limit(5).toList();
 		wrapped.put("topTracks", topTracks);
 
-		// Top 5 playlists by likes
 		List<Map<String, Object>> playlists = soundCloudService.getUserPlaylists(accessToken);
 		List<Map<String, Object>> topPlaylists = playlists.stream()
 				.sorted((a, b) -> Long.compare(((Number) b.getOrDefault("likes_count", 0))
-				.longValue(), ((Number) a.getOrDefault("likes_count", 0))
-				.longValue())).limit(5).collect(Collectors.toList());
+						.longValue(), ((Number) a.getOrDefault("likes_count", 0))
+						.longValue())).limit(5).toList();
 		wrapped.put("topPlaylists", topPlaylists);
 
+		List<Map<String, Object>> likes = soundCloudService
+				.getUserLikes(accessToken);
+
+		Map<String, Integer> artistCounts = new HashMap<>();
+		Map<String, Long> artistListeningMs = new HashMap<>();
+
+		//Count likes per artist and accumulate track durations
+		for (Map<String, Object> track : likes) {
+			Map<String, Object> user = (Map<String, Object>) track.get("user");
+
+			if (user != null) {
+				String artistName = (String) user.get("username");
+				artistCounts.put(artistName, artistCounts.getOrDefault(artistName, 0) + 1);
+			}
+		}
+
+		for (Map<String, Object> track : tracks) {
+			Map<String, Object> user = (Map<String, Object>) track.get("user");
+
+			if (user != null) {
+				String artistName = (String) user.get("username");
+				long durationMs = ((Number) track.getOrDefault("duration", 0)).longValue();
+				artistListeningMs.put(artistName, artistListeningMs.getOrDefault(artistName, 0L) + durationMs);
+			}
+		}
+
+		//Top 5 most liked artists
+		List<String> topArtists = artistCounts.entrySet().stream().sorted((a, b) -> b
+				.getValue().compareTo(a.getValue())).limit(5).map(Map.Entry::getKey).toList();
+		wrapped.put("topFavoritedArtists", topArtists);
+
+		//Artist listening hours
+		Map<String, Double> artistListeningHours = new HashMap<>();
+
+		for (Map.Entry<String, Long> entry : artistListeningMs.entrySet()) {
+			artistListeningHours.put(entry.getKey(), entry.getValue() / 1000.0 / 60.0 / 60.0);
+		}
+
+		wrapped.put("artistListeningHours", artistListeningHours);
+
+		//Top 5 artists by listening hours
+		List<String> topArtistsByHours = artistListeningHours.entrySet().stream()
+				.sorted((a, b) -> Double.compare(b.getValue(), a.getValue())).limit(5)
+				.map(Map.Entry::getKey).toList();
+		wrapped.put("topArtistsByHours", topArtistsByHours);
+
 		return wrapped;
-    }
+	}
 }

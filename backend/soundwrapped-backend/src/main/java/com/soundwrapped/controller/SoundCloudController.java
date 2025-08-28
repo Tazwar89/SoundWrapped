@@ -24,9 +24,9 @@ public class SoundCloudController {
 		return soundCloudService.getUserProfile(accessToken);
 	}
 
-	@GetMapping("/favorites")
-	public List<Map<String, Object>> getUserFavorites(@RequestParam String accessToken) {
-		return soundCloudService.getUserFavorites(accessToken);
+	@GetMapping("/likes")
+	public List<Map<String, Object>> getUserLikes(@RequestParam String accessToken) {
+		return soundCloudService.getUserLikes(accessToken);
 	}
 
 	@GetMapping("/playlists")
@@ -42,5 +42,10 @@ public class SoundCloudController {
 	@GetMapping("/tracks")
 	public List<Map<String, Object>> getUserTracks(@RequestParam String accessToken) {
 		return soundCloudService.getUserTracks(accessToken);
+	}
+
+	@GetMapping("/wrapped/likes")
+	public Map<String, Object> getWrappedLikes(@RequestParam String accessToken) {
+		return soundCloudService.getWrappedLikes(accessToken);
 	}
 }
