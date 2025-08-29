@@ -119,7 +119,7 @@ public class SoundCloudController {
 			@RequestHeader("Refresh-Token") String refreshToken) {
 		String validToken = getValidTokenFromHeaders(token, refreshToken);
 
-		return soundCloudService.getFullWrappedSummary(validToken, refreshToken);
+		return soundCloudService.formattedWrappedSummary(validToken, refreshToken);
 	}
 
 	// =========================
