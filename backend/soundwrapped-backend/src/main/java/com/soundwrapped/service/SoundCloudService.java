@@ -377,13 +377,13 @@ public class SoundCloudService {
 		Map<String, Object> profile = new LinkedHashMap<String, Object>();
 		profile.put("username", raw.get("username"));
 		profile.put("accountAgeYears", raw.get("accountAgeYears"));
-		profile.put("followers", raw.get("followers_count"));
-		profile.put("tracksUploaded", raw.get("track_count"));
-		profile.put("playlistsCreated", raw.get("playlist_count"));
+		profile.put("followers", raw.get("followers"));
+		profile.put("tracksUploaded", raw.get("tracksUploaded"));
+		profile.put("playlistsCreated", raw.get("playlistsCreated"));
 		wrapped.put("profile", profile);
 
-		List<Map<String, Object>> rawTopTracks = (List<Map<String, Object>>) raw.getOrDefault("top_tracks", List.of());
-		List<Map<String, Object>> rankedTracks = new ArrayList<>();
+		List<Map<String, Object>> rawTopTracks = (List<Map<String, Object>>) raw.getOrDefault("topTracks", List.of());
+		List<Map<String, Object>> rankedTracks = new ArrayList<Map<String, Object>>();
 		int rank = 1;
 
 		for (Map<String, Object> track : rawTopTracks) {
@@ -397,7 +397,7 @@ public class SoundCloudService {
 
 		wrapped.put("topTracks", rankedTracks);
 
-		List<String> rawTopArtists = (List<String>) raw.getOrDefault("top_artists", List.of());
+		List<String> rawTopArtists = (List<String>) raw.getOrDefault("topLikedArtists", List.of());
 		List<Map<String, Object>> rankedArtists = new ArrayList<Map<String, Object>>();
 		rank = 1;
 
@@ -410,15 +410,19 @@ public class SoundCloudService {
 
 		wrapped.put("topArtists", rankedArtists);
 
-		List<Map<String, Object>> repostedTracks = (List<Map<String, Object>>) raw.getOrDefault("top_reposted_tracks", List.of());
+		List<Map<String, Object>> repostedTracks = (List<Map<String, Object>>) raw.getOrDefault("topRepostedTracks", List.of());
 		wrapped.put("topRepostedTracks", repostedTracks);
 
 		Map<String, Object> stats = new LinkedHashMap<String, Object>();
 		stats.put("totalListeningHours", raw.get("totalListeningHours"));
-		stats.put("likesGiven", ((List<?>) raw.getOrDefault("likes", List.of())).size());
-		stats.put("tracksUploaded", raw.get("track_count"));
+		stats.put("likesGiven", ((List<?>) raw.getOrDefault("likesGiven", List.of())).size());
+		stats.put("tracksUploaded", raw.get("tracksUploaded"));
+		stats.put("commentsPosted", raw.get("commentsPosted"));
+		stats.put("booksYouCouldHaveRead", raw.get("booksYouCouldHaveRead"));
 		wrapped.put("stats", stats);
 		wrapped.put("funFact", raw.get("funFact"));
+		wrapped.put("peakYear", raw.get("peakYear"));
+		wrapped.put("globalTasteComparison", raw.get("globalTasteComparison"));
 
 		return wrapped;
 	}
