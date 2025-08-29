@@ -166,7 +166,12 @@ public class SoundCloudService {
 		return artistListeningMs;
 	}
 
-	// What does the ? do
+	/**
+	 * 
+	 * @param map any instance of Number + null
+	 * @param n
+	 * @return
+	 */
 	private List<String> topNKeys(Map<String, ? extends Number> map, int n) {
 		return map.entrySet().stream()
 			.sorted((a, b) -> Double.compare(
