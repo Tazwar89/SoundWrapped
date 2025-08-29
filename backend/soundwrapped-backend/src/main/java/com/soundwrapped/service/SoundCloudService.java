@@ -262,15 +262,16 @@ public class SoundCloudService {
 	}
 
 	/**
-	 * getWrappedSummary 
+	 * Aggregates and calculates a user's full SoundCloud "Wrapped" statistics.
+     * Returns raw summary data including profile info, top tracks, artists,
+     * playlists, listening hours, reposts, and fun facts.
+     *
+     * This is a data-heavy method meant to be consumed internally
+     * or reformatted by higher-level methods.
 	 * 
-	 * 
-	 * List<Map<String, Object>> is used throughout this class because each element of
-	 * the List contains metadata for individual tracks, i.e. each track has a Map
-	 * including key-value information such as title: Song A, duration: 35000 sec, etc.
-	 * 
-	 * @param accessToken an access token for user authentication
-	 * @return            a Map containing all essential Wrapped statistics
+	 * @param accessToken  Valid OAuth2 access token
+	 * @param refreshToken Valid OAuth2 refresh token
+	 * @return             Map containing unformatted Wrapped statistics
 	 */
 	public Map<String, Object> getFullWrappedSummary(String accessToken, String refreshToken) {
 		Map<String, Object> wrapped = new HashMap<String, Object>();
@@ -360,4 +361,65 @@ public class SoundCloudService {
 
 		return wrapped;
     }
+
+	/**
+     * Formats the raw summary from {@link #getFullWrappedSummary} into a
+     * user-friendly "SoundCloud Wrapped"-style response. Includes numbered rankings,
+     * grouped sections, and human-readable stats.
+     *
+     * @param accessToken  Valid OAuth2 access token
+     * @param refreshToken Valid OAuth2 refresh token
+     * @return             Map containing user-friendly Wrapped summary
+     */
+	public Map<String, Object> formattedWrappedSummary(String accessToken, String refreshToken) {
+		Map<String, Object> raw = getFullWrappedSummary(accessToken, refreshToken);
+		Map<String, Object> wrapped = new LinkedHashMap<String, Object>();
+		Map<String, Object> profile = new LinkedHashMap<String, Object>();
+		profile.put("username", raw.get("username"));
+		profile.put("accountAgeYears", raw.get("accountAgeYears"));
+		profile.put("followers", raw.get("followers_count"));
+		profile.put("tracksUploaded", raw.get("track_count"));
+		profile.put("playlistsCreated", raw.get("playlist_count"));
+		wrapped.put("profile", profile);
+
+		List<Map<String, Object>> rawTopTracks = (List<Map<String, Object>>) raw.getOrDefault("top_tracks", List.of());
+		List<Map<String, Object>> rankedTracks = new ArrayList<>();
+		int rank = 1;
+
+		for (Map<String, Object> track : rawTopTracks) {
+			Map<String, Object> entry = new LinkedHashMap<String, Object>();
+			entry.put("rank", rank++);
+			entry.put("title", track.get("title"));
+			entry.put("artist", ((Map<?, ?>) track.get("user")).get("username"));
+			entry.put("playCount", track.get("playback_count"));
+			rankedTracks.add(entry);
+		}
+
+		wrapped.put("topTracks", rankedTracks);
+
+		List<String> rawTopArtists = (List<String>) raw.getOrDefault("top_artists", List.of());
+		List<Map<String, Object>> rankedArtists = new ArrayList<Map<String, Object>>();
+		rank = 1;
+
+		for (String artist : rawTopArtists) {
+			Map<String, Object> entry = new LinkedHashMap<>();
+			entry.put("rank", rank++);
+			entry.put("artist", artist);
+			rankedArtists.add(entry);
+		}
+
+		wrapped.put("topArtists", rankedArtists);
+
+		List<Map<String, Object>> repostedTracks = (List<Map<String, Object>>) raw.getOrDefault("top_reposted_tracks", List.of());
+		wrapped.put("topRepostedTracks", repostedTracks);
+
+		Map<String, Object> stats = new LinkedHashMap<String, Object>();
+		stats.put("totalListeningHours", raw.get("totalListeningHours"));
+		stats.put("likesGiven", ((List<?>) raw.getOrDefault("likes", List.of())).size());
+		stats.put("tracksUploaded", raw.get("track_count"));
+		wrapped.put("stats", stats);
+		wrapped.put("funFact", raw.get("funFact"));
+
+		return wrapped;
+	}
 }
