@@ -98,15 +98,6 @@ public class SoundCloudController {
 		return soundCloudService.getUserTracks(validToken, refreshToken);
 	}
 
-	@GetMapping("/wrapped/likes")
-	public Map<String, Object> getWrappedLikes(
-			@RequestHeader("Authorization") String token,
-			@RequestHeader("Refresh-Token") String refreshToken) {
-		String validToken = getValidTokenFromHeaders(token, refreshToken);
-
-		return soundCloudService.getWrappedLikes(validToken, refreshToken);
-	}
-
 	/**
 	 * 
 	 */
