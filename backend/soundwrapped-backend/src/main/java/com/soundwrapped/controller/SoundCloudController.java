@@ -3,49 +3,126 @@ package com.soundwrapped.controller;
 import com.soundwrapped.service.SoundCloudService;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * SoundCloudController 
+ * SoundCloudController handles SoundCloud API endpoints with refresh token support and
+ * persistent refreshed access tokens.
  * 
  * @author Tazwar Sikder
  */
-
 @RestController
 @RequestMapping("/api/soundcloud")
 public class SoundCloudController {
 	private final SoundCloudService soundCloudService;
+	// Simple in-memory storage for access tokens, keyed by refresh token
+	// Replaced by Database storage later
+	private final Map<String, String> accessTokenStore = new ConcurrentHashMap<>();
 
 	public SoundCloudController(SoundCloudService soundCloudService) {
 		this.soundCloudService = soundCloudService;
 	}
 
+	/**
+	 * Gets the current valid access token for a user, refreshing if needed.
+	 */
+	private String getValidAccessToken(String accessToken, String refreshToken) {
+		try {
+			// Try a test request to see if access token is valid
+			soundCloudService.getUserProfile(accessToken, refreshToken);
+			accessTokenStore.put(refreshToken, accessToken); // persist valid token
+
+			return accessToken;
+		}
+
+		catch (Exception e) {
+			// If expired, refresh
+			Map<String, Object> newTokens = soundCloudService.refreshAccessToken(refreshToken);
+			String newAccessToken = (String) newTokens.get("access_token");
+			accessTokenStore.put(refreshToken, newAccessToken); // persist refreshed token
+
+			return newAccessToken;
+		}
+	}
+
 	@GetMapping("/profile")
-	public Map<String, Object> getUserProfile(@RequestParam String accessToken) {
-		return soundCloudService.getUserProfile(accessToken);
+	public Map<String, Object> getUserProfile(
+			@RequestHeader("Authorization") String token,
+			@RequestHeader("Refresh-Token") String refreshToken) {
+		String accessToken = token.replace("Bearer ", "");
+		String validToken = getValidAccessToken(accessToken, refreshToken);
+
+		return soundCloudService.getUserProfile(validToken, refreshToken);
 	}
 
 	@GetMapping("/likes")
-	public List<Map<String, Object>> getUserLikes(@RequestParam String accessToken) {
-		return soundCloudService.getUserLikes(accessToken);
+	public List<Map<String, Object>> getUserLikes(
+			@RequestHeader("Authorization") String token,
+			@RequestHeader("Refresh-Token") String refreshToken) {
+		String accessToken = token.replace("Bearer ", "");
+		String validToken = getValidAccessToken(accessToken, refreshToken);
+
+		return soundCloudService.getUserLikes(validToken, refreshToken);
 	}
 
 	@GetMapping("/playlists")
-	public List<Map<String, Object>> getUserPlaylists(@RequestParam String accessToken) {
-		return soundCloudService.getUserPlaylists(accessToken);
+	public List<Map<String, Object>> getUserPlaylists(
+			@RequestHeader("Authorization") String token,
+			@RequestHeader("Refresh-Token") String refreshToken) {
+		String accessToken = token.replace("Bearer ", "");
+		String validToken = getValidAccessToken(accessToken, refreshToken);
+
+		return soundCloudService.getUserPlaylists(validToken, refreshToken);
 	}
 
 	@GetMapping("/followers")
-	public List<Map<String, Object>> getUserFollowers(@RequestParam String accessToken) {
-		return soundCloudService.getUserFollowers(accessToken);
+	public List<Map<String, Object>> getUserFollowers(
+			@RequestHeader("Authorization") String token,
+			@RequestHeader("Refresh-Token") String refreshToken) {
+		String accessToken = token.replace("Bearer ", "");
+		String validToken = getValidAccessToken(accessToken, refreshToken);
+
+		return soundCloudService.getUserFollowers(validToken, refreshToken);
 	}
 
 	@GetMapping("/tracks")
-	public List<Map<String, Object>> getUserTracks(@RequestParam String accessToken) {
-		return soundCloudService.getUserTracks(accessToken);
+	public List<Map<String, Object>> getUserTracks(
+			@RequestHeader("Authorization") String token,
+			@RequestHeader("Refresh-Token") String refreshToken) {
+		String accessToken = token.replace("Bearer ", "");
+		String validToken = getValidAccessToken(accessToken, refreshToken);
+
+		return soundCloudService.getUserTracks(validToken, refreshToken);
 	}
 
 	@GetMapping("/wrapped/likes")
-	public Map<String, Object> getWrappedLikes(@RequestParam String accessToken) {
-		return soundCloudService.getWrappedLikes(accessToken);
+	public Map<String, Object> getWrappedLikes(
+			@RequestHeader("Authorization") String token,
+			@RequestHeader("Refresh-Token") String refreshToken) {
+		String accessToken = token.replace("Bearer ", "");
+		String validToken = getValidAccessToken(accessToken, refreshToken);
+
+		return soundCloudService.getWrappedLikes(validToken, refreshToken);
+	}
+
+	/**
+	 * 
+	 */
+	@GetMapping("/wrapped/full")
+	public Map<String, Object> getWrappedSummaryWithRefresh(
+			@RequestHeader("Authorization") String token,
+			@RequestHeader("Refresh-Token") String refreshToken) {
+		String accessToken = token.replace("Bearer ", "");
+		String validToken = getValidAccessToken(accessToken, refreshToken);
+
+		return soundCloudService.getFullWrappedSummary(validToken, refreshToken);
+	}
+
+	/**
+	 * Optional endpoint: return stored access token for a refresh token
+	 */
+	@GetMapping("/token")
+	public Map<String, String> getStoredAccessToken(@RequestParam String refreshToken) {
+		return Map.of("accessToken", accessTokenStore.getOrDefault(refreshToken, ""));
 	}
 }
