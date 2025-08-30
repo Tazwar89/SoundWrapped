@@ -1,9 +1,8 @@
 package com.soundwrapped.service;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
@@ -13,7 +12,9 @@ import java.time.ZonedDateTime;
 import java.util.*;
 
 /**
- * SoundCloudService handles all SoundCloud API calls and Wrapped summary aggregation.
+ * Service for interacting with the SoundCloud API.
+ * Handles API requests, token refresh, and data aggregation
+ * for the "Wrapped" experience.
  * 
  * @author Tazwar Sikder
  */
@@ -31,46 +32,75 @@ public class SoundCloudService {
 	private final RestTemplate restTemplate = new RestTemplate();
 
 	/**
-	 * Sends HTTP GET requests (using Spring's RestTemplate utility) to the URL with
-	 * user's authorization code, and returns response data
+	 * Send authenticated HTTP GET request (using Spring's RestTemplate utility)
+	 * to SoundCloud API.
 	 * 
-	 * @param url         the SoundCloud endpoint to call
-	 * @param accessToken an access token for user authentication
-	 * @return            JSON response body as a Map (for a single track)
+	 * @param url         SoundCloud API endpoint URL
+	 * @param accessToken Valid OAuth2 access token
+	 * @return            JSON response body parsed into a {@code Map}
+	 * @throws            HttpClientErrorException if the request fails
 	 */
 	private Map<String, Object> makeGetRequest(String url, String accessToken) {
 		HttpHeaders headers = new HttpHeaders();
 		headers.setBearerAuth(accessToken);
-		HttpEntity<String> entity = new HttpEntity<String>(headers);
-		ResponseEntity<Map> response = restTemplate
-				.exchange(url, HttpMethod.GET, entity, Map.class);
+		HttpEntity<String> request = new HttpEntity<String>(headers);
+		ResponseEntity<Map<String, Object>> response = restTemplate
+				.exchange(url, HttpMethod.GET, request, new ParameterizedTypeReference<Map<String, Object>>(){});
 
 		return response.getBody();
 	}
 
+	/**
+     * Send authenticated HTTP GET request with automatic token refresh.
+     * If the access token has expired, it is refreshed using the refresh token.
+     *
+     * @param refreshToken Valid OAuth2 refresh token for fallback
+     */
 	private Map<String, Object> makeGetRequestWithRefresh(
 			String url, String accessToken, String refreshToken) {
 		try {
 			return makeGetRequest(url, accessToken);
 		}
 
-		catch (HttpClientErrorException.Unauthorized htee) {
-			// Access token expired → refresh it
-			Map<String, Object> newTokens = refreshAccessToken(refreshToken);
-			String newAccessToken = (String) newTokens.get("access_token");
+		catch (HttpClientErrorException htee) {
+			if (htee.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+				//Access token expired → refresh it
+				String newToken = refreshAccessToken(refreshToken);
 
-			// Optionally update stored access token in DB here
-			return makeGetRequest(url, newAccessToken);
+				//Optionally update stored access token in DB here
+				return makeGetRequest(url, newToken);
+			}
+
+			throw htee;
 		}
 	}
 
 	/**
-	 * "Overloaded" version of makeGetRequest to send GET requests for endpoints
-	 * returning paginated JSON arrays
+	 * Refreshes the access token using the given refresh token.
 	 * 
-	 * @param url         the SoundCloud endpoint to call
-	 * @param accessToken an access token for user authentication
-	 * @return            JSON response body as a Map (for multiple tracks)
+	 * @return New access token
+	 */
+	private String refreshAccessToken(String refreshToken) {
+		String url = "https://api.soundcloud.com/oauth2/token";
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+		Map<String, String> body = new HashMap<String, String>();
+		body.put("grant_type", "refresh_token");
+		body.put("refresh_token", refreshToken);
+
+		HttpEntity<Map<String, String>> request = new HttpEntity<Map<String, String>>(body, headers);
+		ResponseEntity<Map<String, Object>> response = restTemplate
+				.exchange(url, HttpMethod.GET, request, new ParameterizedTypeReference<Map<String, Object>>(){});
+
+		return (String) response.getBody().get("access_token");
+	}
+
+	/**
+	 * "Overloaded" version of makeGetRequest to send GET requests for endpoints
+	 * returning paginated JSON arrays.
+	 * 
+	 * @return JSON response body as a {@code List} of {@code Map}s
 	 */
 	private List<Map<String, Object>> fetchPaginatedResultsWithRefresh(
 			String url, String accessToken, String refreshToken) {
@@ -78,10 +108,26 @@ public class SoundCloudService {
 
 		while (url != null) {
 			Map<String, Object> response = makeGetRequestWithRefresh(url, accessToken, refreshToken);
-			List<Map<String, Object>> pageResults;
-			pageResults = (List<Map<String, Object>>) response.get("collection");
+			List<Map<String, Object>> pageResults = new ArrayList<Map<String, Object>>();
+			Object rawCollection = response.get("collection");
 
-			if (pageResults != null) {
+			if (rawCollection instanceof List<?>) {
+				for (Object item : (List<?>) rawCollection) {
+					if (item instanceof Map<?, ?> rawMap) {
+						Map<String, Object> safeMap = new HashMap<String, Object>();
+
+						for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+							if (entry.getKey() instanceof String) {
+								safeMap.put((String) entry.getKey(), entry.getValue());
+							}
+						}
+
+						pageResults.add(safeMap);
+					}
+				}
+			}
+
+			if (!pageResults.isEmpty()) {
 				paginatedResults.addAll(pageResults);
 			}
 
@@ -89,10 +135,6 @@ public class SoundCloudService {
 		}
 
 		return paginatedResults;
-	}
-
-	private String urlExtension(String prefix, int limit) {
-		return String.format("%s?linked_partitioning=true&limit=%d", prefix, limit);
 	}
 
 	private ZonedDateTime parsedDate(String createdAt) {
@@ -136,15 +178,15 @@ public class SoundCloudService {
 		Map<String, Integer> artistCounts = new HashMap<String, Integer>();
 
 		for (Map<String, Object> track : tracks) {
-			Map<String, Object> user = (Map<String, Object>) track.get("user");
+			Object userObj = track.get("user");
 
-			if (user != null) {
-				String artist = (String) user.get("username");
+			if (userObj != null && userObj instanceof Map<?, ?> rawUser) {
+				Object usernameObj = rawUser.get("username");
 
-				if (artist != null) {
+				if (usernameObj != null && usernameObj instanceof String artist) {
 					artistCounts.put(artist, artistCounts.getOrDefault(artist, 0) + 1);
 				}
-			}	
+			}
 		}
 
 		return artistCounts;
@@ -154,12 +196,15 @@ public class SoundCloudService {
 		Map<String, Long> artistListeningMs = new HashMap<String, Long>();
 
 		for (Map<String, Object> track : tracks) {
-			Map<String, Object> user = (Map<String, Object>) track.get("user");
+			Object userObj = track.get("user");
 
-			if (user != null) {
-				String artist = (String) user.get("username");
-				long duration = ((Number) track.getOrDefault("duration", 0)).longValue();
-				artistListeningMs.put(artist, artistListeningMs.getOrDefault(artist, 0L) + duration);
+			if (userObj != null && userObj instanceof Map<?, ?> rawUser) {
+				Object usernameObj = rawUser.get("username");
+
+				if (usernameObj != null && usernameObj instanceof String artist) {
+					long duration = ((Number) track.getOrDefault("duration", 0)).longValue();
+					artistListeningMs.put(artist, artistListeningMs.getOrDefault(artist, 0L) + duration);
+				}
 			}
 		}
 
@@ -202,58 +247,77 @@ public class SoundCloudService {
 	}
 
 	/**
-	 * OAuth2 token refresh
 	 * 
-	 * @param refreshToken
+	 * @param prefix
+	 * @param limit
 	 * @return
 	 */
-	public Map<String, Object> refreshAccessToken(String refreshToken) {
-		String url = "https://api.soundcloud.com/oauth2/token";
-		HttpHeaders headers = new HttpHeaders();
-		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
-		MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-		body.add("grant_type", "refresh_token");
-		body.add("refresh_token", refreshToken);
-		body.add("client_id", clientId);
-		body.add("client_secret", clientSecret);
-
-		HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
-		ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
-
-		return response.getBody();
+	private String urlExtension(String prefix, int limit) {
+		return String.format("%s?linked_partitioning=true&limit=%d", prefix, limit);
 	}
 
+	/**
+     * Retrieves the authenticated user's SoundCloud profile.
+     *
+     * @param accessToken  Valid OAuth2 access token
+     * @param refreshToken Valid OAuth2 refresh token for fallback
+     * @return             Profile information as a {@code Map}
+     */
 	public Map<String, Object> getUserProfile(String accessToken, String refreshToken) {
 		String url = soundCloudApiBaseUrl + "/me";
 
 		return makeGetRequestWithRefresh(url, accessToken, refreshToken);
 	}
 
+	/**
+     * Retrieves the user's liked tracks.
+     * 
+     * @return {@code List} of liked tracks
+     */
 	public List<Map<String, Object>> getUserLikes(String accessToken, String refreshToken) {
 		String url = soundCloudApiBaseUrl + "/me/favorites";
 
 		return fetchPaginatedResultsWithRefresh(url, accessToken, refreshToken);
     }
 
+	/**
+     * Retrieves the user's playlists.
+     * 
+     * @return {@code List} of playlists
+     */
 	public List<Map<String, Object>> getUserPlaylists(String accessToken, String refreshToken) {
 		String url = soundCloudApiBaseUrl + urlExtension("/me/playlists", 50);
+		
+		return fetchPaginatedResultsWithRefresh(url, accessToken, refreshToken);
+    }
+
+	/**
+     * Retrieves the user's followers.
+     * 
+     * @return {@code List} of followers
+     */
+	public List<Map<String, Object>> getUserFollowers(String accessToken, String refreshToken) {
+		String url = soundCloudApiBaseUrl + urlExtension("/me/followers", 50);
 
 		return fetchPaginatedResultsWithRefresh(url, accessToken, refreshToken);
     }
 
-	public List<Map<String, Object>> getUserFollowers(String accessToken, String refreshToken) {
-    	String url = soundCloudApiBaseUrl + urlExtension("/me/followers", 50);
-
-    	return fetchPaginatedResultsWithRefresh(url, accessToken, refreshToken);
-    }
-
+	/**
+     * Retrieves the user's uploaded tracks.
+     * 
+     * @return {@code List} of tracks
+     */
 	public List<Map<String, Object>> getUserTracks(String accessToken, String refreshToken) {
 		String url = soundCloudApiBaseUrl + urlExtension("/me/tracks", 50);
 
 		return fetchPaginatedResultsWithRefresh(url, accessToken, refreshToken);
 	}
 
+	/**
+     * Retrieves the user's liked tracks.
+     * 
+     * @return {@code List} of liked tracks
+     */
 	public List<Map<String, Object>> getRelatedTracks(
 		String accessToken, String refreshToken, String trackUrn) {
 		String url = soundCloudApiBaseUrl + urlExtension("/tracks/" + trackUrn + "/related", 10);
@@ -362,6 +426,30 @@ public class SoundCloudService {
 		return wrapped;
     }
 
+	//Helper methods for safe casting
+	@SuppressWarnings("unchecked")
+	private List<Map<String, Object>> castToMapList(Object obj) {
+		if (obj instanceof List<?> list) {
+			return list.stream()
+					.filter(item -> item instanceof Map<?, ?>)
+					.map(item -> (Map<String, Object>) item)
+					.toList();
+		}
+
+		return List.of();
+	}
+
+	private List<String> castToStringList(Object obj) {
+		if (obj instanceof List<?> list) {
+			return list.stream()
+					.filter(item -> item instanceof String)
+					.map(item -> (String) item)
+					.toList();
+		}
+
+		return List.of();
+	}
+
 	/**
      * Formats the raw summary from {@link #getFullWrappedSummary} into a
      * user-friendly "SoundCloud Wrapped"-style response. Includes numbered rankings,
@@ -382,7 +470,7 @@ public class SoundCloudService {
 		profile.put("playlistsCreated", raw.get("playlistsCreated"));
 		wrapped.put("profile", profile);
 
-		List<Map<String, Object>> rawTopTracks = (List<Map<String, Object>>) raw.getOrDefault("topTracks", List.of());
+		List<Map<String, Object>> rawTopTracks = castToMapList(raw.getOrDefault("topTracks", List.of()));
 		List<Map<String, Object>> rankedTracks = new ArrayList<Map<String, Object>>();
 		int rank = 1;
 
@@ -397,7 +485,7 @@ public class SoundCloudService {
 
 		wrapped.put("topTracks", rankedTracks);
 
-		List<String> rawTopArtists = (List<String>) raw.getOrDefault("topLikedArtists", List.of());
+		List<String> rawTopArtists = castToStringList(raw.getOrDefault("topLikedArtists", List.of()));
 		List<Map<String, Object>> rankedArtists = new ArrayList<Map<String, Object>>();
 		rank = 1;
 
@@ -410,7 +498,7 @@ public class SoundCloudService {
 
 		wrapped.put("topArtists", rankedArtists);
 
-		List<Map<String, Object>> repostedTracks = (List<Map<String, Object>>) raw.getOrDefault("topRepostedTracks", List.of());
+		List<Map<String, Object>> repostedTracks = castToMapList(raw.getOrDefault("topRepostedTracks", List.of()));
 		wrapped.put("topRepostedTracks", repostedTracks);
 
 		Map<String, Object> stats = new LinkedHashMap<String, Object>();
@@ -423,6 +511,38 @@ public class SoundCloudService {
 		wrapped.put("funFact", raw.get("funFact"));
 		wrapped.put("peakYear", raw.get("peakYear"));
 		wrapped.put("globalTasteComparison", raw.get("globalTasteComparison"));
+
+		List<String> stories = new ArrayList<String>();
+
+		if (!rankedTracks.isEmpty()) {
+			Map<String, Object> firstTrack = rankedTracks.get(0);
+			stories.add("🎶 Your #1 track this year was \"" + firstTrack.get("title")
+			+ "\" by " + firstTrack.get("artist") + ". You just couldn’t get enough of it!");
+		}
+
+		if (!rankedArtists.isEmpty()) {
+			Map<String, Object> firstArtist = rankedArtists.get(0);
+			stories.add("🔥 You vibed most with " + firstArtist.get("artist")
+			+ " — clearly your top artist of the year.");
+		}
+
+		Object hours = stats.get("totalListeningHours");
+
+		if (hours != null) {
+			stories.add("⌛ You spent " + hours + " hours listening — enough to binge whole seasons of your favorite shows!");
+		}
+
+		Object funFact = raw.get("funFact");
+
+		if (funFact != null) {
+			stories.add("💡 Fun fact: " + funFact.toString());
+		}
+
+		if (!rankedTracks.isEmpty()) {
+			stories.add("✨ And it didn’t stop there. Thanks to Related Tracks, every play led you to fresh sounds perfectly tuned to your taste.");
+		}
+
+		wrapped.put("stories", stories);
 
 		return wrapped;
 	}
