@@ -1,6 +1,6 @@
 package com.soundwrapped.controller;
 
-import com.soundwrapped.service.SoundCloudService;
+import com.soundwrapped.service.SoundWrappedService;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
@@ -16,11 +16,11 @@ import java.util.*;
  */
 @RestController
 @RequestMapping("/api/soundcloud")
-public class SoundCloudController {
-	private final SoundCloudService soundCloudService;
+public class SoundWrappedController {
+	private final SoundWrappedService soundWrappedService;
 
-	public SoundCloudController(SoundCloudService soundCloudService) {
-		this.soundCloudService = soundCloudService;
+	public SoundWrappedController(SoundWrappedService soundCloudService) {
+		this.soundWrappedService = soundCloudService;
 	}
 
 	// =========================
@@ -29,27 +29,27 @@ public class SoundCloudController {
 
 	@GetMapping("/profile")
 	public Map<String, Object> getUserProfile() {
-		return soundCloudService.getUserProfile();
+		return soundWrappedService.getUserProfile();
 	}
 
 	@GetMapping("/likes")
 	public List<Map<String, Object>> getUserLikes() {
-		return soundCloudService.getUserLikes();
+		return soundWrappedService.getUserLikes();
 	}
 
 	@GetMapping("/playlists")
 	public List<Map<String, Object>> getUserPlaylists() {
-		return soundCloudService.getUserPlaylists();
+		return soundWrappedService.getUserPlaylists();
 	}
 
 	@GetMapping("/followers")
 	public List<Map<String, Object>> getUserFollowers() {
-		return soundCloudService.getUserFollowers();
+		return soundWrappedService.getUserFollowers();
 	}
 
 	@GetMapping("/tracks")
 	public List<Map<String, Object>> getUserTracks() {
-		return soundCloudService.getUserTracks();
+		return soundWrappedService.getUserTracks();
 	}
 
 	// =========================
@@ -68,6 +68,6 @@ public class SoundCloudController {
 	 */
 	@GetMapping("/wrapped/full")
 	public Map<String, Object> getWrappedSummary() {
-		return soundCloudService.formattedWrappedSummary();
+		return soundWrappedService.formattedWrappedSummary();
 	}
 }
