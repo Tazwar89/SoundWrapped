@@ -1,5 +1,6 @@
 package com.soundwrapped.service;
 
+import com.soundwrapped.exception.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
@@ -21,7 +22,9 @@ import java.util.*;
  * @author Tazwar Sikder
  */
 @Service
-public class SoundCloudService {
+public class SoundWrappedService {
+	private static final String TOKEN_URL = "https://api.soundcloud.com/oauth2/token";
+
 	@Value("${soundcloud.api.base-url:https://api.soundcloud.com}")
 	private String soundCloudApiBaseUrl;
 
@@ -34,9 +37,13 @@ public class SoundCloudService {
 	private final TokenStore tokenStore;
 	private final RestTemplate restTemplate = new RestTemplate();
 
-	public SoundCloudService(TokenStore tokenStore) {
+	public SoundWrappedService(TokenStore tokenStore) {
 		this.tokenStore = tokenStore;
 	}
+
+	// =========================
+	// Core HTTP Helpers
+	// =========================
 
 	/**
 	 * Send authenticated HTTP GET request (using Spring's RestTemplate utility)
@@ -54,33 +61,49 @@ public class SoundCloudService {
 		ResponseEntity<Map<String, Object>> response = restTemplate
 				.exchange(url, HttpMethod.GET, request, new ParameterizedTypeReference<Map<String, Object>>(){});
 
-		return response.getBody();
+		Map<String, Object> responseBody = response.getBody();
+
+		return responseBody != null ? responseBody : Map.of();
 	}
 
 	/**
      * Send authenticated HTTP GET request with automatic token refresh.
      * If the access token has expired, it is refreshed using the refresh token.
      *
-     * @param refreshToken Valid OAuth2 refresh token for fallback
      */
 	private Map<String, Object> makeGetRequestWithRefresh(String url) {
+		String currentAccessToken = tokenStore.getAccessToken();
+
+		if (currentAccessToken == null) {
+			throw new ApiRequestException("No access token available. User must authenticate first.");
+		}
+
 		try {
 			return makeGetRequest(url, tokenStore.getAccessToken());
 		}
 
 		catch (HttpClientErrorException htee) {
 			if (htee.getStatusCode() == HttpStatus.UNAUTHORIZED) {
-				//Access token expired → refresh it
-				String newAccessToken = refreshAccessToken(tokenStore.getRefreshToken());
-				tokenStore.setAccessToken(newAccessToken);
+				try {
+					//Access token expired → refresh it
+					String newAccessToken = refreshAccessToken(tokenStore.getRefreshToken());
 
-				//Optionally update stored access token in DB here
-				return makeGetRequest(url, newAccessToken);
+					//Optionally update stored access token in DB here
+					return makeGetRequest(url, newAccessToken);
+				}
+
+				catch (TokenRefreshException tre) {
+					throw new ApiRequestException("Failed to refresh access token during GET request.", tre);
+				}
 			}
 
-			throw htee;
+			throw new ApiRequestException("GET request failed: " + htee.getMessage(), htee);
 		}
 	}
+
+	// =========================
+	// OAuth Flows
+	// =========================
 
 	/**
 	 * Refreshes the SoundCloud OAuth2 access token using the provided refresh token.
@@ -91,7 +114,10 @@ public class SoundCloudService {
 	 * @throws HttpClientErrorException if the request fails
 	 */
 	public String refreshAccessToken(String refreshToken) {
-		String url = "https://api.soundcloud.com/oauth2/token";
+		if (refreshToken == null || refreshToken.isBlank()) {
+			throw new TokenRefreshException("Missing refresh token; cannot refresh access token.");
+		}
+
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
@@ -101,28 +127,37 @@ public class SoundCloudService {
 		body.add("client_id", clientId);
 		body.add("client_secret", clientSecret);
 
-		HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(body, headers);
-		ResponseEntity<Map<String, Object>> response = restTemplate
-				.exchange(url, HttpMethod.POST, request, new ParameterizedTypeReference<Map<String, Object>>(){});
+		try {
+			HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(body, headers);
+			ResponseEntity<Map<String, Object>> response = restTemplate
+					.exchange(TOKEN_URL, HttpMethod.POST, request, new ParameterizedTypeReference<Map<String, Object>>(){});
 
-		Map<String, Object> responseBody = response.getBody();
+			Map<String, Object> responseBody = response.getBody();
 
-		if (responseBody == null || !responseBody.containsKey("access_token")) {
-			throw new RuntimeException("Failed to refresh access token: " + responseBody);
+			if (responseBody == null || !responseBody.containsKey("access_token")) {
+				throw new TokenRefreshException("No access token in refresh response: " + responseBody);
+			}
+
+			//Update refresh token if SoundCloud issues a new one
+			String newAccessToken = (String) responseBody.get("access_token");
+			String newRefreshToken = (String) responseBody.get("refresh_token");
+
+			//Always persist through TokenStore
+			tokenStore.saveTokens(newAccessToken, newRefreshToken != null ? newRefreshToken : refreshToken);
+
+			return newAccessToken;
 		}
 
-		//Update refresh token if SoundCloud issues a new one
-		String newRefreshToken = (String) responseBody.get("refresh_token");
-
-		if (newRefreshToken != null) {
-			tokenStore.setRefreshToken(newRefreshToken);
+		catch (Exception e) {
+			throw new TokenRefreshException("Failed to refresh access token", e);
 		}
-
-		return (String) responseBody.get("access_token");
 	}
 
-	public void exchangeAuthorizationCode(String code) {
-		String url = "https://api.soundcloud.com/oauth2/token";
+	public Map<String, Object> exchangeAuthorizationCode(String code) {
+		if (code == null || code.isBlank()) {
+			throw new TokenExchangeException("Authorization code must not be empty.");
+		}
+
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
@@ -133,21 +168,37 @@ public class SoundCloudService {
 		body.add("redirect_uri", "http://localhost:8081/callback");
 		body.add("code", code);
 
-		HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(body, headers);
-		ResponseEntity<Map<String, Object>> response = restTemplate
-				.exchange(url, HttpMethod.POST, request, new ParameterizedTypeReference<Map<String, Object>>(){});
+		try {
+			HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(body, headers);
+			ResponseEntity<Map<String, Object>> response = restTemplate
+					.exchange(TOKEN_URL, HttpMethod.POST, request, new ParameterizedTypeReference<Map<String, Object>>(){});
 
-		Map<String, Object> responseBody = response.getBody();
+			Map<String, Object> responseBody = response.getBody();
 
-		if (responseBody != null) {
-			tokenStore.setAccessToken((String) responseBody.get("access_token"));
-			tokenStore.setRefreshToken((String) responseBody.get("refresh_token"));
+			if (responseBody == null
+					|| !responseBody.containsKey("access_token")
+					|| !responseBody.containsKey("refresh_token")) {
+				throw new TokenExchangeException("Invalid response from authorization exchange: " + responseBody);
+			}
+
+			tokenStore.saveTokens(
+					(String) responseBody.get("access_token"),
+					(String) responseBody.get("refresh_token"));
+
+			return responseBody;
+		}
+
+		catch (Exception e) {
+			throw new TokenExchangeException("Failed to exchange authorization code.", e);
 		}
 	}
 
+	// =========================
+	// Pagination Helper
+	// =========================
+
 	/**
-	 * "Overloaded" version of makeGetRequest to send GET requests for endpoints
-	 * returning paginated JSON arrays.
+	 * Fetches paginated results (with auto-refresh on 401).
 	 * 
 	 * @return JSON response body as a {@code List} of {@code Map}s
 	 */
@@ -184,6 +235,10 @@ public class SoundCloudService {
 
 		return paginatedResults;
 	}
+
+	// =========================
+	// Utilities for Wrapped
+	// =========================
 
 	private ZonedDateTime parsedDate(String createdAt) {
 		//SoundCloud createdAt format example: "2013/03/23 14:58:27 +0000"
@@ -303,6 +358,10 @@ public class SoundCloudService {
 	private String urlExtension(String prefix, int limit) {
 		return String.format("%s?linked_partitioning=true&limit=%d", prefix, limit);
 	}
+
+	// ==============================
+	// Public API Used by Controllers
+	// ==============================
 
 	/**
      * Retrieves the authenticated user's SoundCloud profile.

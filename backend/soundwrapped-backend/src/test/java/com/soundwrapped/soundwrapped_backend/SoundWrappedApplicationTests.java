@@ -21,10 +21,10 @@ class SoundWrappedApplicationTests {
 	private TokenStore tokenStore;
 
 	@MockBean
-	private SoundCloudService soundCloudService;
+	private SoundWrappedService soundCloudService;
 
 	@MockBean
-	private SoundCloudController soundCloudController;
+	private SoundWrappedController soundCloudController;
 
 	@Autowired
     private OAuthCallbackController oAuthCallbackController;
@@ -33,9 +33,9 @@ class SoundWrappedApplicationTests {
 	void setUp() {
 		MockitoAnnotations.openMocks(this);
 		// Create a mock SoundCloudService
-        soundCloudService = mock(SoundCloudService.class);
+        soundCloudService = mock(SoundWrappedService.class);
         // Inject the mock into the controller
-        soundCloudController = new SoundCloudController(soundCloudService);
+        soundCloudController = new SoundWrappedController(soundCloudService);
 		// Use constructor injection if needed
 		oAuthCallbackController = new OAuthCallbackController(soundCloudService, tokenStore);
 	}

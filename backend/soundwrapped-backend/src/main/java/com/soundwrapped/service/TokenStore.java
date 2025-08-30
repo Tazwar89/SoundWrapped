@@ -1,25 +1,33 @@
 package com.soundwrapped.service;
 
-import org.springframework.stereotype.Component;
+import com.soundwrapped.entity.Token;
+import com.soundwrapped.repository.TokenRepository;
+import org.springframework.stereotype.Service;
+import java.util.Optional;
 
-@Component
+@Service
 public class TokenStore {
-	private String accessToken;
-	private String refreshToken;
+	private final TokenRepository tokenRepository;
 
-	public synchronized String getAccessToken() {
-		return accessToken;
+	public TokenStore(TokenRepository tokenRepository) {
+		this.tokenRepository = tokenRepository;
 	}
 
-	public synchronized void setAccessToken(String accessToken) {
-		this.accessToken = accessToken;
+	public void saveTokens(String accessToken, String refreshToken) {
+		//Clear old tokens
+		tokenRepository.deleteAll();
+		tokenRepository.save(new Token(accessToken, refreshToken));
 	}
 
-	public synchronized String getRefreshToken() {
-		return refreshToken;
+	public String getAccessToken() {
+		Optional<Token> token = tokenRepository.findAll().stream().findFirst();
+
+		return token.map(Token::getAccessToken).orElse(null);
 	}
 
-	public synchronized void setRefreshToken(String refreshToken) {
-		this.refreshToken = refreshToken;
+	public String getRefreshToken() {
+		Optional<Token> token = tokenRepository.findAll().stream().findFirst();
+
+		return token.map(Token::getRefreshToken).orElse(null);
 	}
 }
