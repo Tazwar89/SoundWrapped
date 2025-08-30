@@ -31,7 +31,12 @@ public class SoundCloudService {
 	@Value("${soundcloud.client-secret}")
 	private String clientSecret;
 
+	private final TokenStore tokenStore;
 	private final RestTemplate restTemplate = new RestTemplate();
+
+	public SoundCloudService(TokenStore tokenStore) {
+		this.tokenStore = tokenStore;
+	}
 
 	/**
 	 * Send authenticated HTTP GET request (using Spring's RestTemplate utility)
@@ -58,19 +63,19 @@ public class SoundCloudService {
      *
      * @param refreshToken Valid OAuth2 refresh token for fallback
      */
-	private Map<String, Object> makeGetRequestWithRefresh(
-			String url, String accessToken, String refreshToken) {
+	private Map<String, Object> makeGetRequestWithRefresh(String url) {
 		try {
-			return makeGetRequest(url, accessToken);
+			return makeGetRequest(url, tokenStore.getAccessToken());
 		}
 
 		catch (HttpClientErrorException htee) {
 			if (htee.getStatusCode() == HttpStatus.UNAUTHORIZED) {
 				//Access token expired → refresh it
-				String newToken = refreshAccessToken(refreshToken);
+				String newAccessToken = refreshAccessToken(tokenStore.getRefreshToken());
+				tokenStore.setAccessToken(newAccessToken);
 
 				//Optionally update stored access token in DB here
-				return makeGetRequest(url, newToken);
+				return makeGetRequest(url, newAccessToken);
 			}
 
 			throw htee;
@@ -106,14 +111,38 @@ public class SoundCloudService {
 			throw new RuntimeException("Failed to refresh access token: " + responseBody);
 		}
 
-		// IMPORTANT: persist the new refresh_token too, since SoundCloud issues a new one each time
+		//Update refresh token if SoundCloud issues a new one
 		String newRefreshToken = (String) responseBody.get("refresh_token");
 
 		if (newRefreshToken != null) {
-			// TODO: save to DB or config
+			tokenStore.setRefreshToken(newRefreshToken);
 		}
 
 		return (String) responseBody.get("access_token");
+	}
+
+	public void exchangeAuthorizationCode(String code) {
+		String url = "https://api.soundcloud.com/oauth2/token";
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+		MultiValueMap<String, String> body = new LinkedMultiValueMap<String, String>();
+		body.add("client_id", clientId);
+		body.add("client_secret", clientSecret);
+		body.add("grant_type", "authorization_code");
+		body.add("redirect_uri", "http://localhost:8081/callback");
+		body.add("code", code);
+
+		HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(body, headers);
+		ResponseEntity<Map<String, Object>> response = restTemplate
+				.exchange(url, HttpMethod.POST, request, new ParameterizedTypeReference<Map<String, Object>>(){});
+
+		Map<String, Object> responseBody = response.getBody();
+
+		if (responseBody != null) {
+			tokenStore.setAccessToken((String) responseBody.get("access_token"));
+			tokenStore.setRefreshToken((String) responseBody.get("refresh_token"));
+		}
 	}
 
 	/**
@@ -122,12 +151,11 @@ public class SoundCloudService {
 	 * 
 	 * @return JSON response body as a {@code List} of {@code Map}s
 	 */
-	private List<Map<String, Object>> fetchPaginatedResultsWithRefresh(
-			String url, String accessToken, String refreshToken) {
+	private List<Map<String, Object>> fetchPaginatedResultsWithRefresh(String url) {
 		List<Map<String, Object>> paginatedResults = new ArrayList<Map<String, Object>>();
 
 		while (url != null) {
-			Map<String, Object> response = makeGetRequestWithRefresh(url, accessToken, refreshToken);
+			Map<String, Object> response = makeGetRequestWithRefresh(url);
 			List<Map<String, Object>> pageResults = new ArrayList<Map<String, Object>>();
 			Object rawCollection = response.get("collection");
 
@@ -279,14 +307,12 @@ public class SoundCloudService {
 	/**
      * Retrieves the authenticated user's SoundCloud profile.
      *
-     * @param accessToken  Valid OAuth2 access token
-     * @param refreshToken Valid OAuth2 refresh token for fallback
      * @return             Profile information as a {@code Map}
      */
-	public Map<String, Object> getUserProfile(String accessToken, String refreshToken) {
+	public Map<String, Object> getUserProfile() {
 		String url = soundCloudApiBaseUrl + "/me";
 
-		return makeGetRequestWithRefresh(url, accessToken, refreshToken);
+		return makeGetRequestWithRefresh(url);
 	}
 
 	/**
@@ -294,10 +320,10 @@ public class SoundCloudService {
      * 
      * @return {@code List} of liked tracks
      */
-	public List<Map<String, Object>> getUserLikes(String accessToken, String refreshToken) {
+	public List<Map<String, Object>> getUserLikes() {
 		String url = soundCloudApiBaseUrl + "/me/favorites";
 
-		return fetchPaginatedResultsWithRefresh(url, accessToken, refreshToken);
+		return fetchPaginatedResultsWithRefresh(url);
     }
 
 	/**
@@ -305,10 +331,10 @@ public class SoundCloudService {
      * 
      * @return {@code List} of playlists
      */
-	public List<Map<String, Object>> getUserPlaylists(String accessToken, String refreshToken) {
+	public List<Map<String, Object>> getUserPlaylists() {
 		String url = soundCloudApiBaseUrl + urlExtension("/me/playlists", 50);
 		
-		return fetchPaginatedResultsWithRefresh(url, accessToken, refreshToken);
+		return fetchPaginatedResultsWithRefresh(url);
     }
 
 	/**
@@ -316,10 +342,10 @@ public class SoundCloudService {
      * 
      * @return {@code List} of followers
      */
-	public List<Map<String, Object>> getUserFollowers(String accessToken, String refreshToken) {
+	public List<Map<String, Object>> getUserFollowers() {
 		String url = soundCloudApiBaseUrl + urlExtension("/me/followers", 50);
 
-		return fetchPaginatedResultsWithRefresh(url, accessToken, refreshToken);
+		return fetchPaginatedResultsWithRefresh(url);
     }
 
 	/**
@@ -327,22 +353,22 @@ public class SoundCloudService {
      * 
      * @return {@code List} of tracks
      */
-	public List<Map<String, Object>> getUserTracks(String accessToken, String refreshToken) {
+	public List<Map<String, Object>> getUserTracks() {
 		String url = soundCloudApiBaseUrl + urlExtension("/me/tracks", 50);
 
-		return fetchPaginatedResultsWithRefresh(url, accessToken, refreshToken);
+		return fetchPaginatedResultsWithRefresh(url);
 	}
 
 	/**
      * Retrieves the user's liked tracks.
      * 
+     * @param trackUrn
      * @return {@code List} of liked tracks
      */
-	public List<Map<String, Object>> getRelatedTracks(
-		String accessToken, String refreshToken, String trackUrn) {
+	public List<Map<String, Object>> getRelatedTracks(String trackUrn) {
 		String url = soundCloudApiBaseUrl + urlExtension("/tracks/" + trackUrn + "/related", 10);
 
-		return fetchPaginatedResultsWithRefresh(url, accessToken, refreshToken);
+		return fetchPaginatedResultsWithRefresh(url);
 	}
 
 	/**
@@ -353,17 +379,15 @@ public class SoundCloudService {
      * This is a data-heavy method meant to be consumed internally
      * or reformatted by higher-level methods.
 	 * 
-	 * @param accessToken  Valid OAuth2 access token
-	 * @param refreshToken Valid OAuth2 refresh token
 	 * @return             Map containing unformatted Wrapped statistics
 	 */
-	public Map<String, Object> getFullWrappedSummary(String accessToken, String refreshToken) {
+	public Map<String, Object> getFullWrappedSummary() {
 		Map<String, Object> wrapped = new HashMap<String, Object>();
-		Map<String, Object> profile = getUserProfile(accessToken, refreshToken);
-		List<Map<String, Object>> likes = getUserLikes(accessToken, refreshToken);
-		List<Map<String, Object>> tracks = getUserTracks(accessToken, refreshToken);
-		List<Map<String, Object>> playlists = getUserPlaylists(accessToken, refreshToken);
-		List<Map<String, Object>> followers = getUserFollowers(accessToken, refreshToken);
+		Map<String, Object> profile = getUserProfile();
+		List<Map<String, Object>> likes = getUserLikes();
+		List<Map<String, Object>> tracks = getUserTracks();
+		List<Map<String, Object>> playlists = getUserPlaylists();
+		List<Map<String, Object>> followers = getUserFollowers();
 
 		//Profile-level statistics
 		wrapped.put("username", profile.get("username"));
@@ -493,12 +517,10 @@ public class SoundCloudService {
      * user-friendly "SoundCloud Wrapped"-style response. Includes numbered rankings,
      * grouped sections, and human-readable stats.
      *
-     * @param accessToken  Valid OAuth2 access token
-     * @param refreshToken Valid OAuth2 refresh token
      * @return             Map containing user-friendly Wrapped summary
      */
-	public Map<String, Object> formattedWrappedSummary(String accessToken, String refreshToken) {
-		Map<String, Object> raw = getFullWrappedSummary(accessToken, refreshToken);
+	public Map<String, Object> formattedWrappedSummary() {
+		Map<String, Object> raw = getFullWrappedSummary();
 		Map<String, Object> wrapped = new LinkedHashMap<String, Object>();
 		Map<String, Object> profile = new LinkedHashMap<String, Object>();
 		profile.put("username", raw.get("username"));
@@ -583,42 +605,5 @@ public class SoundCloudService {
 		wrapped.put("stories", stories);
 
 		return wrapped;
-	}
-
-	public Map<String, String> exchangeAuthorizationCode(String code) {
-		String url = "https://api.soundcloud.com/oauth2/token";
-		HttpHeaders headers = new HttpHeaders();
-		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
-		MultiValueMap<String, String> body = new LinkedMultiValueMap<String, String>();
-		body.add("client_id", clientId);
-		body.add("client_secret", clientSecret);
-		body.add("grant_type", "authorization_code");
-		body.add("redirect_uri", "http://localhost:8081/callback");
-		body.add("code", code);
-
-		HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(body, headers);
-		ResponseEntity<Map<String, Object>> response = restTemplate
-				.exchange(url, HttpMethod.POST, request, new ParameterizedTypeReference<Map<String, Object>>(){});
-
-		Map<String, Object> responseBody = response.getBody();
-
-		if (responseBody == null) {
-			throw new RuntimeException("Empty response from SoundCloud token exchange");
-		}
-
-		String accessToken = (String) responseBody.get("access_token");
-		String refreshToken = (String) responseBody.get("refresh_token");
-
-		if (accessToken == null || refreshToken == null) {
-			throw new RuntimeException("Missing tokens in response: " + responseBody);
-		}
-
-		// Return both tokens so caller can persist
-		Map<String, String> tokens = new HashMap<String, String>();
-		tokens.put("access_token", accessToken);
-		tokens.put("refresh_token", refreshToken);
-
-		return tokens;
 	}
 }
