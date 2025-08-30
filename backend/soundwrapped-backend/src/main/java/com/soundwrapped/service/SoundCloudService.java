@@ -3,6 +3,8 @@ package com.soundwrapped.service;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
@@ -88,15 +90,30 @@ public class SoundCloudService {
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
-		Map<String, String> body = new HashMap<String, String>();
-		body.put("grant_type", "refresh_token");
-		body.put("refresh_token", refreshToken);
+		MultiValueMap<String, String> body = new LinkedMultiValueMap<String, String>();
+		body.add("grant_type", "refresh_token");
+		body.add("refresh_token", refreshToken);
+		body.add("client_id", clientId);
+		body.add("client_secret", clientSecret);
 
-		HttpEntity<Map<String, String>> request = new HttpEntity<Map<String, String>>(body, headers);
+		HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(body, headers);
 		ResponseEntity<Map<String, Object>> response = restTemplate
 				.exchange(url, HttpMethod.POST, request, new ParameterizedTypeReference<Map<String, Object>>(){});
 
-		return (String) response.getBody().get("access_token");
+		Map<String, Object> responseBody = response.getBody();
+
+		if (responseBody == null || !responseBody.containsKey("access_token")) {
+			throw new RuntimeException("Failed to refresh access token: " + responseBody);
+		}
+
+		// IMPORTANT: persist the new refresh_token too, since SoundCloud issues a new one each time
+		String newRefreshToken = (String) responseBody.get("refresh_token");
+
+		if (newRefreshToken != null) {
+			// TODO: save to DB or config
+		}
+
+		return (String) responseBody.get("access_token");
 	}
 
 	/**
@@ -566,5 +583,42 @@ public class SoundCloudService {
 		wrapped.put("stories", stories);
 
 		return wrapped;
+	}
+
+	public Map<String, String> exchangeAuthorizationCode(String code) {
+		String url = "https://api.soundcloud.com/oauth2/token";
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+		MultiValueMap<String, String> body = new LinkedMultiValueMap<String, String>();
+		body.add("client_id", clientId);
+		body.add("client_secret", clientSecret);
+		body.add("grant_type", "authorization_code");
+		body.add("redirect_uri", "http://localhost:8081/callback");
+		body.add("code", code);
+
+		HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<MultiValueMap<String, String>>(body, headers);
+		ResponseEntity<Map<String, Object>> response = restTemplate
+				.exchange(url, HttpMethod.POST, request, new ParameterizedTypeReference<Map<String, Object>>(){});
+
+		Map<String, Object> responseBody = response.getBody();
+
+		if (responseBody == null) {
+			throw new RuntimeException("Empty response from SoundCloud token exchange");
+		}
+
+		String accessToken = (String) responseBody.get("access_token");
+		String refreshToken = (String) responseBody.get("refresh_token");
+
+		if (accessToken == null || refreshToken == null) {
+			throw new RuntimeException("Missing tokens in response: " + responseBody);
+		}
+
+		// Return both tokens so caller can persist
+		Map<String, String> tokens = new HashMap<String, String>();
+		tokens.put("access_token", accessToken);
+		tokens.put("refresh_token", refreshToken);
+
+		return tokens;
 	}
 }
