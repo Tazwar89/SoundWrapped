@@ -1,0 +1,35 @@
+meta {
+  name: Get User Profile
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://localhost:8081/api/soundcloud/profile
+  body: none
+  auth: inherit
+}
+
+headers {
+  Authorization: OAuth {{ACCESS_TOKEN}}
+}
+
+vars:pre-request {
+  accessToken: eyJraWQiOiIwZTY0ODM1NC1hYjQ1LTQ3ZDYtYjQ2YS05ZGZkZmEyNzc2ZDkiLCJ0eXAiOiJhdCtKV1QiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJzb3VuZGNsb3VkOnVzZXJzOjM5OTU4MTQxIiwiYXVkIjoiaHR0cHM6Ly9zb3VuZGNsb3VkLmNvbSIsInNjb3BlIjoiIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmUuc291bmRjbG91ZC5jb20iLCJjYWkiOiIzMTkxNDIiLCJleHAiOjE3NTYxOTUyOTIsImlhdCI6MTc1NjE5MTY5MiwianRpIjoiNDI2NGFiNmQtMTZhZi00NDVkLTkwZjAtM2ZmMDlhYmIwMjE0IiwiY2xpZW50X2lkIjoiNXBSQzE3MWdXMWp4cHJoS1BSTVVKNW1wc0NMUmZtYU0iLCJzaWQiOiIwMUszSkpYNjJRSkVRVllDSkUyNzRWQ01XViJ9.cuD1cX6eme2yJFRANJ_Dpt213V2P9O7JegoOW3piYx3t6jaFrK-riXkkwefCfSepT-Ft1NR6sAEZZ5lngKP3gcnePKytIATjgSIT0fZ2AgnL3neBBSeN3CTFuMeT9nzKwaLmNjUe_DAI9Zjv99YCnYwuwCOidKmXDcZ6X16z6IklC0ZCxZQFtQexmqYAX-FoNBV9xcGDZIW3VJeOtPKEiFyiTasV1KY2_1MkTcTyv96xK3FS0_uci8G72WdSgXmPfwhViBe_OnZiKE02a1EYl95SmDfKdjLMi4m_B3fVCbd1q0tjcdlLCIsCinc4_7c0Om5aGqPY4cQjG66BO-TVSg
+  refreshToken: 
+}
+
+script:pre-request {
+  if (!accessToken || accessToken === "") {
+      const resp = await fetch("http://localhost:8081/api/soundcloud/token", {
+          method: "GET",
+          headers: { "Refresh-Token": refreshToken }
+      });
+      const data = await resp.json();
+      accessToken = data.accessToken;
+  }
+}
+
+settings {
+  encodeUrl: true
+}
