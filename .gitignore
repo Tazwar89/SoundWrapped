@@ -3,3 +3,7 @@ backend/.env
 node_modules/
 build/
 dist/
+
+# macOS system files
+.DS_Store
+*/.DS_Store
