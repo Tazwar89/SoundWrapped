@@ -146,7 +146,13 @@ public class SoundCloudController {
 	// =========================
 
 	/**
-	 * Ensures the provided access token is valid, and refreshes it if expired
+	 * Returns a valid SoundCloud access token.
+	 * <p>
+	 * Attempts a test API call with the provided access token. If it is valid, it is
+	 * returned and persisted. If the token is expired or invalid, a new token is
+	 * obtained using the refresh token.
+	 * 
+	 * @return Valid access token as a {@code String}
 	 */
 	private String getValidAccessToken(String accessToken, String refreshToken) {
 		try {
@@ -159,8 +165,7 @@ public class SoundCloudController {
 
 		catch (Exception e) {
 			//If expired, refresh
-			Map<String, Object> newTokens = soundCloudService.refreshAccessToken(refreshToken);
-			String newAccessToken = (String) newTokens.get("access_token");
+			String newAccessToken = soundCloudService.refreshAccessToken(refreshToken);
 			accessTokenStore.put(refreshToken, newAccessToken); // persist refreshed token
 
 			return newAccessToken;

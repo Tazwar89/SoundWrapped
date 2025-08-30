@@ -76,11 +76,14 @@ public class SoundCloudService {
 	}
 
 	/**
-	 * Refreshes the access token using the given refresh token.
+	 * Refreshes the SoundCloud OAuth2 access token using the provided refresh token.
+	 * <p>
+	 * Sends a POST request to SoundCloud's token endpoint and returns the new access token.
 	 * 
-	 * @return New access token
+	 * @return New access token as a {@code String}
+	 * @throws HttpClientErrorException if the request fails
 	 */
-	private String refreshAccessToken(String refreshToken) {
+	public String refreshAccessToken(String refreshToken) {
 		String url = "https://api.soundcloud.com/oauth2/token";
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
@@ -91,7 +94,7 @@ public class SoundCloudService {
 
 		HttpEntity<Map<String, String>> request = new HttpEntity<Map<String, String>>(body, headers);
 		ResponseEntity<Map<String, Object>> response = restTemplate
-				.exchange(url, HttpMethod.GET, request, new ParameterizedTypeReference<Map<String, Object>>(){});
+				.exchange(url, HttpMethod.POST, request, new ParameterizedTypeReference<Map<String, Object>>(){});
 
 		return (String) response.getBody().get("access_token");
 	}
@@ -375,6 +378,24 @@ public class SoundCloudService {
 
 		int followerCount = (int) profile.getOrDefault("followers_count", 0);
 		wrapped.put("funFact", followerCount > 1000 ? "You're pretty famous! 🎉" : "Every star starts small 🥹");
+
+		int followingCount = (int) profile.getOrDefault("following", 0);
+		double followRatio = followingCount == 0 ? followerCount : ((double) followerCount / followingCount);
+
+		if (followingCount == 0 && followerCount > 0) {
+			wrapped.put("followRatioFact", "You have followers but aren’t following anyone — true influencer vibes! 😎");
+		}
+
+		else if (followRatio > 1.0) {
+			wrapped.put("followRatioFact", String.format("You have %.1f times more followers than people you follow!", followRatio));
+		}
+
+		if (!followers.isEmpty()) {
+			followers.sort(Comparator.comparing(f -> (String) f.get("created_at")));
+			Map<String, Object> newestFollower = followers.get(followers.size() - 1);
+			String followerName = (String) newestFollower.getOrDefault("username", "");
+			wrapped.put("newestFollower", String.format("Your newest follower this year is @%s!", followerName));
+		}
 
 		//Top 5 tracks by play count
 		List<Map<String, Object>> topTracks = tracks.stream()
