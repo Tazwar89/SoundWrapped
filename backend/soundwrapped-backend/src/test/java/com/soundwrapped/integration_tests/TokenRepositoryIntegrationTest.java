@@ -1,4 +1,4 @@
-package com.soundwrapped.soundwrapped_backend;
+package com.soundwrapped.integration_tests;
 
 import com.soundwrapped.entity.Token;
 import com.soundwrapped.repository.TokenRepository;

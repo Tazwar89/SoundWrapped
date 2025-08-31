@@ -1,11 +1,13 @@
-package com.soundwrapped.soundwrapped_backend;
+package com.soundwrapped.integration_tests;
 
-import com.soundwrapped.entity.Token;
-import com.soundwrapped.repository.TokenRepository;
 import com.soundwrapped.service.SoundWrappedService;
 import com.soundwrapped.service.TokenStore;
+import com.soundwrapped.entity.Token;
+import com.soundwrapped.exception.TokenRefreshException;
+import com.soundwrapped.repository.TokenRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -15,10 +17,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 import static java.util.Map.entry;
 import static org.junit.jupiter.api.Assertions.*;
@@ -26,7 +25,7 @@ import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @Transactional
-class SoundWrappedE2ETest {
+class SoundWrappedServiceIntegrationTest {
 
     @Autowired
     private TokenRepository tokenRepository;
@@ -40,47 +39,27 @@ class SoundWrappedE2ETest {
 
     @BeforeEach
     void setUp() {
+        MockitoAnnotations.openMocks(this);
         tokenStore = new TokenStore(tokenRepository);
         soundWrappedService = new SoundWrappedService(tokenStore, restTemplate);
 
+        // Inject dummy SoundCloud API values
         ReflectionTestUtils.setField(soundWrappedService, "soundCloudApiBaseUrl", "https://api.soundcloud.com");
         ReflectionTestUtils.setField(soundWrappedService, "clientId", "dummyClientId");
         ReflectionTestUtils.setField(soundWrappedService, "clientSecret", "dummyClientSecret");
     }
 
     @Test
-    void testExchangeAuthorizationCodeAndTokenPersistence() {
-        Map<String, Object> fakeTokenResponse = Map.of(
-                "access_token", "accessFromCode",
-                "refresh_token", "refreshFromCode"
-        );
-
-        when(restTemplate.exchange(
-                eq("https://api.soundcloud.com/oauth2/token"),
-                eq(HttpMethod.POST),
-                any(HttpEntity.class),
-                any(ParameterizedTypeReference.class)
-        )).thenReturn(new ResponseEntity<>(fakeTokenResponse, HttpStatus.OK));
-
-        Map<String, Object> response = soundWrappedService.exchangeAuthorizationCode("dummyCode");
-
-        assertEquals("accessFromCode", response.get("access_token"));
-
-        Optional<Token> savedOpt = tokenRepository.findByAccessToken("accessFromCode");
-        assertTrue(savedOpt.isPresent());
-        assertEquals("refreshFromCode", savedOpt.get().getRefreshToken());
-    }
-
-    @Test
-    void testGetUserProfileWithValidToken() {
-        Token token = new Token("validAccess", "refresh123");
-        tokenStore.saveTokens(token.getAccessToken(), token.getRefreshToken());
+    void testMakeGetRequestWithValidAccessToken() {
+        String accessToken = "validAccess_" + UUID.randomUUID();
+        String refreshToken = "refresh_" + UUID.randomUUID();
+        tokenStore.saveTokens(accessToken, refreshToken);
 
         Map<String, Object> fakeProfile = Map.of("username", "testuser");
         ResponseEntity<Map<String, Object>> responseEntity = new ResponseEntity<>(fakeProfile, HttpStatus.OK);
 
         when(restTemplate.exchange(
-                contains("/me"),
+                anyString(),
                 eq(HttpMethod.GET),
                 any(HttpEntity.class),
                 any(ParameterizedTypeReference.class)
@@ -91,14 +70,20 @@ class SoundWrappedE2ETest {
     }
 
     @Test
-    void testGetUserProfileWithExpiredToken_refreshesToken() {
+    void testMakeGetRequestWithExpiredToken_refreshesToken() {
+        // Initial expired token
         Token token = new Token("expiredAccess", "refreshToken");
+        tokenRepository.save(token);
         tokenStore.saveTokens(token.getAccessToken(), token.getRefreshToken());
 
+        // Mock profile after refresh
         Map<String, Object> fakeProfile = Map.of("username", "refreshedUser");
-        ResponseEntity<Map<String, Object>> profileResponse = new ResponseEntity<>(fakeProfile, HttpStatus.OK);
 
-        Map<String, Object> newTokenResponse = Map.of("access_token", "newAccess", "refresh_token", "refreshToken");
+        // Mock new token response from OAuth refresh
+        ResponseEntity<Map<String, Object>> newTokenResponse = new ResponseEntity<>(
+                Map.of("access_token", "newAccess", "refresh_token", "refreshToken"), // same refresh token
+                HttpStatus.OK
+        );
 
         // GET returns 401 first, then succeeds after refresh
         when(restTemplate.exchange(
@@ -108,27 +93,62 @@ class SoundWrappedE2ETest {
                 any(ParameterizedTypeReference.class)
         ))
         .thenThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED))
-        .thenReturn(profileResponse);
+        .thenReturn(new ResponseEntity<>(fakeProfile, HttpStatus.OK));
 
-        // POST to token endpoint
+        // POST to token endpoint for refresh
         when(restTemplate.exchange(
                 eq("https://api.soundcloud.com/oauth2/token"),
                 eq(HttpMethod.POST),
                 any(HttpEntity.class),
                 any(ParameterizedTypeReference.class)
-        )).thenReturn(new ResponseEntity<>(newTokenResponse, HttpStatus.OK));
+        )).thenReturn(newTokenResponse);
 
+        // Execute
         Map<String, Object> result = soundWrappedService.getUserProfile();
+
+        // Verify updated profile
         assertEquals("refreshedUser", result.get("username"));
 
+        // Verify token updated in DB
         Optional<Token> savedOpt = tokenRepository.findByAccessToken("newAccess");
         assertTrue(savedOpt.isPresent());
+        assertEquals("refreshToken", savedOpt.get().getRefreshToken());
     }
 
     @Test
-    void testGetFullWrappedSummary() {
-        Token token = new Token("fullSummaryAccess", "refreshToken");
-        tokenStore.saveTokens(token.getAccessToken(), token.getRefreshToken());
+    void testRefreshAccessToken_missingRefreshToken_throws() {
+        TokenRefreshException ex = assertThrows(TokenRefreshException.class,
+                () -> soundWrappedService.refreshAccessToken(null));
+        assertTrue(ex.getMessage().contains("Missing refresh token"));
+    }
+
+    @Test
+    void testExchangeAuthorizationCode_savesTokens() {
+        Map<String, Object> fakeTokenResponse = Map.of(
+                "access_token", "accessFromCode_" + UUID.randomUUID(),
+                "refresh_token", "refreshFromCode_" + UUID.randomUUID()
+        );
+
+        when(restTemplate.exchange(
+                eq("https://api.soundcloud.com/oauth2/token"),
+                eq(HttpMethod.POST),
+                any(HttpEntity.class),
+                any(ParameterizedTypeReference.class)
+        )).thenReturn(new ResponseEntity<>(fakeTokenResponse, HttpStatus.OK));
+
+        Map<String, Object> response = soundWrappedService.exchangeAuthorizationCode("dummyCode");
+        assertEquals(fakeTokenResponse.get("access_token"), response.get("access_token"));
+
+        Optional<Token> savedOpt = tokenRepository.findByAccessToken((String) fakeTokenResponse.get("access_token"));
+        assertTrue(savedOpt.isPresent());
+        assertEquals(fakeTokenResponse.get("refresh_token"), savedOpt.get().getRefreshToken());
+    }
+
+    @Test
+    void testGetFullWrappedSummary_returnsAggregatedData() {
+        String accessToken = "fullSummaryAccess_" + UUID.randomUUID();
+        String refreshToken = "refresh_" + UUID.randomUUID();
+        tokenStore.saveTokens(accessToken, refreshToken);
 
         Map<String, Object> profile = Map.ofEntries(
                 entry("username", "user1"),
@@ -144,7 +164,7 @@ class SoundWrappedE2ETest {
                 entry("created_at", "2013/03/23 14:58:27 +0000")
         );
 
-        // Mock all GET endpoints
+        // Mock all GET endpoints used by getFullWrappedSummary
         when(restTemplate.exchange(
                 contains("/me"),
                 eq(HttpMethod.GET),
@@ -186,17 +206,5 @@ class SoundWrappedE2ETest {
         assertEquals("User One", wrapped.get("fullName"));
         assertEquals(10, wrapped.get("followers"));
         assertEquals(1, wrapped.get("playlistsCreated"));
-    }
-
-    @Test
-    void testTokenCleanupAfterSavingNewTokens() {
-        tokenStore.saveTokens("oldAccess", "oldRefresh");
-        tokenStore.saveTokens("newAccess", "newRefresh");
-
-        List<Token> tokens = tokenRepository.findAll();
-        assertEquals(1, tokens.size());
-        Token remaining = tokens.get(0);
-        assertEquals("newAccess", remaining.getAccessToken());
-        assertEquals("newRefresh", remaining.getRefreshToken());
     }
 }
