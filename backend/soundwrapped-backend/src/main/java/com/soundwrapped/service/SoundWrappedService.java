@@ -35,10 +35,11 @@ public class SoundWrappedService {
 	private String clientSecret;
 
 	private final TokenStore tokenStore;
-	private final RestTemplate restTemplate = new RestTemplate();
+	private final RestTemplate restTemplate;
 
-	public SoundWrappedService(TokenStore tokenStore) {
+	public SoundWrappedService(TokenStore tokenStore, RestTemplate restTemplate) {
 		this.tokenStore = tokenStore;
+		this.restTemplate = restTemplate;
 	}
 
 	// =========================
