@@ -96,4 +96,78 @@ class SoundWrappedServiceTests {
                 () -> soundWrappedService.exchangeAuthorizationCode(""));
         assertTrue(exception.getMessage().contains("Authorization code must not be empty"));
     }
+    
+    @Test
+    void testExchangeAuthorizationCode_savesTokensSuccessfully() {
+        String authCode = "validCode";
+        Map<String, Object> fakeResponse = Map.of(
+            "access_token", "access123",
+            "refresh_token", "refresh123"
+        );
+
+        when(restTemplate.exchange(
+                eq("https://api.soundcloud.com/oauth2/token"),
+                eq(HttpMethod.POST),
+                any(HttpEntity.class),
+                any(ParameterizedTypeReference.class)
+        )).thenReturn(new ResponseEntity<>(fakeResponse, HttpStatus.OK));
+
+        Map<String, Object> result = soundWrappedService.exchangeAuthorizationCode(authCode);
+
+        assertEquals("access123", result.get("access_token"));
+        verify(tokenStore).saveTokens("access123", "refresh123");
+    }
+    
+    @Test
+    void testMakeGetRequestWithRefresh_throwsIfRefreshFails() {
+        String expiredToken = "expired";
+        String refreshToken = "refresh";
+        String profileUrl = "https://api.soundcloud.com/me";
+        String tokenUrl = "https://api.soundcloud.com/oauth2/token";
+
+        when(tokenStore.getAccessToken()).thenReturn(expiredToken);
+        when(tokenStore.getRefreshToken()).thenReturn(refreshToken);
+
+        // GET throws 401
+        when(restTemplate.exchange(
+                eq(profileUrl),
+                eq(HttpMethod.GET),
+                any(HttpEntity.class),
+                any(ParameterizedTypeReference.class)
+        )).thenThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED));
+
+        // POST refresh token fails (empty response or error)
+        when(restTemplate.exchange(
+                eq(tokenUrl),
+                eq(HttpMethod.POST),
+                any(HttpEntity.class),
+                any(ParameterizedTypeReference.class)
+        )).thenThrow(new HttpClientErrorException(HttpStatus.BAD_REQUEST));
+
+        ApiRequestException exception = assertThrows(ApiRequestException.class,
+                () -> soundWrappedService.getUserProfile());
+
+        assertTrue(exception.getMessage().contains("Failed to refresh access token"));
+    }
+    
+    @Test
+    void testMakeGetRequestWithRefresh_succeedsWithoutRefresh() {
+        String accessToken = "validAccess";
+        String profileUrl = "https://api.soundcloud.com/me";
+
+        when(tokenStore.getAccessToken()).thenReturn(accessToken);
+
+        Map<String, Object> profile = Map.of("username", "user1");
+        when(restTemplate.exchange(
+                eq(profileUrl),
+                eq(HttpMethod.GET),
+                any(HttpEntity.class),
+                any(ParameterizedTypeReference.class)
+        )).thenReturn(new ResponseEntity<>(profile, HttpStatus.OK));
+
+        Map<String, Object> result = soundWrappedService.getUserProfile();
+
+        assertEquals("user1", result.get("username"));
+        verify(tokenStore, never()).saveTokens(anyString(), anyString());
+    }
 }

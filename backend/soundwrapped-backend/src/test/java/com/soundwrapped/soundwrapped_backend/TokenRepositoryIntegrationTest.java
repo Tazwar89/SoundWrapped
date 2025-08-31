@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DataIntegrityViolationException;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -16,11 +17,6 @@ import static org.junit.jupiter.api.Assertions.*;
 class TokenRepositoryIntegrationTest {
 	@Autowired
 	private TokenRepository tokenRepository;
-	
-	@BeforeEach
-    void cleanDatabase() {
-        tokenRepository.deleteAll();
-    }
 
 	@Test
     void testSaveAndFindByAccessToken() {
@@ -97,6 +93,15 @@ class TokenRepositoryIntegrationTest {
         tokenRepository.save(token1);
 
         Token token2 = new Token("uniqueAccess", "refresh2");
-        assertThrows(Exception.class, () -> tokenRepository.saveAndFlush(token2));
+        assertThrows(DataIntegrityViolationException.class, () -> tokenRepository.saveAndFlush(token2));
+    }
+    
+    @Test
+    void testUniqueRefreshTokenConstraint() {
+        Token token1 = new Token("access1", "refreshUnique");
+        tokenRepository.save(token1);
+
+        Token token2 = new Token("access2", "refreshUnique");
+        assertThrows(DataIntegrityViolationException.class, () -> tokenRepository.saveAndFlush(token2));
     }
 }

@@ -14,9 +14,20 @@ public class TokenStore {
 	}
 
 	public void saveTokens(String accessToken, String refreshToken) {
-		//Clear old tokens
-		tokenRepository.deleteAll();
-		tokenRepository.save(new Token(accessToken, refreshToken));
+		Token existing = tokenRepository.findByRefreshToken(refreshToken)
+				.or(() -> tokenRepository.findByAccessToken(accessToken))
+				.orElse(null);
+
+		if (existing != null) {
+			existing.setAccessToken(accessToken);
+			existing.setRefreshToken(refreshToken);
+			tokenRepository.save(existing);
+		}
+
+		else {
+			tokenRepository.deleteAll();
+			tokenRepository.save(new Token(accessToken, refreshToken));
+		}
 	}
 
 	public String getAccessToken() {
