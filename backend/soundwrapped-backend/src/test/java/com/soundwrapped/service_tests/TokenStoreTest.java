@@ -1,4 +1,4 @@
-package com.soundwrapped.soundwrapped_backend;
+package com.soundwrapped.service_tests;
 
 import com.soundwrapped.service.TokenStore;
 import org.junit.jupiter.api.Test;
