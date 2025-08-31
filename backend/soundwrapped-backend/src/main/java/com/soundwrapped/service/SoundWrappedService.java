@@ -72,7 +72,7 @@ public class SoundWrappedService {
      * If the access token has expired, it is refreshed using the refresh token.
      *
      */
-	private Map<String, Object> makeGetRequestWithRefresh(String url) {
+	public Map<String, Object> makeGetRequestWithRefresh(String url) {
 		String currentAccessToken = tokenStore.getAccessToken();
 
 		if (currentAccessToken == null) {
