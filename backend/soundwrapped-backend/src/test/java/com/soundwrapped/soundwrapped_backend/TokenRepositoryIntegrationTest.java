@@ -2,11 +2,12 @@ package com.soundwrapped.soundwrapped_backend;
 
 import com.soundwrapped.entity.Token;
 import com.soundwrapped.repository.TokenRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.List;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -15,73 +16,87 @@ import static org.junit.jupiter.api.Assertions.*;
 class TokenRepositoryIntegrationTest {
 	@Autowired
 	private TokenRepository tokenRepository;
+	
+	@BeforeEach
+    void cleanDatabase() {
+        tokenRepository.deleteAll();
+    }
 
 	@Test
-    void testSaveAndFindById() {
+    void testSaveAndFindByAccessToken() {
         Token token = new Token("abc123", "refresh123");
         tokenRepository.save(token);
 
-        Token found = tokenRepository.findById(token.getId()).orElse(null);
-
-        assertNotNull(found);
-        assertEquals("abc123", found.getAccessToken());
+        Optional<Token> foundOpt = tokenRepository.findByAccessToken("abc123");
+        assertTrue(foundOpt.isPresent());
+        Token found = foundOpt.get();
+        assertEquals("refresh123", found.getRefreshToken());
     }
-
-    @Test
-    void testFindByAccessToken() {
-        Token token = new Token("accessKey", "refreshKey");
+	
+	@Test
+    void testSaveAndFindByRefreshToken() {
+        Token token = new Token("access123", "refresh123");
         tokenRepository.save(token);
 
-        Token found = tokenRepository.findByAccessToken("accessKey").orElse(null);
-
-        assertNotNull(found);
-        assertEquals("refreshKey", found.getRefreshToken());
-    }
-
-    @Test
-    void testFindByRefreshToken() {
-        Token token = new Token("accessX", "refreshX");
-        tokenRepository.save(token);
-
-        Token found = tokenRepository.findByRefreshToken("refreshX").orElse(null);
-
-        assertNotNull(found);
-        assertEquals("accessX", found.getAccessToken());
-    }
-
-    @Test
-    void testUpdateToken() {
-        Token token = new Token("access1", "refresh1");
-        tokenRepository.save(token);
-
-        Token found = tokenRepository.findByAccessToken("access1").orElseThrow();
-        found.setAccessToken("access2");
-        tokenRepository.save(found);
-
-        Token updated = tokenRepository.findByAccessToken("access2").orElse(null);
-
-        assertNotNull(updated);
-        assertEquals("refresh1", updated.getRefreshToken());
-    }
-
-    @Test
-    void testDeleteToken() {
-        Token token = new Token("toDelete", "refreshDel");
-        tokenRepository.save(token);
-
-        tokenRepository.deleteById(token.getId());
-
-        assertTrue(tokenRepository.findById(token.getId()).isEmpty());
+        Optional<Token> foundOpt = tokenRepository.findByRefreshToken("refresh123");
+        assertTrue(foundOpt.isPresent());
+        Token found = foundOpt.get();
+        assertEquals("access123", found.getAccessToken());
     }
 
     @Test
     void testFindAllTokens() {
-        tokenRepository.save(new Token("a1", "r1"));
-        tokenRepository.save(new Token("a2", "r2"));
+        Token token1 = new Token("access1", "refresh1");
+        Token token2 = new Token("access2", "refresh2");
 
-        List<Token> all = tokenRepository.findAll();
+        tokenRepository.save(token1);
+        tokenRepository.save(token2);
 
-        assertFalse(all.isEmpty());
-        assertTrue(all.size() >= 2);
+        List<Token> tokens = tokenRepository.findAll();
+        assertEquals(2, tokens.size());
+    }
+
+    @Test
+    void testUpdateToken() {
+        Token token = new Token("oldAccess", "oldRefresh");
+        tokenRepository.save(token);
+
+        Optional<Token> savedOpt = tokenRepository.findByAccessToken("oldAccess");
+        assertTrue(savedOpt.isPresent());
+        
+        Token saved = savedOpt.get();
+        saved.setAccessToken("newAccess");
+        tokenRepository.save(saved);
+
+        Optional<Token> updatedOpt = tokenRepository.findByAccessToken("newAccess");
+        assertTrue(updatedOpt.isPresent());
+
+        Token updated = updatedOpt.get();
+        assertNotNull(updated);
+        assertEquals("oldRefresh", updated.getRefreshToken());
+    }
+
+    @Test
+    void testDeleteToken() {
+        Token token = new Token("toDelete", "refreshX");
+        tokenRepository.save(token);
+
+        Optional<Token> savedOpt = tokenRepository.findByAccessToken("toDelete");
+        assertTrue(savedOpt.isPresent());
+
+        Token saved = savedOpt.get();
+        tokenRepository.delete(saved);
+
+        Optional<Token> deleted = tokenRepository.findById(saved.getId());
+        assertTrue(deleted.isEmpty());
+    }
+    
+    @Test
+    void testUniqueAccessTokenConstraint() {
+        Token token1 = new Token("uniqueAccess", "refresh1");
+        tokenRepository.save(token1);
+
+        Token token2 = new Token("uniqueAccess", "refresh2");
+        assertThrows(Exception.class, () -> tokenRepository.saveAndFlush(token2));
     }
 }

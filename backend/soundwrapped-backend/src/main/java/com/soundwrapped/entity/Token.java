@@ -9,7 +9,10 @@ public class Token {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
+	@Column(unique = true)
 	private String accessToken;
+
+	@Column(unique = true)
 	private String refreshToken;
 
 	public Token() {
