@@ -1,107 +1,116 @@
 package com.soundwrapped.integration_tests;
 
+import com.soundwrapped.config.PostgresTestContainerConfig;
 import com.soundwrapped.entity.Token;
 import com.soundwrapped.repository.TokenRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest
+@SpringBootTest(classes = { PostgresTestContainerConfig.class })
+@ActiveProfiles("e2e")
 @Transactional
 class TokenRepositoryIntegrationTest {
 	@Autowired
 	private TokenRepository tokenRepository;
 
+	@BeforeEach
+    void cleanDatabase() {
+        // Ensure no leftover tokens exist
+        tokenRepository.deleteAll();
+    }
+
 	@Test
-    void testSaveAndFindByAccessToken() {
-        Token token = new Token("abc123", "refresh123");
-        tokenRepository.save(token);
+	void testSaveAndFindByAccessToken() {
+		Token token = new Token("abc123", "refresh123");
+		tokenRepository.save(token);
 
-        Optional<Token> foundOpt = tokenRepository.findByAccessToken("abc123");
-        assertTrue(foundOpt.isPresent());
-        Token found = foundOpt.get();
-        assertEquals("refresh123", found.getRefreshToken());
-    }
-	
+		Optional<Token> foundOpt = tokenRepository.findByAccessToken("abc123");
+		assertTrue(foundOpt.isPresent());
+		Token found = foundOpt.get();
+		assertEquals("refresh123", found.getRefreshToken());
+	}
+
 	@Test
-    void testSaveAndFindByRefreshToken() {
-        Token token = new Token("access123", "refresh123");
-        tokenRepository.save(token);
+	void testSaveAndFindByRefreshToken() {
+		Token token = new Token("access123", "refresh123");
+		tokenRepository.save(token);
 
-        Optional<Token> foundOpt = tokenRepository.findByRefreshToken("refresh123");
-        assertTrue(foundOpt.isPresent());
-        Token found = foundOpt.get();
-        assertEquals("access123", found.getAccessToken());
-    }
+		Optional<Token> foundOpt = tokenRepository.findByRefreshToken("refresh123");
+		assertTrue(foundOpt.isPresent());
+		Token found = foundOpt.get();
+		assertEquals("access123", found.getAccessToken());
+	}
 
-    @Test
-    void testFindAllTokens() {
-        Token token1 = new Token("access1", "refresh1");
-        Token token2 = new Token("access2", "refresh2");
+	@Test
+	void testFindAllTokens() {
+		Token token1 = new Token("access1", "refresh1");
+		Token token2 = new Token("access2", "refresh2");
 
-        tokenRepository.save(token1);
-        tokenRepository.save(token2);
+		tokenRepository.save(token1);
+		tokenRepository.save(token2);
 
-        List<Token> tokens = tokenRepository.findAll();
-        assertEquals(2, tokens.size());
-    }
+		List<Token> tokens = tokenRepository.findAll();
+		assertEquals(2, tokens.size());
+	}
 
-    @Test
-    void testUpdateToken() {
-        Token token = new Token("oldAccess", "oldRefresh");
-        tokenRepository.save(token);
+	@Test
+	void testUpdateToken() {
+		Token token = new Token("oldAccess", "oldRefresh");
+		tokenRepository.save(token);
 
-        Optional<Token> savedOpt = tokenRepository.findByAccessToken("oldAccess");
-        assertTrue(savedOpt.isPresent());
-        
-        Token saved = savedOpt.get();
-        saved.setAccessToken("newAccess");
-        tokenRepository.save(saved);
+		Optional<Token> savedOpt = tokenRepository.findByAccessToken("oldAccess");
+		assertTrue(savedOpt.isPresent());
 
-        Optional<Token> updatedOpt = tokenRepository.findByAccessToken("newAccess");
-        assertTrue(updatedOpt.isPresent());
+		Token saved = savedOpt.get();
+		saved.setAccessToken("newAccess");
+		tokenRepository.save(saved);
 
-        Token updated = updatedOpt.get();
-        assertNotNull(updated);
-        assertEquals("oldRefresh", updated.getRefreshToken());
-    }
+		Optional<Token> updatedOpt = tokenRepository.findByAccessToken("newAccess");
+		assertTrue(updatedOpt.isPresent());
 
-    @Test
-    void testDeleteToken() {
-        Token token = new Token("toDelete", "refreshX");
-        tokenRepository.save(token);
+		Token updated = updatedOpt.get();
+		assertNotNull(updated);
+		assertEquals("oldRefresh", updated.getRefreshToken());
+	}
 
-        Optional<Token> savedOpt = tokenRepository.findByAccessToken("toDelete");
-        assertTrue(savedOpt.isPresent());
+	@Test
+	void testDeleteToken() {
+		Token token = new Token("toDelete", "refreshX");
+		tokenRepository.save(token);
 
-        Token saved = savedOpt.get();
-        tokenRepository.delete(saved);
+		Optional<Token> savedOpt = tokenRepository.findByAccessToken("toDelete");
+		assertTrue(savedOpt.isPresent());
 
-        Optional<Token> deleted = tokenRepository.findById(saved.getId());
-        assertTrue(deleted.isEmpty());
-    }
-    
-    @Test
-    void testUniqueAccessTokenConstraint() {
-        Token token1 = new Token("uniqueAccess", "refresh1");
-        tokenRepository.save(token1);
+		Token saved = savedOpt.get();
+		tokenRepository.delete(saved);
 
-        Token token2 = new Token("uniqueAccess", "refresh2");
-        assertThrows(DataIntegrityViolationException.class, () -> tokenRepository.saveAndFlush(token2));
-    }
-    
-    @Test
-    void testUniqueRefreshTokenConstraint() {
-        Token token1 = new Token("access1", "refreshUnique");
-        tokenRepository.save(token1);
+		Optional<Token> deleted = tokenRepository.findById(saved.getId());
+		assertTrue(deleted.isEmpty());
+	}
 
-        Token token2 = new Token("access2", "refreshUnique");
-        assertThrows(DataIntegrityViolationException.class, () -> tokenRepository.saveAndFlush(token2));
-    }
+	@Test
+	void testUniqueAccessTokenConstraint() {
+		Token token1 = new Token("uniqueAccess", "refresh1");
+		tokenRepository.save(token1);
+
+		Token token2 = new Token("uniqueAccess", "refresh2");
+		assertThrows(DataIntegrityViolationException.class, () -> tokenRepository.saveAndFlush(token2));
+	}
+
+	@Test
+	void testUniqueRefreshTokenConstraint() {
+		Token token1 = new Token("access1", "refreshUnique");
+		tokenRepository.save(token1);
+
+		Token token2 = new Token("access2", "refreshUnique");
+		assertThrows(DataIntegrityViolationException.class, () -> tokenRepository.saveAndFlush(token2));
+	}
 }
