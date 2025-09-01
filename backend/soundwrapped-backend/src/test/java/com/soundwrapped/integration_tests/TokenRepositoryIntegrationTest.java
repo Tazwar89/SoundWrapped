@@ -15,7 +15,7 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(classes = { PostgresTestContainerConfig.class })
-@ActiveProfiles("e2e")
+@ActiveProfiles("test")
 @Transactional
 class TokenRepositoryIntegrationTest {
 	@Autowired
