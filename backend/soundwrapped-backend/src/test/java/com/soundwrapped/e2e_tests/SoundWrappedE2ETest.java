@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @SpringBootTest(classes = { SoundWrappedApplication.class, PostgresTestContainerConfig.class })
-@ActiveProfiles("e2e")
+@ActiveProfiles("test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS) // Reuse container for all tests
 class SoundWrappedE2ETest {
 	@Autowired
