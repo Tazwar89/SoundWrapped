@@ -1,3 +1,14 @@
-CLIENT_ID=your_client_id_here
-CLIENT_SECRET=your_client_secret_here
-REDIRECT_URI=http://localhost:3000/callback
+# SoundCloud API Configuration
+CLIENT_ID=5pRC171gW1jxprhKPRMUJ5mpsCLRfmaM
+CLIENT_SECRET=yj4gZgfadBZTpKNud1ZSwCrVe4ICYzki
+REDIRECT_URI=http://localhost:8081/callback
+
+# Database Configuration
+POSTGRES_DB=soundwrapped_db
+POSTGRES_USER=soundwrapped_user
+POSTGRES_PASSWORD=supersecretpassword
+
+# Spring Boot Configuration
+SPRING_PROFILES_ACTIVE=docker
+SPRING_JPA_HIBERNATE_DDL_AUTO=update
+SPRING_JPA_SHOW_SQL=false
