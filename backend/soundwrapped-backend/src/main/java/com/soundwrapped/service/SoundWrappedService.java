@@ -166,7 +166,7 @@ public class SoundWrappedService {
 		body.add("client_id", clientId);
 		body.add("client_secret", clientSecret);
 		body.add("grant_type", "authorization_code");
-		body.add("redirect_uri", "http://localhost:8081/callback");
+		body.add("redirect_uri", "http://localhost:8080/callback");
 		body.add("code", code);
 
 		try {

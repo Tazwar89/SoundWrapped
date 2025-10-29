@@ -20,7 +20,7 @@ const MusicTasteMapPage: React.FC = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <div className="text-center">
           <h1 className="text-4xl font-bold gradient-text mb-4">Please Log In</h1>
           <p className="text-slate-300 mb-8">Connect your account to view the music taste map</p>
@@ -44,7 +44,7 @@ const MusicTasteMapPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen py-8">
+    <div className="py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
@@ -235,7 +235,7 @@ const MusicTasteMapPage: React.FC = () => {
                   <div>
                     <div className="text-sm text-slate-400 mb-1">Top Genres</div>
                     <div className="flex flex-wrap gap-1">
-                      {musicTasteLocations[selectedLocation].topGenres.map((genre, index) => (
+                      {musicTasteLocations[selectedLocation].topGenres.map((genre) => (
                         <span
                           key={genre}
                           className="px-2 py-1 bg-gradient-to-r from-primary-500/20 to-soundcloud-500/20 text-primary-300 text-xs rounded-full"

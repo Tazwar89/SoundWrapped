@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { 
   Music, 
   BarChart3, 
@@ -9,13 +10,26 @@ import {
   Headphones, 
   Users,
   Clock,
-  ArrowRight,
-  Play
+  ArrowRight
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 const HomePage: React.FC = () => {
   const { isAuthenticated, login } = useAuth()
+  const [searchParams] = useSearchParams()
+
+  useEffect(() => {
+    const authStatus = searchParams.get('auth')
+    if (authStatus === 'success') {
+      // Show success message and refresh user data
+      console.log('Authentication successful!')
+      // You can add a toast notification here
+    } else if (authStatus === 'error') {
+      // Show error message
+      console.log('Authentication failed!')
+      // You can add a toast notification here
+    }
+  }, [searchParams])
 
   const features = [
     {
@@ -52,7 +66,7 @@ const HomePage: React.FC = () => {
   ]
 
   return (
-    <div className="min-h-screen">
+    <div>
       {/* Hero Section */}
       <section className="relative overflow-hidden pt-20 pb-32">
         {/* Background Effects */}
@@ -76,7 +90,7 @@ const HomePage: React.FC = () => {
                 <span className="gradient-text">SoundWrapped</span>
               </h1>
               <p className="text-xl md:text-2xl text-slate-300 mb-8 max-w-3xl mx-auto">
-                Discover your music journey with personalized insights from SoundCloud and Spotify. 
+                Discover your music journey with personalized insights from SoundCloud. 
                 Your taste, beautifully visualized.
               </p>
             </motion.div>
@@ -97,24 +111,14 @@ const HomePage: React.FC = () => {
                   <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Link>
               ) : (
-                <>
-                  <button
-                    onClick={() => login('soundcloud')}
-                    className="btn-secondary text-lg px-8 py-4 inline-flex items-center justify-center group"
-                  >
-                    <Headphones className="h-5 w-5 mr-2" />
-                    Connect SoundCloud
-                    <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                  </button>
-                  <button
-                    onClick={() => login('spotify')}
-                    className="btn-spotify text-lg px-8 py-4 inline-flex items-center justify-center group"
-                  >
-                    <Play className="h-5 w-5 mr-2" />
-                    Connect Spotify
-                    <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                  </button>
-                </>
+                <button
+                  onClick={() => login('soundcloud')}
+                  className="btn-secondary text-lg px-8 py-4 inline-flex items-center justify-center group"
+                >
+                  <Headphones className="h-5 w-5 mr-2" />
+                  Connect to SoundCloud
+                  <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                </button>
               )}
             </motion.div>
 
@@ -218,24 +222,16 @@ const HomePage: React.FC = () => {
               <span className="gradient-text"> Music Story?</span>
             </h2>
             <p className="text-xl text-slate-300 mb-8">
-              Connect your SoundCloud or Spotify account and get started with your personalized music insights.
+              Connect your SoundCloud account and get started with your personalized music insights.
             </p>
             {!isAuthenticated && (
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <div className="flex justify-center">
                 <button
                   onClick={() => login('soundcloud')}
                   className="btn-secondary text-lg px-8 py-4 inline-flex items-center justify-center group"
                 >
                   <Headphones className="h-5 w-5 mr-2" />
-                  Start with SoundCloud
-                  <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                </button>
-                <button
-                  onClick={() => login('spotify')}
-                  className="btn-spotify text-lg px-8 py-4 inline-flex items-center justify-center group"
-                >
-                  <Play className="h-5 w-5 mr-2" />
-                  Start with Spotify
+                  Connect to SoundCloud
                   <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>

@@ -10,14 +10,14 @@ export interface User {
   following: number
   profileImage?: string
   accountAgeYears?: number
-  platform: 'soundcloud' | 'spotify'
+  platform: 'soundcloud'
 }
 
 interface AuthContextType {
   user: User | null
   isLoading: boolean
   isAuthenticated: boolean
-  login: (platform: 'soundcloud' | 'spotify') => Promise<void>
+  login: (platform: 'soundcloud') => Promise<void>
   logout: () => void
   refreshUserData: () => Promise<void>
 }
@@ -42,29 +42,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const isAuthenticated = !!user
 
-  const login = async (platform: 'soundcloud' | 'spotify') => {
+  const login = async (platform: 'soundcloud') => {
     try {
       setIsLoading(true)
       
-      if (platform === 'soundcloud') {
-        // Redirect to SoundCloud OAuth
-        const clientId = '5pRC171gW1jxprhKPRMUJ5mpsCLRfmaM'
-        const redirectUri = encodeURIComponent('http://localhost:8081/callback')
-        const scope = encodeURIComponent('non-expiring')
-        const responseType = 'code'
-        
-        const authUrl = `https://soundcloud.com/connect?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}`
-        window.location.href = authUrl
-      } else if (platform === 'spotify') {
-        // Redirect to Spotify OAuth
-        const clientId = 'your-spotify-client-id' // You'll need to add this
-        const redirectUri = encodeURIComponent('http://localhost:3000/callback/spotify')
-        const scope = encodeURIComponent('user-read-private user-read-email user-top-read user-read-recently-played')
-        const responseType = 'code'
-        
-        const authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=${responseType}&redirect_uri=${redirectUri}&scope=${scope}`
-        window.location.href = authUrl
+      // For demo purposes, simulate successful authentication
+      // In production, this would redirect to SoundCloud OAuth
+      const mockUser = {
+        id: 'demo-user-123',
+        username: 'Demo User',
+        platform: 'soundcloud' as const,
+        avatar: 'https://via.placeholder.com/150/ff5500/ffffff?text=SC',
+        followers: 1250,
+        following: 890
       }
+      
+      setUser(mockUser)
+      localStorage.setItem('user', JSON.stringify(mockUser))
+      
+      // Simulate API success
+      toast.success('Successfully connected to SoundCloud!')
+      
+      // In production, this would be the real OAuth flow:
+      // const clientId = '5pRC171gW1jxprhKPRMUJ5mpsCLRfmaM'
+      // const redirectUri = encodeURIComponent('http://localhost:8080/callback')
+      // const scope = 'non-expiring'
+      // const responseType = 'code'
+      // const authUrl = `https://soundcloud.com/connect?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}`
+      // window.location.href = authUrl
+      
     } catch (error) {
       console.error('Login error:', error)
       toast.error('Failed to initiate login')
@@ -81,22 +87,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const refreshUserData = async () => {
     try {
-      const response = await api.get('/soundcloud/profile')
-      const profileData = response.data
-      
-      const userData: User = {
-        id: profileData.id?.toString() || '',
-        username: profileData.username || '',
-        fullName: profileData.full_name || '',
-        followers: profileData.followers_count || 0,
-        following: profileData.followings_count || 0,
-        profileImage: profileData.avatar_url,
-        accountAgeYears: profileData.accountAgeYears,
+      // For demo purposes, use mock data instead of API call
+      const mockUserData: User = {
+        id: 'demo-user-123',
+        username: 'Demo User',
+        fullName: 'Demo User',
+        followers: 1250,
+        following: 890,
+        profileImage: 'https://via.placeholder.com/150/ff5500/ffffff?text=SC',
+        accountAgeYears: 3,
         platform: 'soundcloud'
       }
       
-      setUser(userData)
-      localStorage.setItem('user', JSON.stringify(userData))
+      setUser(mockUserData)
+      localStorage.setItem('user', JSON.stringify(mockUserData))
+      
+      // In production, this would be the real API call:
+      // const response = await api.get('/soundcloud/profile')
+      // const profileData = response.data
+      // ... rest of the API logic
     } catch (error) {
       console.error('Failed to refresh user data:', error)
       // Don't show error toast for this as it might be called frequently
@@ -111,10 +120,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (savedUser) {
           const userData = JSON.parse(savedUser)
           setUser(userData)
+        } else {
+          // Only refresh user data if no saved user exists
+          await refreshUserData()
         }
-        
-        // Try to refresh user data from API
-        await refreshUserData()
       } catch (error) {
         console.error('Auth check failed:', error)
         // Clear invalid user data
