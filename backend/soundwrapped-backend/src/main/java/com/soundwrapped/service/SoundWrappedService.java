@@ -42,6 +42,10 @@ public class SoundWrappedService {
 		this.restTemplate = restTemplate;
 	}
 
+	public TokenStore getTokenStore() {
+		return tokenStore;
+	}
+
 	// =========================
 	// Core HTTP Helpers
 	// =========================
@@ -59,12 +63,31 @@ public class SoundWrappedService {
 		HttpHeaders headers = new HttpHeaders();
 		headers.setBearerAuth(accessToken);
 		HttpEntity<String> request = new HttpEntity<String>(headers);
-		ResponseEntity<Map<String, Object>> response = restTemplate
-				.exchange(url, HttpMethod.GET, request, new ParameterizedTypeReference<Map<String, Object>>(){});
+		
+		try {
+			ResponseEntity<Map<String, Object>> response = restTemplate
+					.exchange(url, HttpMethod.GET, request, new ParameterizedTypeReference<Map<String, Object>>(){});
 
-		Map<String, Object> responseBody = response.getBody();
-
-		return responseBody != null ? responseBody : Map.of();
+			Map<String, Object> responseBody = response.getBody();
+			return responseBody != null ? responseBody : Map.of();
+		} catch (Exception e) {
+			// If the response is not a Map (e.g., it's a List), handle it differently
+			try {
+				ResponseEntity<List<Map<String, Object>>> listResponse = restTemplate
+						.exchange(url, HttpMethod.GET, request, new ParameterizedTypeReference<List<Map<String, Object>>>(){});
+				
+				List<Map<String, Object>> listBody = listResponse.getBody();
+				if (listBody != null) {
+					Map<String, Object> result = new HashMap<>();
+					result.put("collection", listBody);
+					return result;
+				}
+			} catch (Exception listException) {
+				System.out.println("Failed to parse response as Map or List: " + e.getMessage());
+			}
+			
+			throw e;
+		}
 	}
 
 	/**
@@ -209,7 +232,14 @@ public class SoundWrappedService {
 		while (url != null) {
 			Map<String, Object> response = makeGetRequestWithRefresh(url);
 			List<Map<String, Object>> pageResults = new ArrayList<Map<String, Object>>();
+			
+			// Handle different response structures
 			Object rawCollection = response.get("collection");
+			
+			// If no collection field, check if response is directly a list
+			if (rawCollection == null && response instanceof List<?>) {
+				rawCollection = response;
+			}
 
 			if (rawCollection instanceof List<?>) {
 				for (Object item : (List<?>) rawCollection) {
@@ -409,14 +439,33 @@ public class SoundWrappedService {
     }
 
 	/**
-     * Retrieves the user's uploaded tracks.
+     * Retrieves the user's tracks (uploaded tracks, or liked tracks if no uploads).
      * 
      * @return {@code List} of tracks
      */
 	public List<Map<String, Object>> getUserTracks() {
-		String url = soundCloudApiBaseUrl + urlExtension("/me/tracks", 50);
-
-		return fetchPaginatedResultsWithRefresh(url);
+		// First try to get uploaded tracks
+		try {
+			String url = soundCloudApiBaseUrl + urlExtension("/me/tracks", 50);
+			List<Map<String, Object>> uploadedTracks = fetchPaginatedResultsWithRefresh(url);
+			
+			// If user has uploaded tracks, return them
+			if (!uploadedTracks.isEmpty()) {
+				return uploadedTracks;
+			}
+		} catch (Exception e) {
+			// If uploaded tracks fail (user has no uploads), fall back to liked tracks
+			System.out.println("No uploaded tracks found, falling back to liked tracks: " + e.getMessage());
+		}
+		
+		// Fall back to liked tracks if no uploaded tracks
+		try {
+			String url = soundCloudApiBaseUrl + urlExtension("/me/favorites", 50);
+			return fetchPaginatedResultsWithRefresh(url);
+		} catch (Exception e) {
+			System.out.println("Failed to fetch liked tracks: " + e.getMessage());
+			return new ArrayList<>();
+		}
 	}
 
 	/**
