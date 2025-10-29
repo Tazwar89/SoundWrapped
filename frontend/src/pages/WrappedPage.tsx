@@ -2,18 +2,15 @@ import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Music, 
-  Play, 
   Heart, 
   Share2, 
   Clock, 
-  TrendingUp, 
   Users, 
   Star,
   Calendar,
   Globe,
   BookOpen,
   Sparkles,
-  ArrowRight,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react'
@@ -23,7 +20,7 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import { formatNumber, formatHours } from '../utils/formatters'
 
 const WrappedPage: React.FC = () => {
-  const { user, isAuthenticated } = useAuth()
+  const { isAuthenticated } = useAuth()
   const { wrappedData, isLoadingWrapped, fetchWrappedData } = useMusicData()
   const [currentSlide, setCurrentSlide] = useState(0)
   const [isAutoPlaying, setIsAutoPlaying] = useState(true)
