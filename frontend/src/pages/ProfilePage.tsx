@@ -11,7 +11,7 @@ const ProfilePage: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <div className="text-center">
           <h1 className="text-4xl font-bold gradient-text mb-4">No Profile Found</h1>
           <p className="text-slate-300">Please log in to view your profile</p>
@@ -21,7 +21,7 @@ const ProfilePage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen py-8">
+    <div className="py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Profile Header */}
         <motion.div
@@ -137,48 +137,6 @@ const ProfilePage: React.FC = () => {
           </motion.div>
         )}
 
-        {/* Platform Info */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-          className="stat-card"
-        >
-          <h3 className="subsection-title mb-6">Connected Platforms</h3>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 rounded-lg bg-gradient-to-r from-soundcloud-500/20 to-soundcloud-600/20">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gradient-to-r from-soundcloud-500 to-soundcloud-600 rounded-lg flex items-center justify-center">
-                  <Music className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-slate-200">SoundCloud</h4>
-                  <p className="text-sm text-slate-400">Connected as @{user.username}</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-sm text-green-400">Connected</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between p-4 rounded-lg bg-gradient-to-r from-spotify-500/20 to-spotify-600/20">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gradient-to-r from-spotify-500 to-spotify-600 rounded-lg flex items-center justify-center">
-                  <Music className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-slate-200">Spotify</h4>
-                  <p className="text-sm text-slate-400">Not connected</p>
-                </div>
-              </div>
-              <button className="btn-spotify text-sm px-4 py-2">
-                Connect
-              </button>
-            </div>
-          </div>
-        </motion.div>
 
         {/* Account Details */}
         <motion.div

@@ -19,14 +19,16 @@ function App() {
           <meta name="description" content="Discover your music taste with SoundWrapped - personalized insights from SoundCloud and Spotify" />
         </Helmet>
         
-        <Routes>
-          <Route path="/" element={<Layout><HomePage /></Layout>} />
-          <Route path="/dashboard" element={<Layout><DashboardPage /></Layout>} />
-          <Route path="/wrapped" element={<Layout><WrappedPage /></Layout>} />
-          <Route path="/music-taste-map" element={<Layout><MusicTasteMapPage /></Layout>} />
-          <Route path="/profile" element={<Layout><ProfilePage /></Layout>} />
-          <Route path="*" element={<Layout><NotFoundPage /></Layout>} />
-        </Routes>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/wrapped" element={<WrappedPage />} />
+            <Route path="/music-taste-map" element={<MusicTasteMapPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Layout>
       </MusicDataProvider>
     </AuthProvider>
   )

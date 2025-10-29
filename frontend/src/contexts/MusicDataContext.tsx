@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { api } from '../services/api'
 import toast from 'react-hot-toast'
 
@@ -131,33 +131,71 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
   const [isLoadingWrapped, setIsLoadingWrapped] = useState(false)
   const [isLoadingMusicTasteMap, setIsLoadingMusicTasteMap] = useState(false)
 
-  const fetchTracks = async () => {
+  const fetchTracks = useCallback(async () => {
     try {
+      console.log('fetchTracks: Starting...')
       setIsLoadingTracks(true)
-      const response = await api.get('/soundcloud/tracks')
-      const tracksData = response.data.map((track: any) => ({
-        id: track.id?.toString() || '',
-        title: track.title || 'Unknown Track',
-        artist: track.user?.username || 'Unknown Artist',
-        duration: track.duration || 0,
-        playCount: track.playback_count || 0,
-        reposts: track.reposts_count || 0,
-        likes: track.likes_count || 0,
-        createdAt: track.created_at || '',
-        artwork: track.artwork_url,
-        platform: 'soundcloud' as const
-      }))
-      setTracks(tracksData)
+      
+      // Mock data for demo purposes
+      const mockTracks = [
+        {
+          id: '1',
+          title: 'Midnight Dreams',
+          artist: 'Demo Artist',
+          duration: 180000,
+          playCount: 12500,
+          reposts: 45,
+          likes: 320,
+          createdAt: '2024-01-15T10:30:00Z',
+          artwork: 'https://via.placeholder.com/300x300/ff5500/ffffff?text=Track+1',
+          platform: 'soundcloud' as const
+        },
+        {
+          id: '2',
+          title: 'Electric Pulse',
+          artist: 'Synth Master',
+          duration: 240000,
+          playCount: 8900,
+          reposts: 32,
+          likes: 180,
+          createdAt: '2024-02-20T14:15:00Z',
+          artwork: 'https://via.placeholder.com/300x300/00ff55/ffffff?text=Track+2',
+          platform: 'soundcloud' as const
+        },
+        {
+          id: '3',
+          title: 'Ocean Waves',
+          artist: 'Ambient Sounds',
+          duration: 300000,
+          playCount: 15600,
+          reposts: 67,
+          likes: 450,
+          createdAt: '2024-03-10T09:45:00Z',
+          artwork: 'https://via.placeholder.com/300x300/0055ff/ffffff?text=Track+3',
+          platform: 'soundcloud' as const
+        }
+      ]
+      
+      setTracks(mockTracks)
+      console.log('fetchTracks: Mock tracks set, count:', mockTracks.length)
+      
+      // In production, this would be the real API call:
+      // const response = await api.get('/soundcloud/tracks')
+      // const tracksData = response.data.map((track: any) => ({...}))
+      // setTracks(tracksData)
+      
     } catch (error) {
       console.error('Failed to fetch tracks:', error)
       toast.error('Failed to load tracks')
     } finally {
       setIsLoadingTracks(false)
+      console.log('fetchTracks: Completed')
     }
-  }
+  }, [])
 
-  const fetchArtists = async () => {
+  const fetchArtists = useCallback(async () => {
     try {
+      console.log('fetchArtists: Starting, tracks count:', tracks.length)
       setIsLoadingArtists(true)
       // This would be calculated from tracks data
       const artistMap = new Map<string, { playCount: number; listeningHours: number; trackCount: number }>()
@@ -181,49 +219,132 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
       })).sort((a, b) => b.listeningHours - a.listeningHours)
 
       setArtists(artistsData)
+      console.log('fetchArtists: Artists calculated, count:', artistsData.length)
     } catch (error) {
       console.error('Failed to fetch artists:', error)
       toast.error('Failed to load artists')
     } finally {
       setIsLoadingArtists(false)
+      console.log('fetchArtists: Completed')
     }
-  }
+  }, [tracks]) // Depends on tracks array
 
-  const fetchPlaylists = async () => {
+  const fetchPlaylists = useCallback(async () => {
     try {
       setIsLoadingPlaylists(true)
-      const response = await api.get('/soundcloud/playlists')
-      const playlistsData = response.data.map((playlist: any) => ({
-        id: playlist.id?.toString() || '',
-        title: playlist.title || 'Unknown Playlist',
-        trackCount: playlist.track_count || 0,
-        likes: playlist.likes_count || 0,
-        createdAt: playlist.created_at || '',
-        artwork: playlist.artwork_url
-      }))
-      setPlaylists(playlistsData)
+      
+      // Mock data for demo purposes
+      const mockPlaylists = [
+        {
+          id: '1',
+          title: 'My Favorites',
+          trackCount: 25,
+          likes: 120,
+          createdAt: '2024-01-10T08:30:00Z',
+          artwork: 'https://via.placeholder.com/300x300/ff6b6b/ffffff?text=Favorites'
+        },
+        {
+          id: '2',
+          title: 'Chill Vibes',
+          trackCount: 18,
+          likes: 89,
+          createdAt: '2024-02-15T14:20:00Z',
+          artwork: 'https://via.placeholder.com/300x300/4ecdc4/ffffff?text=Chill'
+        },
+        {
+          id: '3',
+          title: 'Workout Mix',
+          trackCount: 32,
+          likes: 156,
+          createdAt: '2024-03-05T10:15:00Z',
+          artwork: 'https://via.placeholder.com/300x300/45b7d1/ffffff?text=Workout'
+        }
+      ]
+      
+      setPlaylists(mockPlaylists)
+      
+      // In production, this would be the real API call:
+      // const response = await api.get('/soundcloud/playlists')
+      // const playlistsData = response.data.map((playlist: any) => ({...}))
+      // setPlaylists(playlistsData)
+      
     } catch (error) {
       console.error('Failed to fetch playlists:', error)
       toast.error('Failed to load playlists')
     } finally {
       setIsLoadingPlaylists(false)
     }
-  }
+  }, [])
 
-  const fetchWrappedData = async () => {
+  const fetchWrappedData = useCallback(async () => {
     try {
+      console.log('fetchWrappedData called')
       setIsLoadingWrapped(true)
-      const response = await api.get('/soundcloud/wrapped/full')
-      setWrappedData(response.data)
+      
+      // Mock wrapped data for demo purposes
+      const mockWrappedData = {
+        profile: {
+          username: 'Demo User',
+          accountAgeYears: 3,
+          followers: 1250,
+          tracksUploaded: 45,
+          playlistsCreated: 12
+        },
+        topTracks: [
+          { rank: 1, title: 'Midnight Dreams', artist: 'Demo Artist', playCount: 12500 },
+          { rank: 2, title: 'Electric Pulse', artist: 'Synth Master', playCount: 8900 },
+          { rank: 3, title: 'Ocean Waves', artist: 'Ambient Sounds', playCount: 15600 }
+        ],
+        topArtists: [
+          { rank: 1, artist: 'Demo Artist' },
+          { rank: 2, artist: 'Synth Master' },
+          { rank: 3, artist: 'Ambient Sounds' }
+        ],
+        topRepostedTracks: [
+          { title: 'Midnight Dreams', reposts: 45 },
+          { title: 'Electric Pulse', reposts: 32 },
+          { title: 'Ocean Waves', reposts: 67 }
+        ],
+        stats: {
+          totalListeningHours: 156,
+          likesGiven: 1250,
+          tracksUploaded: 45,
+          commentsPosted: 89,
+          booksYouCouldHaveRead: 3
+        },
+        funFact: 'You listened to music for 156 hours this year - that\'s equivalent to reading 3 books!'
+      }
+      
+      // Add missing properties for WrappedPage
+      const extendedWrappedData = {
+        ...mockWrappedData,
+        peakYear: '2024',
+        globalTasteComparison: 'Your taste is 87% similar to users in New York',
+        stories: [
+          'In January, you discovered a new artist that became your obsession for the entire year.',
+          'Your most active listening month was March, with over 40 hours of music played.',
+          'You shared your favorite track 15 times, making it your most shared song ever.',
+          'In September, you created your first playlist that reached 100 likes.',
+          'Your music taste evolved throughout the year, showing growth in 3 different genres.'
+        ]
+      }
+      
+      console.log('Setting wrapped data:', extendedWrappedData)
+      setWrappedData(extendedWrappedData)
+      
+      // In production, this would be the real API call:
+      // const response = await api.get('/soundcloud/wrapped/full')
+      // setWrappedData(response.data)
+      
     } catch (error) {
       console.error('Failed to fetch wrapped data:', error)
       toast.error('Failed to load your wrapped data')
     } finally {
       setIsLoadingWrapped(false)
     }
-  }
+  }, [])
 
-  const fetchMusicTasteMap = async () => {
+  const fetchMusicTasteMap = useCallback(async () => {
     try {
       setIsLoadingMusicTasteMap(true)
       // Mock data for now - in production this would come from your backend
@@ -276,18 +397,28 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
     } finally {
       setIsLoadingMusicTasteMap(false)
     }
-  }
+  }, [])
 
-  const refreshAllData = async () => {
-    await Promise.all([
-      fetchTracks(),
-      fetchPlaylists(),
-      fetchWrappedData(),
-      fetchMusicTasteMap()
-    ])
-    // Artists will be calculated from tracks
-    await fetchArtists()
-  }
+  const refreshAllData = useCallback(async () => {
+    try {
+      console.log('refreshAllData: Starting...')
+      // First fetch tracks, then calculate artists from them
+      await fetchTracks()
+      console.log('refreshAllData: Tracks loaded, fetching artists...')
+      await fetchArtists()
+      
+      // Then fetch other data in parallel
+      console.log('refreshAllData: Fetching other data in parallel...')
+      await Promise.all([
+        fetchPlaylists(),
+        fetchWrappedData(),
+        fetchMusicTasteMap()
+      ])
+      console.log('refreshAllData: Completed successfully')
+    } catch (error) {
+      console.error('refreshAllData: Error occurred:', error)
+    }
+  }, [fetchTracks, fetchArtists, fetchPlaylists, fetchWrappedData, fetchMusicTasteMap])
 
   // Auto-fetch artists when tracks change
   useEffect(() => {

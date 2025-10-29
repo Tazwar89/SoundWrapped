@@ -27,9 +27,14 @@ const WrappedPage: React.FC = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
+      console.log('Fetching wrapped data...')
       fetchWrappedData()
     }
   }, [isAuthenticated, fetchWrappedData])
+
+  useEffect(() => {
+    console.log('Wrapped data updated:', wrappedData)
+  }, [wrappedData])
 
   useEffect(() => {
     if (!wrappedData || !isAutoPlaying) return
@@ -43,7 +48,7 @@ const WrappedPage: React.FC = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <div className="text-center">
           <h1 className="text-4xl font-bold gradient-text mb-4">Please Log In</h1>
           <p className="text-slate-300 mb-8">Connect your account to view your wrapped</p>
@@ -54,7 +59,7 @@ const WrappedPage: React.FC = () => {
 
   if (isLoadingWrapped) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <LoadingSpinner />
       </div>
     )
@@ -62,7 +67,7 @@ const WrappedPage: React.FC = () => {
 
   if (!wrappedData) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <div className="text-center">
           <h1 className="text-4xl font-bold gradient-text mb-4">No Data Available</h1>
           <p className="text-slate-300 mb-8">We couldn't find any wrapped data for your account</p>
@@ -435,8 +440,10 @@ const WrappedPage: React.FC = () => {
     setIsAutoPlaying(false)
   }
 
+  console.log('WrappedPage rendering, wrappedData:', wrappedData, 'isLoadingWrapped:', isLoadingWrapped, 'isAuthenticated:', isAuthenticated)
+  
   return (
-    <div className="min-h-screen py-8">
+    <div className="py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Controls */}
         <div className="flex justify-between items-center mb-8">
