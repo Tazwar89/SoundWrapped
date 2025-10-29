@@ -70,4 +70,31 @@ public class SoundWrappedController {
 	public Map<String, Object> getWrappedSummary() {
 		return soundWrappedService.formattedWrappedSummary();
 	}
+
+	// Debug endpoint to check token status
+	@GetMapping("/debug/tokens")
+	public Map<String, Object> getTokenStatus() {
+		Map<String, Object> status = new HashMap<>();
+		status.put("hasAccessToken", soundWrappedService.getTokenStore().getAccessToken() != null);
+		status.put("hasRefreshToken", soundWrappedService.getTokenStore().getRefreshToken() != null);
+		status.put("accessTokenLength", soundWrappedService.getTokenStore().getAccessToken() != null ? 
+			soundWrappedService.getTokenStore().getAccessToken().length() : 0);
+		return status;
+	}
+
+	// Test OAuth URL generation
+	@GetMapping("/debug/oauth-url")
+	public Map<String, Object> getOAuthUrl() {
+		Map<String, Object> result = new HashMap<>();
+		String clientId = "5pRC171gW1jxprhKPRMUJ5mpsCLRfmaM";
+		String redirectUri = "http://localhost:8080/callback";
+		String scope = "";
+		String responseType = "code";
+		String authUrl = String.format("https://api.soundcloud.com/connect?client_id=%s&redirect_uri=%s&response_type=%s&scope=%s",
+			clientId, redirectUri, responseType, scope);
+		result.put("oauthUrl", authUrl);
+		result.put("clientId", clientId);
+		result.put("redirectUri", redirectUri);
+		return result;
+	}
 }
