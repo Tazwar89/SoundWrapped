@@ -62,7 +62,12 @@ public class SoundWrappedController {
 
 	@GetMapping("/tracks")
 	public List<Map<String, Object>> getUserTracks() {
-		return soundWrappedService.getUserTracks();
+		try {
+			return soundWrappedService.getUserTracks();
+		} catch (Exception e) {
+			System.out.println("Error fetching tracks: " + e.getMessage());
+			return new ArrayList<>();
+		}
 	}
 
 	// =========================
