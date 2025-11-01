@@ -62,6 +62,8 @@ public class SoundWrappedService {
 	private Map<String, Object> makeGetRequest(String url, String accessToken) {
 		HttpHeaders headers = new HttpHeaders();
 		headers.setBearerAuth(accessToken);
+		headers.set("User-Agent", "SoundWrapped/1.0 (https://github.com/tazwarsikder/SoundWrapped)");
+		headers.set("Accept", "application/json");
 		HttpEntity<String> request = new HttpEntity<String>(headers);
 		
 		try {
@@ -70,6 +72,10 @@ public class SoundWrappedService {
 
 			Map<String, Object> responseBody = response.getBody();
 			return responseBody != null ? responseBody : Map.of();
+		} catch (org.springframework.web.client.ResourceAccessException e) {
+			// Handle timeout or connection issues
+			System.out.println("Request timeout or connection error for URL: " + url + " - " + e.getMessage());
+			throw new ApiRequestException("Request to SoundCloud API timed out or failed to connect: " + e.getMessage(), e);
 		} catch (Exception e) {
 			// If the response is not a Map (e.g., it's a List), handle it differently
 			try {
@@ -82,6 +88,9 @@ public class SoundWrappedService {
 					result.put("collection", listBody);
 					return result;
 				}
+			} catch (org.springframework.web.client.ResourceAccessException listException) {
+				System.out.println("Request timeout or connection error (List) for URL: " + url + " - " + listException.getMessage());
+				throw new ApiRequestException("Request to SoundCloud API timed out or failed to connect: " + listException.getMessage(), listException);
 			} catch (Exception listException) {
 				System.out.println("Failed to parse response as Map or List: " + e.getMessage());
 			}
@@ -144,6 +153,7 @@ public class SoundWrappedService {
 
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+		headers.set("User-Agent", "SoundWrapped/1.0 (https://github.com/tazwarsikder/SoundWrapped)");
 
 		MultiValueMap<String, String> body = new LinkedMultiValueMap<String, String>();
 		body.add("grant_type", "refresh_token");
@@ -184,6 +194,7 @@ public class SoundWrappedService {
 
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+		headers.set("User-Agent", "SoundWrapped/1.0 (https://github.com/tazwarsikder/SoundWrapped)");
 
 		MultiValueMap<String, String> body = new LinkedMultiValueMap<String, String>();
 		body.add("client_id", clientId);
@@ -411,9 +422,13 @@ public class SoundWrappedService {
      * @return {@code List} of liked tracks
      */
 	public List<Map<String, Object>> getUserLikes() {
-		String url = soundCloudApiBaseUrl + "/me/favorites";
-
-		return fetchPaginatedResultsWithRefresh(url);
+		try {
+			String url = soundCloudApiBaseUrl + "/me/favorites";
+			return fetchPaginatedResultsWithRefresh(url);
+		} catch (Exception e) {
+			System.out.println("Error fetching likes: " + e.getMessage());
+			return new ArrayList<>();
+		}
     }
 
 	/**
@@ -422,9 +437,13 @@ public class SoundWrappedService {
      * @return {@code List} of playlists
      */
 	public List<Map<String, Object>> getUserPlaylists() {
-		String url = soundCloudApiBaseUrl + urlExtension("/me/playlists", 50);
-		
-		return fetchPaginatedResultsWithRefresh(url);
+		try {
+			String url = soundCloudApiBaseUrl + urlExtension("/me/playlists", 50);
+			return fetchPaginatedResultsWithRefresh(url);
+		} catch (Exception e) {
+			System.out.println("Error fetching playlists: " + e.getMessage());
+			return new ArrayList<>();
+		}
     }
 
 	/**
@@ -433,9 +452,13 @@ public class SoundWrappedService {
      * @return {@code List} of followers
      */
 	public List<Map<String, Object>> getUserFollowers() {
-		String url = soundCloudApiBaseUrl + urlExtension("/me/followers", 50);
-
-		return fetchPaginatedResultsWithRefresh(url);
+		try {
+			String url = soundCloudApiBaseUrl + urlExtension("/me/followers", 50);
+			return fetchPaginatedResultsWithRefresh(url);
+		} catch (Exception e) {
+			System.out.println("Error fetching followers: " + e.getMessage());
+			return new ArrayList<>();
+		}
     }
 
 	/**
@@ -492,11 +515,42 @@ public class SoundWrappedService {
 	 */
 	public Map<String, Object> getFullWrappedSummary() {
 		Map<String, Object> wrapped = new HashMap<String, Object>();
+		
+		// Get profile first (this is the most important and usually works)
 		Map<String, Object> profile = getUserProfile();
-		List<Map<String, Object>> likes = getUserLikes();
-		List<Map<String, Object>> tracks = getUserTracks();
-		List<Map<String, Object>> playlists = getUserPlaylists();
-		List<Map<String, Object>> followers = getUserFollowers();
+		
+		// Add delays between API calls to avoid rate limiting (SoundCloud has strict rate limits)
+		List<Map<String, Object>> likes = new ArrayList<>();
+		try {
+			Thread.sleep(500); // 500ms delay
+			likes = getUserLikes();
+		} catch (Exception e) {
+			System.out.println("Failed to fetch likes: " + e.getMessage());
+		}
+		
+		List<Map<String, Object>> tracks = new ArrayList<>();
+		try {
+			Thread.sleep(500); // 500ms delay
+			tracks = getUserTracks();
+		} catch (Exception e) {
+			System.out.println("Failed to fetch tracks: " + e.getMessage());
+		}
+		
+		List<Map<String, Object>> playlists = new ArrayList<>();
+		try {
+			Thread.sleep(500); // 500ms delay
+			playlists = getUserPlaylists();
+		} catch (Exception e) {
+			System.out.println("Failed to fetch playlists: " + e.getMessage());
+		}
+		
+		List<Map<String, Object>> followers = new ArrayList<>();
+		try {
+			Thread.sleep(500); // 500ms delay
+			followers = getUserFollowers();
+		} catch (Exception e) {
+			System.out.println("Failed to fetch followers: " + e.getMessage());
+		}
 
 		//Profile-level statistics
 		wrapped.put("username", profile.get("username"));

@@ -229,8 +229,10 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
       console.log('fetchWrappedData called')
       setIsLoadingWrapped(true)
       
-      // Real API call to get wrapped data
-      const response = await api.get('/soundcloud/wrapped/full')
+      // Real API call to get wrapped data with longer timeout (60 seconds for wrapped)
+      const response = await api.get('/soundcloud/wrapped/full', {
+        timeout: 60000 // 60 seconds timeout for wrapped endpoint
+      })
       const wrappedData = response.data
       
       console.log('Setting wrapped data:', wrappedData)
@@ -238,7 +240,7 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
       
     } catch (error) {
       console.error('Failed to fetch wrapped data:', error)
-      toast.error('Failed to load your wrapped data')
+      toast.error('Failed to load your wrapped data. This may be due to rate limiting - please try again in a few moments.')
     } finally {
       setIsLoadingWrapped(false)
     }
