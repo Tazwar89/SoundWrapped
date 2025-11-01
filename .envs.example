@@ -1,7 +1,7 @@
 # SoundCloud API Configuration
 CLIENT_ID=5pRC171gW1jxprhKPRMUJ5mpsCLRfmaM
 CLIENT_SECRET=yj4gZgfadBZTpKNud1ZSwCrVe4ICYzki
-REDIRECT_URI=http://localhost:8081/callback
+REDIRECT_URI=http://localhost:8080/callback
 
 # Database Configuration
 POSTGRES_DB=soundwrapped_db
