@@ -114,7 +114,10 @@ public class SoundWrappedService {
 		try {
 			return makeGetRequest(url, tokenStore.getAccessToken());
 		}
-
+		catch (org.springframework.web.client.ResourceAccessException rae) {
+			// Handle timeouts and connection issues
+			throw new ApiRequestException("Request to SoundCloud API timed out or failed to connect: " + rae.getMessage(), rae);
+		}
 		catch (HttpClientErrorException htee) {
 			if (htee.getStatusCode() == HttpStatus.UNAUTHORIZED) {
 				try {
@@ -131,6 +134,14 @@ public class SoundWrappedService {
 			}
 
 			throw new ApiRequestException("GET request failed: " + htee.getMessage(), htee);
+		}
+		catch (ApiRequestException are) {
+			// Re-throw ApiRequestException as-is
+			throw are;
+		}
+		catch (Exception e) {
+			// Catch any other exceptions
+			throw new ApiRequestException("Unexpected error during GET request: " + e.getMessage(), e);
 		}
 	}
 
@@ -234,45 +245,55 @@ public class SoundWrappedService {
 
 	/**
 	 * Fetches paginated results (with auto-refresh on 401).
+	 * Includes timeout protection and maximum page limit to prevent hanging.
 	 * 
 	 * @return JSON response body as a {@code List} of {@code Map}s
 	 */
 	private List<Map<String, Object>> fetchPaginatedResultsWithRefresh(String url) {
 		List<Map<String, Object>> paginatedResults = new ArrayList<Map<String, Object>>();
+		int maxPages = 10; // Limit pagination to prevent infinite loops
+		int pageCount = 0;
 
-		while (url != null) {
-			Map<String, Object> response = makeGetRequestWithRefresh(url);
-			List<Map<String, Object>> pageResults = new ArrayList<Map<String, Object>>();
-			
-			// Handle different response structures
-			Object rawCollection = response.get("collection");
-			
-			// If no collection field, check if response is directly a list
-			if (rawCollection == null && response instanceof List<?>) {
-				rawCollection = response;
-			}
+		while (url != null && pageCount < maxPages) {
+			try {
+				Map<String, Object> response = makeGetRequestWithRefresh(url);
+				List<Map<String, Object>> pageResults = new ArrayList<Map<String, Object>>();
+				
+				// Handle different response structures
+				Object rawCollection = response.get("collection");
+				
+				// If no collection field, check if response is directly a list
+				if (rawCollection == null && response instanceof List<?>) {
+					rawCollection = response;
+				}
 
-			if (rawCollection instanceof List<?>) {
-				for (Object item : (List<?>) rawCollection) {
-					if (item instanceof Map<?, ?> rawMap) {
-						Map<String, Object> safeMap = new HashMap<String, Object>();
+				if (rawCollection instanceof List<?>) {
+					for (Object item : (List<?>) rawCollection) {
+						if (item instanceof Map<?, ?> rawMap) {
+							Map<String, Object> safeMap = new HashMap<String, Object>();
 
-						for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
-							if (entry.getKey() instanceof String) {
-								safeMap.put((String) entry.getKey(), entry.getValue());
+							for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+								if (entry.getKey() instanceof String) {
+									safeMap.put((String) entry.getKey(), entry.getValue());
+								}
 							}
-						}
 
-						pageResults.add(safeMap);
+							pageResults.add(safeMap);
+						}
 					}
 				}
-			}
 
-			if (!pageResults.isEmpty()) {
-				paginatedResults.addAll(pageResults);
-			}
+				if (!pageResults.isEmpty()) {
+					paginatedResults.addAll(pageResults);
+				}
 
-			url = (String) response.get("next_href");
+				url = (String) response.get("next_href");
+				pageCount++;
+			} catch (Exception e) {
+				// If pagination fails, return what we have so far
+				System.out.println("Error fetching paginated results at page " + pageCount + ": " + e.getMessage());
+				break;
+			}
 		}
 
 		return paginatedResults;
@@ -411,9 +432,20 @@ public class SoundWrappedService {
      * @return             Profile information as a {@code Map}
      */
 	public Map<String, Object> getUserProfile() {
-		String url = soundCloudApiBaseUrl + "/me";
-
-		return makeGetRequestWithRefresh(url);
+		try {
+			String url = soundCloudApiBaseUrl + "/me";
+			return makeGetRequestWithRefresh(url);
+		} catch (Exception e) {
+			System.out.println("Error fetching user profile: " + e.getMessage());
+			// Return empty profile on error
+			Map<String, Object> errorProfile = new HashMap<>();
+			errorProfile.put("error", "Unable to fetch profile data");
+			errorProfile.put("message", e.getMessage());
+			errorProfile.put("username", "Unknown");
+			errorProfile.put("followers_count", 0);
+			errorProfile.put("followings_count", 0);
+			return errorProfile;
+		}
 	}
 
 	/**
@@ -517,7 +549,23 @@ public class SoundWrappedService {
 		Map<String, Object> wrapped = new HashMap<String, Object>();
 		
 		// Get profile first (this is the most important and usually works)
-		Map<String, Object> profile = getUserProfile();
+		Map<String, Object> profile = new HashMap<>();
+		try {
+			profile = getUserProfile();
+		} catch (Exception e) {
+			System.out.println("Failed to fetch profile in wrapped summary: " + e.getMessage());
+			// Use empty profile with defaults
+			profile.put("username", "Unknown");
+			profile.put("followers_count", 0);
+			profile.put("followings_count", 0);
+			profile.put("track_count", 0);
+			profile.put("playlist_count", 0);
+			profile.put("public_favorites_count", 0);
+			profile.put("reposts_count", 0);
+			profile.put("comments_count", 0);
+			profile.put("upload_seconds_left", 0);
+			profile.put("created_at", "2024/01/01 00:00:00 +0000");
+		}
 		
 		// Add delays between API calls to avoid rate limiting (SoundCloud has strict rate limits)
 		List<Map<String, Object>> likes = new ArrayList<>();
@@ -683,28 +731,42 @@ public class SoundWrappedService {
      * @return             Map containing user-friendly Wrapped summary
      */
 	public Map<String, Object> formattedWrappedSummary() {
-		Map<String, Object> raw = getFullWrappedSummary();
-		Map<String, Object> wrapped = new LinkedHashMap<String, Object>();
-		Map<String, Object> profile = new LinkedHashMap<String, Object>();
-		profile.put("username", raw.get("username"));
-		profile.put("accountAgeYears", raw.get("accountAgeYears"));
-		profile.put("followers", raw.get("followers"));
-		profile.put("tracksUploaded", raw.get("tracksUploaded"));
-		profile.put("playlistsCreated", raw.get("playlistsCreated"));
-		wrapped.put("profile", profile);
+		try {
+			Map<String, Object> raw = getFullWrappedSummary();
+			Map<String, Object> wrapped = new LinkedHashMap<String, Object>();
+			Map<String, Object> profile = new LinkedHashMap<String, Object>();
+			profile.put("username", raw.getOrDefault("username", "Unknown"));
+			profile.put("accountAgeYears", raw.getOrDefault("accountAgeYears", 0));
+			profile.put("followers", raw.getOrDefault("followers", 0));
+			profile.put("tracksUploaded", raw.getOrDefault("tracksUploaded", 0));
+			profile.put("playlistsCreated", raw.getOrDefault("playlistsCreated", 0));
+			wrapped.put("profile", profile);
 
-		List<Map<String, Object>> rawTopTracks = castToMapList(raw.getOrDefault("topTracks", List.of()));
-		List<Map<String, Object>> rankedTracks = new ArrayList<Map<String, Object>>();
-		int rank = 1;
+			List<Map<String, Object>> rawTopTracks = castToMapList(raw.getOrDefault("topTracks", List.of()));
+			List<Map<String, Object>> rankedTracks = new ArrayList<Map<String, Object>>();
+			int rank = 1;
 
-		for (Map<String, Object> track : rawTopTracks) {
-			Map<String, Object> entry = new LinkedHashMap<String, Object>();
-			entry.put("rank", rank++);
-			entry.put("title", track.get("title"));
-			entry.put("artist", ((Map<?, ?>) track.get("user")).get("username"));
-			entry.put("playCount", track.get("playback_count"));
-			rankedTracks.add(entry);
-		}
+			for (Map<String, Object> track : rawTopTracks) {
+				try {
+					Map<String, Object> entry = new LinkedHashMap<String, Object>();
+					entry.put("rank", rank++);
+					entry.put("title", track.getOrDefault("title", "Unknown Track"));
+					Object userObj = track.get("user");
+					String artist = "Unknown Artist";
+					if (userObj instanceof Map<?, ?>) {
+						Object usernameObj = ((Map<?, ?>) userObj).get("username");
+						if (usernameObj instanceof String) {
+							artist = (String) usernameObj;
+						}
+					}
+					entry.put("artist", artist);
+					entry.put("playCount", track.getOrDefault("playback_count", 0));
+					rankedTracks.add(entry);
+				} catch (Exception e) {
+					System.out.println("Error processing track: " + e.getMessage());
+					// Skip this track and continue
+				}
+			}
 
 		wrapped.put("topTracks", rankedTracks);
 
@@ -725,15 +787,15 @@ public class SoundWrappedService {
 		wrapped.put("topRepostedTracks", repostedTracks);
 
 		Map<String, Object> stats = new LinkedHashMap<String, Object>();
-		stats.put("totalListeningHours", raw.get("totalListeningHours"));
+		stats.put("totalListeningHours", raw.getOrDefault("totalListeningHours", 0));
 		stats.put("likesGiven", ((List<?>) raw.getOrDefault("likesGiven", List.of())).size());
-		stats.put("tracksUploaded", raw.get("tracksUploaded"));
-		stats.put("commentsPosted", raw.get("commentsPosted"));
-		stats.put("booksYouCouldHaveRead", raw.get("booksYouCouldHaveRead"));
+		stats.put("tracksUploaded", raw.getOrDefault("tracksUploaded", 0));
+		stats.put("commentsPosted", raw.getOrDefault("commentsPosted", 0));
+		stats.put("booksYouCouldHaveRead", raw.getOrDefault("booksYouCouldHaveRead", 0));
 		wrapped.put("stats", stats);
-		wrapped.put("funFact", raw.get("funFact"));
-		wrapped.put("peakYear", raw.get("peakYear"));
-		wrapped.put("globalTasteComparison", raw.get("globalTasteComparison"));
+		wrapped.put("funFact", raw.getOrDefault("funFact", "Unable to load data"));
+		wrapped.put("peakYear", raw.getOrDefault("peakYear", ""));
+		wrapped.put("globalTasteComparison", raw.getOrDefault("globalTasteComparison", ""));
 
 		List<String> stories = new ArrayList<String>();
 
@@ -768,5 +830,32 @@ public class SoundWrappedService {
 		wrapped.put("stories", stories);
 
 		return wrapped;
+		} catch (Exception e) {
+			System.out.println("Error in formattedWrappedSummary: " + e.getMessage());
+			// Return minimal wrapped data on error
+			Map<String, Object> minimalWrapped = new LinkedHashMap<>();
+			Map<String, Object> minimalProfile = new LinkedHashMap<>();
+			minimalProfile.put("username", "Unknown");
+			minimalProfile.put("accountAgeYears", 0);
+			minimalProfile.put("followers", 0);
+			minimalProfile.put("tracksUploaded", 0);
+			minimalProfile.put("playlistsCreated", 0);
+			minimalWrapped.put("profile", minimalProfile);
+			minimalWrapped.put("topTracks", new ArrayList<>());
+			minimalWrapped.put("topArtists", new ArrayList<>());
+			minimalWrapped.put("topRepostedTracks", new ArrayList<>());
+			Map<String, Object> minimalStats = new LinkedHashMap<>();
+			minimalStats.put("totalListeningHours", 0);
+			minimalStats.put("likesGiven", 0);
+			minimalStats.put("tracksUploaded", 0);
+			minimalStats.put("commentsPosted", 0);
+			minimalStats.put("booksYouCouldHaveRead", 0);
+			minimalWrapped.put("stats", minimalStats);
+			minimalWrapped.put("funFact", "Unable to load data - please try again later");
+			minimalWrapped.put("peakYear", "");
+			minimalWrapped.put("globalTasteComparison", "");
+			minimalWrapped.put("stories", new ArrayList<>());
+			return minimalWrapped;
+		}
 	}
 }

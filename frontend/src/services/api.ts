@@ -4,7 +4,7 @@ const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://loca
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  timeout: 15000, // 15 seconds timeout (backend fails at 10s, so this gives buffer)
   headers: {
     'Content-Type': 'application/json',
   },
