@@ -13,6 +13,7 @@ import {
   ArrowRight
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import AnimatedParticleBackground from '../components/AnimatedParticleBackground'
 
 const HomePage: React.FC = () => {
   const { isAuthenticated, login } = useAuth()
@@ -66,19 +67,17 @@ const HomePage: React.FC = () => {
   ]
 
   return (
-    <div>
-      {/* Hero Section */}
-      <section className="relative overflow-hidden pt-20 pb-32">
-        {/* Background Effects */}
-        <div className="absolute inset-0 bg-gradient-to-br from-dark-900 via-dark-800 to-dark-900" />
-        <div className="absolute inset-0 bg-music-pattern opacity-5" />
-        
-        {/* Floating Elements */}
-        <div className="absolute top-20 left-10 w-20 h-20 bg-primary-500/20 rounded-full blur-xl animate-float" />
-        <div className="absolute top-40 right-20 w-32 h-32 bg-soundcloud-500/20 rounded-full blur-xl animate-float-delayed" />
-        <div className="absolute bottom-20 left-1/4 w-24 h-24 bg-spotify-500/20 rounded-full blur-xl animate-float" />
+    <div className="relative">
+      {/* Animated Particle Background */}
+      <div className="fixed inset-0 overflow-hidden">
+        <AnimatedParticleBackground particleCount={20} />
+        {/* Overlay for better text contrast */}
+        <div className="absolute inset-0 bg-gradient-to-br from-dark-900/50 via-dark-800/40 to-dark-900/50 backdrop-blur-[8px]" />
+      </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Hero Section */}
+      <section className="relative overflow-hidden pt-20 pb-32 min-h-screen">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -146,7 +145,7 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* Stats Section */}
-      <section className="py-16 bg-gradient-to-r from-dark-800/50 to-dark-700/50">
+      <section className="relative z-10 py-16 bg-gradient-to-r from-dark-800/50 to-dark-700/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {stats.map((stat, index) => {
@@ -172,7 +171,7 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* Features Section */}
-      <section className="py-20">
+      <section className="relative z-10 py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -210,7 +209,7 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-primary-500/10 via-soundcloud-500/10 to-spotify-500/10">
+      <section className="relative z-10 py-20 bg-gradient-to-r from-primary-500/10 via-soundcloud-500/10 to-spotify-500/10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}

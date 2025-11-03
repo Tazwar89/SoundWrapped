@@ -25,6 +25,7 @@ const DashboardPage: React.FC = () => {
   const { 
     tracks, 
     artists, 
+    wrappedData,
     isLoadingTracks,
     isLoadingArtists,
     refreshAllData
@@ -52,9 +53,20 @@ const DashboardPage: React.FC = () => {
     )
   }
 
-  const totalListeningHours = tracks.reduce((acc, track) => acc + (track.duration / 1000 / 60 / 60), 0)
-  const totalPlays = tracks.reduce((acc, track) => acc + track.playCount, 0)
-  const totalLikes = tracks.reduce((acc, track) => acc + track.likes, 0)
+  // Calculate stats based on ACTUAL LISTENING HISTORY, not metadata
+  // Following Spotify Wrapped approach: use play counts × duration for real listening time
+  const totalListeningHours = wrappedData?.stats?.totalListeningHours ?? 
+    tracks.reduce((acc, track) => {
+      // Use playback_count × duration for actual listening time
+      const playCount = track.playCount || 0
+      const durationHours = (track.duration || 0) / 1000 / 60 / 60
+      return acc + (playCount * durationHours)
+    }, 0)
+  
+  const totalPlays = tracks.reduce((acc, track) => acc + (track.playCount || 0), 0)
+  
+  // Use likes from wrapped data (based on actual fetched likes, not track metadata)
+  const totalLikes = wrappedData?.stats?.likesGiven ?? 0
 
   const stats = [
     {
