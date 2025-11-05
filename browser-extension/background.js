@@ -91,10 +91,16 @@ async function checkAuthStatus() {
         
         if (response.ok) {
             const data = await response.json();
-            const isAuthenticated = data.hasAccessToken === true;
+            // Use tokenValid if available (after proactive refresh), otherwise fall back to hasAccessToken
+            const isAuthenticated = (data.tokenValid === true) || 
+                                   (data.tokenValid === undefined && data.hasAccessToken === true);
             
             if (chrome.storage && chrome.storage.local) {
-                chrome.storage.local.set({ authenticated: isAuthenticated });
+                chrome.storage.local.set({ 
+                    authenticated: isAuthenticated,
+                    tokenValid: data.tokenValid,
+                    message: data.message
+                });
             }
             
             return isAuthenticated;

@@ -198,6 +198,74 @@ public class SoundWrappedService {
 		}
 	}
 
+	/**
+	 * Proactively refresh access token if needed.
+	 * Attempts to refresh the token using the stored refresh token.
+	 * This method is safe to call even if the token is still valid.
+	 * 
+	 * @return true if token was refreshed successfully, false otherwise
+	 */
+	public boolean refreshTokenIfNeeded() {
+		try {
+			String refreshToken = tokenStore.getRefreshToken();
+			String accessToken = tokenStore.getAccessToken();
+			
+			if (refreshToken == null || refreshToken.isBlank()) {
+				return false;
+			}
+			
+			if (accessToken == null || accessToken.isBlank()) {
+				return false;
+			}
+			
+			// Attempt to refresh the token
+			refreshAccessToken(refreshToken);
+			return true;
+		} catch (Exception e) {
+			System.out.println("Token refresh not needed or failed: " + e.getMessage());
+			return false;
+		}
+	}
+
+	/**
+	 * Verify token validity by making a test API call and refresh if needed.
+	 * This method proactively checks if the token is still valid and refreshes it if necessary.
+	 * 
+	 * @return true if token is valid or was successfully refreshed, false otherwise
+	 */
+	public boolean verifyAndRefreshTokenIfNeeded() {
+		try {
+			String accessToken = tokenStore.getAccessToken();
+			String refreshToken = tokenStore.getRefreshToken();
+			
+			if (accessToken == null || accessToken.isBlank() || refreshToken == null || refreshToken.isBlank()) {
+				return false;
+			}
+			
+			// Try to make a lightweight API call to verify token
+			try {
+				getUserProfile();
+				return true; // Token is valid
+			} catch (HttpClientErrorException e) {
+				if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+					// Token expired, refresh it
+					System.out.println("Token expired, refreshing...");
+					try {
+						refreshAccessToken(refreshToken);
+						return true;
+					} catch (Exception refreshError) {
+						System.out.println("Failed to refresh token: " + refreshError.getMessage());
+						return false;
+					}
+				}
+				throw e;
+			}
+		} catch (Exception e) {
+			System.out.println("Error verifying token: " + e.getMessage());
+			return false;
+		}
+	}
+
 	public Map<String, Object> exchangeAuthorizationCode(String code) {
 		if (code == null || code.isBlank()) {
 			throw new TokenExchangeException("Authorization code must not be empty.");
