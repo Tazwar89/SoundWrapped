@@ -174,10 +174,35 @@ public class SoundWrappedController {
 	@GetMapping("/debug/tokens")
 	public Map<String, Object> getTokenStatus() {
 		Map<String, Object> status = new HashMap<>();
-		status.put("hasAccessToken", soundWrappedService.getTokenStore().getAccessToken() != null);
-		status.put("hasRefreshToken", soundWrappedService.getTokenStore().getRefreshToken() != null);
-		status.put("accessTokenLength", soundWrappedService.getTokenStore().getAccessToken() != null ? 
-			soundWrappedService.getTokenStore().getAccessToken().length() : 0);
+		String accessToken = soundWrappedService.getTokenStore().getAccessToken();
+		String refreshToken = soundWrappedService.getTokenStore().getRefreshToken();
+		
+		boolean hasAccessToken = accessToken != null && !accessToken.isBlank();
+		boolean hasRefreshToken = refreshToken != null && !refreshToken.isBlank();
+		
+		status.put("hasAccessToken", hasAccessToken);
+		status.put("hasRefreshToken", hasRefreshToken);
+		status.put("accessTokenLength", (hasAccessToken && accessToken != null) ? accessToken.length() : 0);
+		
+		// Proactively verify and refresh token if needed
+		if (hasAccessToken && hasRefreshToken) {
+			try {
+				boolean isValid = soundWrappedService.verifyAndRefreshTokenIfNeeded();
+				status.put("tokenValid", isValid);
+				if (isValid) {
+					status.put("message", "Token is valid");
+				} else {
+					status.put("message", "Token verification failed");
+				}
+			} catch (Exception e) {
+				status.put("tokenValid", false);
+				status.put("message", "Error verifying token: " + e.getMessage());
+			}
+		} else {
+			status.put("tokenValid", false);
+			status.put("message", "Missing tokens - user needs to authenticate");
+		}
+		
 		return status;
 	}
 
