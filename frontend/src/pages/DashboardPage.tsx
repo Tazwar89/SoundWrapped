@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { 
@@ -10,10 +10,12 @@ import {
   Heart,
   Share2,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  Info
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useMusicData } from '../contexts/MusicDataContext'
+import { api } from '../services/api'
 import StatCard from '../components/StatCard'
 import TopTracksChart from '../components/TopTracksChart'
 import TopArtistsChart from '../components/TopArtistsChart'
@@ -30,14 +32,30 @@ const DashboardPage: React.FC = () => {
     isLoadingArtists,
     refreshAllData
   } = useMusicData()
+  
+  const [analytics, setAnalytics] = useState<any>(null)
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
 
   useEffect(() => {
     console.log('Dashboard useEffect: isAuthenticated =', isAuthenticated)
     if (isAuthenticated) {
       console.log('Dashboard: Calling refreshAllData...')
       refreshAllData()
+      fetchAnalytics()
     }
-  }, [isAuthenticated]) // Removed refreshAllData from dependencies to prevent infinite loop
+  }, [isAuthenticated])
+
+  const fetchAnalytics = async () => {
+    try {
+      setIsLoadingAnalytics(true)
+      const response = await api.get('/soundcloud/dashboard/analytics')
+      setAnalytics(response.data)
+    } catch (error) {
+      console.error('Failed to fetch analytics:', error)
+    } finally {
+      setIsLoadingAnalytics(false)
+    }
+  }
 
   if (!isAuthenticated) {
     return (
@@ -53,53 +71,52 @@ const DashboardPage: React.FC = () => {
     )
   }
 
-  // Calculate stats based on ACTUAL LISTENING HISTORY, not metadata
-  // Following Spotify Wrapped approach: use play counts × duration for real listening time
-  const totalListeningHours = wrappedData?.stats?.totalListeningHours ?? 
-    tracks.reduce((acc, track) => {
-      // Use playback_count × duration for actual listening time
-      const playCount = track.playCount || 0
-      const durationHours = (track.duration || 0) / 1000 / 60 / 60
-      return acc + (playCount * durationHours)
-    }, 0)
-  
-  const totalPlays = tracks.reduce((acc, track) => acc + (track.playCount || 0), 0)
-  
-  // Use likes from wrapped data (based on actual fetched likes, not track metadata)
-  const totalLikes = wrappedData?.stats?.likesGiven ?? 0
+  // Get stats from analytics (combines API data + tracked activity)
+  // Note: SoundCloud API doesn't provide listening history, so we can only track in-app activity
+  const apiStats = analytics?.apiStats || {}
+  const trackedStats = analytics?.trackedStats || {}
+  const availableMetrics = analytics?.availableMetrics || {}
+
+  // API-available stats (from SoundCloud profile/data)
+  const totalTracks = availableMetrics.totalTracks || apiStats.totalTracksAvailable || tracks.length
+  const profileLikes = availableMetrics.profileLikes || apiStats.totalLikesOnProfile || 0
+
+  // Tracked in-app stats (only tracks activity within SoundWrapped app)
+  const inAppListeningHours = availableMetrics.inAppListeningHours || trackedStats.inAppListeningHours || 0
+  const inAppPlays = availableMetrics.inAppPlays || trackedStats.inAppPlays || 0
 
   const stats = [
     {
-      title: 'Total Tracks',
-      value: tracks.length.toLocaleString(),
+      title: 'Available Tracks',
+      value: totalTracks.toLocaleString(),
       icon: Music,
       color: 'from-primary-500 to-primary-600',
-      change: '+12%',
-      changeType: 'positive' as const
+      subtitle: 'From SoundCloud API',
+      dataSource: 'api' as const
     },
     {
-      title: 'Listening Hours',
-      value: totalListeningHours.toFixed(1),
+      title: 'In-App Listening',
+      value: inAppListeningHours > 0 ? inAppListeningHours.toFixed(1) : '0.0',
       icon: Clock,
       color: 'from-soundcloud-500 to-soundcloud-600',
-      change: '+8%',
-      changeType: 'positive' as const
+      subtitle: 'Tracks in-app activity only',
+      dataSource: 'tracked' as const
     },
     {
-      title: 'Total Plays',
-      value: totalPlays.toLocaleString(),
+      title: 'In-App Plays',
+      value: inAppPlays.toLocaleString(),
       icon: Play,
       color: 'from-spotify-500 to-spotify-600',
-      change: '+15%',
-      changeType: 'positive' as const
+      subtitle: 'Plays within SoundWrapped',
+      dataSource: 'tracked' as const
     },
     {
-      title: 'Total Likes',
-      value: totalLikes.toLocaleString(),
+      title: 'Profile Likes',
+      value: profileLikes.toLocaleString(),
       icon: Heart,
       color: 'from-pink-500 to-pink-600',
-      change: '+22%',
-      changeType: 'positive' as const
+      subtitle: 'From SoundCloud profile',
+      dataSource: 'api' as const
     }
   ]
 
@@ -135,6 +152,24 @@ const DashboardPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Info Banner */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg"
+        >
+          <div className="flex items-start space-x-3">
+            <Info className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h4 className="text-sm font-semibold text-blue-300 mb-1">About Your Analytics</h4>
+              <p className="text-xs text-blue-200/80">
+                SoundCloud API doesn't provide listening history. The "In-App" stats only track activity within SoundWrapped. 
+                To build comprehensive analytics, use our player to listen to tracks. Platform-wide listening data is not available.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {stats.map((stat, index) => (
@@ -143,8 +178,12 @@ const DashboardPage: React.FC = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: index * 0.1 }}
+              className="relative"
             >
               <StatCard {...stat} />
+              {stat.subtitle && (
+                <p className="text-xs text-slate-500 mt-2 text-center">{stat.subtitle}</p>
+              )}
             </motion.div>
           ))}
         </div>

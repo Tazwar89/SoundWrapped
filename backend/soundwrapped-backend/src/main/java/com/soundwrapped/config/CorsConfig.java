@@ -20,23 +20,42 @@ public class CorsConfig implements WebMvcConfigurer {
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true);
+        
+        // Allow browser extension requests (Chrome extensions use chrome-extension:// origin, but also make requests directly)
+        // Note: Cannot use allowCredentials(true) with wildcard origins - background scripts don't need credentials anyway
+        registry.addMapping("/api/tracking/**")
+                .allowedOriginPatterns("*") // Allow all origins for tracking endpoints (browser extensions)
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(false); // Background scripts don't send cookies
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList(
+        // Frontend CORS configuration (for non-tracking endpoints)
+        CorsConfiguration frontendConfig = new CorsConfiguration();
+        frontendConfig.setAllowedOrigins(Arrays.asList(
                 "http://localhost:3000", 
                 "http://localhost:3001", 
                 "http://127.0.0.1:3000", 
                 "http://127.0.0.1:3001"
         ));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("*"));
-        configuration.setAllowCredentials(true);
+        frontendConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        frontendConfig.setAllowedHeaders(Arrays.asList("*"));
+        frontendConfig.setAllowCredentials(true);
+        
+        // Browser extension CORS configuration (for tracking endpoints)
+        CorsConfiguration extensionConfig = new CorsConfiguration();
+        extensionConfig.setAllowedOriginPatterns(Arrays.asList("*"));
+        extensionConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        extensionConfig.setAllowedHeaders(Arrays.asList("*"));
+        extensionConfig.setAllowCredentials(false);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", configuration);
+        // Register tracking endpoints with extension config (higher priority due to more specific path)
+        source.registerCorsConfiguration("/api/tracking/**", extensionConfig);
+        // Register other API endpoints with frontend config
+        source.registerCorsConfiguration("/api/**", frontendConfig);
         return source;
     }
 }

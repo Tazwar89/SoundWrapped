@@ -1,6 +1,7 @@
 package com.soundwrapped.controller;
 
 import com.soundwrapped.service.SoundWrappedService;
+import com.soundwrapped.service.AnalyticsService;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
@@ -18,9 +19,13 @@ import java.util.*;
 @RequestMapping("/api/soundcloud")
 public class SoundWrappedController {
 	private final SoundWrappedService soundWrappedService;
+	private final AnalyticsService analyticsService;
 
-	public SoundWrappedController(SoundWrappedService soundCloudService) {
+	public SoundWrappedController(
+			SoundWrappedService soundCloudService,
+			AnalyticsService analyticsService) {
 		this.soundWrappedService = soundCloudService;
+		this.analyticsService = analyticsService;
 	}
 
 	// =========================
@@ -142,6 +147,26 @@ public class SoundWrappedController {
 				emptyWrapped.put("stories", new ArrayList<>());
 				return emptyWrapped;
 			}
+		}
+	}
+
+	/**
+	 * Get combined dashboard analytics (API data + tracked activity)
+	 */
+	@GetMapping("/dashboard/analytics")
+	public Map<String, Object> getDashboardAnalytics() {
+		try {
+			Map<String, Object> profile = soundWrappedService.getUserProfile();
+			String userId = String.valueOf(profile.getOrDefault("id", "unknown"));
+			List<Map<String, Object>> tracks = soundWrappedService.getUserTracks();
+			
+			return analyticsService.getDashboardAnalytics(userId, profile, tracks);
+		} catch (Exception e) {
+			System.out.println("Error fetching dashboard analytics: " + e.getMessage());
+			Map<String, Object> error = new HashMap<>();
+			error.put("error", "Unable to fetch analytics");
+			error.put("message", e.getMessage());
+			return error;
 		}
 	}
 
