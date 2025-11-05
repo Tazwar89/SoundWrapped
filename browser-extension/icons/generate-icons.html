@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SoundWrapped Icon Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        canvas {
+            border: 1px solid #333;
+            margin: 10px;
+            background: white;
+        }
+        button {
+            padding: 10px 20px;
+            background: #ff5500;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #ff7733;
+        }
+        .icon-preview {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .preview-item {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 SoundWrapped Icon Generator</h1>
+        <p>Click the button to generate icons, then right-click and save each canvas.</p>
+        
+        <button onclick="generateIcons()">Generate Icons</button>
+        
+        <div class="icon-preview" id="preview"></div>
+    </div>
+
+    <script>
+        function generateIcons() {
+            const sizes = [16, 48, 128];
+            const preview = document.getElementById('preview');
+            preview.innerHTML = '';
+
+            sizes.forEach(size => {
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+
+                // Background gradient (SoundCloud orange)
+                const gradient = ctx.createLinearGradient(0, 0, size, size);
+                gradient.addColorStop(0, '#ff5500');
+                gradient.addColorStop(1, '#ff7733');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, size, size);
+
+                // Draw music note symbol
+                ctx.fillStyle = 'white';
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = Math.max(1, size / 20);
+
+                // Draw a simple music note
+                const centerX = size / 2;
+                const centerY = size / 2;
+                const noteSize = size * 0.4;
+
+                // Note stem
+                ctx.beginPath();
+                ctx.moveTo(centerX - noteSize * 0.3, centerY - noteSize * 0.5);
+                ctx.lineTo(centerX - noteSize * 0.3, centerY + noteSize * 0.3);
+                ctx.stroke();
+
+                // Note head (circle)
+                ctx.beginPath();
+                ctx.arc(centerX - noteSize * 0.3, centerY - noteSize * 0.5, noteSize * 0.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Note flag
+                if (size >= 48) {
+                    ctx.beginPath();
+                    ctx.moveTo(centerX - noteSize * 0.3, centerY + noteSize * 0.3);
+                    ctx.quadraticCurveTo(centerX, centerY + noteSize * 0.5, centerX + noteSize * 0.2, centerY + noteSize * 0.1);
+                    ctx.stroke();
+                }
+
+                // Add to preview
+                const previewItem = document.createElement('div');
+                previewItem.className = 'preview-item';
+                previewItem.innerHTML = `
+                    <canvas id="canvas-${size}" width="${size}" height="${size}"></canvas>
+                    <p>icon${size}.png (${size}x${size})</p>
+                    <button onclick="downloadIcon(${size})">Download</button>
+                `;
+                preview.appendChild(previewItem);
+
+                // Copy to preview canvas
+                const previewCanvas = document.getElementById(`canvas-${size}`);
+                const previewCtx = previewCanvas.getContext('2d');
+                previewCtx.drawImage(canvas, 0, 0);
+            });
+        }
+
+        function downloadIcon(size) {
+            const canvas = document.getElementById(`canvas-${size}`);
+            const link = document.createElement('a');
+            link.download = `icon${size}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+
+        // Auto-generate on load
+        window.onload = generateIcons;
+    </script>
+</body>
+</html>
