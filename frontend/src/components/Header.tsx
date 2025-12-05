@@ -20,14 +20,14 @@ const Header: React.FC = () => {
   const isActive = (path: string) => location.pathname === path
 
   return (
-    <header className="sticky top-0 z-50 glass-strong border-b border-white/10">
+    <header className="sticky top-0 z-50 bg-black/5 border-b border-white/5">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2 group">
             <div className="relative">
-              <Music className="h-8 w-8 text-primary-400 group-hover:text-primary-300 transition-colors" />
-              <div className="absolute -top-1 -right-1 h-3 w-3 bg-gradient-to-r from-soundcloud-400 to-spotify-400 rounded-full animate-pulse" />
+              <Music className="h-8 w-8 text-orange-500 group-hover:text-orange-400 transition-colors" />
+              <div className="absolute -top-1 -right-1 h-3 w-3 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full animate-pulse" />
             </div>
             <span className="text-xl font-bold gradient-text">SoundWrapped</span>
           </Link>
@@ -43,7 +43,7 @@ const Header: React.FC = () => {
                   className={cn(
                     'flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
                     isActive(item.href)
-                      ? 'bg-primary-500/20 text-primary-300'
+                      ? 'bg-orange-500/20 text-orange-400'
                       : 'text-slate-300 hover:text-white hover:bg-white/5'
                   )}
                 >
@@ -70,7 +70,7 @@ const Header: React.FC = () => {
                       className="h-8 w-8 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-r from-primary-500 to-soundcloud-500 flex items-center justify-center">
+                    <div className="h-8 w-8 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center">
                       <User className="h-4 w-4 text-white" />
                     </div>
                   )}
@@ -116,7 +116,7 @@ const Header: React.FC = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden glass border-t border-white/10"
+            className="md:hidden bg-black/5 border-t border-white/5"
           >
             <div className="px-4 py-4 space-y-2">
               {navigation.map((item) => {
@@ -129,7 +129,7 @@ const Header: React.FC = () => {
                     className={cn(
                       'flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200',
                       isActive(item.href)
-                        ? 'bg-primary-500/20 text-primary-300'
+                        ? 'bg-orange-500/20 text-orange-400'
                         : 'text-slate-300 hover:text-white hover:bg-white/5'
                     )}
                   >

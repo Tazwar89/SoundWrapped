@@ -65,15 +65,21 @@ chrome.runtime.onMessage?.addListener((message, sender, sendResponse) => {
     return false;
 });
 
-// Periodically check if user is authenticated (only if alarms API is available)
+// Periodically check if user is authenticated and refresh tokens if needed
 if (chrome.alarms) {
     try {
+        // Check auth status every 5 minutes
         chrome.alarms.create('checkAuth', { periodInMinutes: 5 });
+        // Refresh token proactively every hour (before expiration)
+        chrome.alarms.create('refreshToken', { periodInMinutes: 60 });
         
         chrome.alarms.onAlarm.addListener((alarm) => {
             if (alarm.name === 'checkAuth') {
                 // Check authentication status
                 checkAuthStatus();
+            } else if (alarm.name === 'refreshToken') {
+                // Proactively refresh token to prevent expiration
+                refreshTokenProactively();
             }
         });
     } catch (error) {
@@ -91,16 +97,29 @@ async function checkAuthStatus() {
         
         if (response.ok) {
             const data = await response.json();
-            // Use tokenValid if available (after proactive refresh), otherwise fall back to hasAccessToken
-            const isAuthenticated = (data.tokenValid === true) || 
-                                   (data.tokenValid === undefined && data.hasAccessToken === true);
+            const isAuthenticated = data.hasAccessToken === true;
+            const needsRefresh = data.needsRefresh === true;
+            
+            // If token needs refresh, proactively refresh it
+            if (needsRefresh && isAuthenticated) {
+                console.log('[SoundWrapped Background] 🔄 Token needs refresh, refreshing now...');
+                await refreshTokenProactively();
+                // Re-check auth status after refresh
+                const refreshResponse = await fetch('http://localhost:8080/api/soundcloud/debug/tokens', {
+                    method: 'GET'
+                });
+                if (refreshResponse.ok) {
+                    const refreshData = await refreshResponse.json();
+                    const refreshedAuth = refreshData.hasAccessToken === true;
+                    if (chrome.storage && chrome.storage.local) {
+                        chrome.storage.local.set({ authenticated: refreshedAuth });
+                    }
+                    return refreshedAuth;
+                }
+            }
             
             if (chrome.storage && chrome.storage.local) {
-                chrome.storage.local.set({ 
-                    authenticated: isAuthenticated,
-                    tokenValid: data.tokenValid,
-                    message: data.message
-                });
+                chrome.storage.local.set({ authenticated: isAuthenticated });
             }
             
             return isAuthenticated;
@@ -161,6 +180,34 @@ async function trackLike(trackId) {
         }
     } catch (error) {
         console.error('[SoundWrapped Background] ❌ Like tracking error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function refreshTokenProactively() {
+    try {
+        console.log('[SoundWrapped Background] 🔄 Proactively refreshing token...');
+        const response = await fetch('http://localhost:8080/api/soundcloud/refresh-token', {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                console.log('[SoundWrapped Background] ✅ Token refreshed proactively');
+                // Update auth status after refresh
+                await checkAuthStatus();
+            } else {
+                console.log('[SoundWrapped Background] ⚠️ Token refresh returned false:', result.message);
+            }
+            return result;
+        } else {
+            const errorText = await response.text();
+            console.error('[SoundWrapped Background] ❌ Token refresh failed:', response.status, errorText);
+            return { success: false, error: `HTTP ${response.status}: ${errorText}` };
+        }
+    } catch (error) {
+        console.error('[SoundWrapped Background] ❌ Token refresh error:', error);
         return { success: false, error: error.message };
     }
 }

@@ -2,6 +2,8 @@ package com.soundwrapped.controller;
 
 import com.soundwrapped.service.SoundWrappedService;
 import com.soundwrapped.service.AnalyticsService;
+import com.soundwrapped.service.MusicDoppelgangerService;
+import com.soundwrapped.service.ArtistAnalyticsService;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
@@ -20,12 +22,18 @@ import java.util.*;
 public class SoundWrappedController {
 	private final SoundWrappedService soundWrappedService;
 	private final AnalyticsService analyticsService;
+	private final MusicDoppelgangerService musicDoppelgangerService;
+	private final ArtistAnalyticsService artistAnalyticsService;
 
 	public SoundWrappedController(
 			SoundWrappedService soundCloudService,
-			AnalyticsService analyticsService) {
+			AnalyticsService analyticsService,
+			MusicDoppelgangerService musicDoppelgangerService,
+			ArtistAnalyticsService artistAnalyticsService) {
 		this.soundWrappedService = soundCloudService;
 		this.analyticsService = analyticsService;
+		this.musicDoppelgangerService = musicDoppelgangerService;
+		this.artistAnalyticsService = artistAnalyticsService;
 	}
 
 	// =========================
@@ -170,40 +178,104 @@ public class SoundWrappedController {
 		}
 	}
 
+	/**
+	 * Get Music Doppelgänger (taste matching with followed users)
+	 * This endpoint can be called separately as it may take time due to API calls.
+	 */
+	@GetMapping("/music-doppelganger")
+	public Map<String, Object> getMusicDoppelganger() {
+		try {
+			return musicDoppelgangerService.findMusicDoppelganger();
+		} catch (Exception e) {
+			System.out.println("Error finding Music Doppelgänger: " + e.getMessage());
+			Map<String, Object> error = new HashMap<>();
+			error.put("found", false);
+			error.put("message", "Error analyzing taste similarity: " + e.getMessage());
+			return error;
+		}
+	}
+
+	/**
+	 * Get artist analytics (for users who upload tracks)
+	 */
+	@GetMapping("/artist/analytics")
+	public Map<String, Object> getArtistAnalytics() {
+		try {
+			Map<String, Object> profile = soundWrappedService.getUserProfile();
+			String userId = String.valueOf(profile.getOrDefault("id", "unknown"));
+			return artistAnalyticsService.getArtistAnalytics(userId);
+		} catch (Exception e) {
+			System.out.println("Error fetching artist analytics: " + e.getMessage());
+			Map<String, Object> error = new HashMap<>();
+			error.put("error", "Unable to fetch artist analytics");
+			error.put("message", e.getMessage());
+			return error;
+		}
+	}
+
+	/**
+	 * Get artist recommendations based on a track
+	 */
+	@GetMapping("/artist/recommendations")
+	public List<Map<String, Object>> getArtistRecommendations(@RequestParam String trackId) {
+		try {
+			return artistAnalyticsService.getArtistRecommendations(trackId);
+		} catch (Exception e) {
+			System.out.println("Error fetching artist recommendations: " + e.getMessage());
+			return new ArrayList<>();
+		}
+	}
+
 	// Debug endpoint to check token status
 	@GetMapping("/debug/tokens")
 	public Map<String, Object> getTokenStatus() {
 		Map<String, Object> status = new HashMap<>();
-		String accessToken = soundWrappedService.getTokenStore().getAccessToken();
-		String refreshToken = soundWrappedService.getTokenStore().getRefreshToken();
+		status.put("hasAccessToken", soundWrappedService.getTokenStore().getAccessToken() != null);
+		status.put("hasRefreshToken", soundWrappedService.getTokenStore().getRefreshToken() != null);
+		status.put("accessTokenLength", soundWrappedService.getTokenStore().getAccessToken() != null ? 
+			soundWrappedService.getTokenStore().getAccessToken().length() : 0);
+		status.put("hasValidToken", soundWrappedService.getTokenStore().hasValidToken());
+		status.put("needsRefresh", soundWrappedService.getTokenStore().needsRefresh());
 		
-		boolean hasAccessToken = accessToken != null && !accessToken.isBlank();
-		boolean hasRefreshToken = refreshToken != null && !refreshToken.isBlank();
-		
-		status.put("hasAccessToken", hasAccessToken);
-		status.put("hasRefreshToken", hasRefreshToken);
-		status.put("accessTokenLength", (hasAccessToken && accessToken != null) ? accessToken.length() : 0);
-		
-		// Proactively verify and refresh token if needed
-		if (hasAccessToken && hasRefreshToken) {
-			try {
-				boolean isValid = soundWrappedService.verifyAndRefreshTokenIfNeeded();
-				status.put("tokenValid", isValid);
-				if (isValid) {
-					status.put("message", "Token is valid");
-				} else {
-					status.put("message", "Token verification failed");
-				}
-			} catch (Exception e) {
-				status.put("tokenValid", false);
-				status.put("message", "Error verifying token: " + e.getMessage());
-			}
-		} else {
-			status.put("tokenValid", false);
-			status.put("message", "Missing tokens - user needs to authenticate");
+		// Include expiration info if available
+		var tokenOpt = soundWrappedService.getTokenStore().getToken();
+		if (tokenOpt.isPresent()) {
+			var token = tokenOpt.get();
+			status.put("expiresAt", token.getExpiresAt() != null ? token.getExpiresAt().toString() : "unknown");
+			status.put("isExpired", token.isExpired());
+			status.put("isExpiringSoon", token.isExpiredOrExpiringSoon());
 		}
 		
 		return status;
+	}
+
+	/**
+	 * Proactively refresh the access token.
+	 * This endpoint can be called by the browser extension or frontend
+	 * to ensure tokens stay fresh even during inactivity.
+	 */
+	@PostMapping("/refresh-token")
+	public Map<String, Object> refreshToken() {
+		Map<String, Object> result = new HashMap<>();
+		try {
+			String refreshToken = soundWrappedService.getTokenStore().getRefreshToken();
+			if (refreshToken == null || refreshToken.isBlank()) {
+				result.put("success", false);
+				result.put("message", "No refresh token available. User must re-authenticate.");
+				return result;
+			}
+
+			String newAccessToken = soundWrappedService.refreshAccessToken(refreshToken);
+			result.put("success", true);
+			result.put("message", "Token refreshed successfully");
+			result.put("hasAccessToken", newAccessToken != null);
+			return result;
+		} catch (Exception e) {
+			result.put("success", false);
+			result.put("message", "Failed to refresh token: " + e.getMessage());
+			result.put("error", e.getClass().getSimpleName());
+			return result;
+		}
 	}
 
 	// Test OAuth URL generation

@@ -20,11 +20,7 @@ async function checkAuth() {
         const response = await fetch('http://localhost:8080/api/soundcloud/debug/tokens');
         if (response.ok) {
             const data = await response.json();
-            // Use tokenValid if available (after proactive refresh), otherwise fall back to hasAccessToken
-            const isAuthenticated = (data.tokenValid === true) || 
-                                   (data.tokenValid === undefined && data.hasAccessToken === true);
-            
-            if (isAuthenticated) {
+            if (data.hasAccessToken) {
                 document.getElementById('status').textContent = '✅ Connected & Authenticated';
                 document.getElementById('status').className = 'status connected';
             } else {

@@ -2,6 +2,7 @@ package com.soundwrapped.integration_tests;
 
 import com.soundwrapped.service.SoundWrappedService;
 import com.soundwrapped.service.TokenStore;
+import com.soundwrapped.service.GenreAnalysisService;
 import com.soundwrapped.entity.Token;
 import com.soundwrapped.exception.TokenRefreshException;
 import com.soundwrapped.repository.TokenRepository;
@@ -37,13 +38,16 @@ class SoundWrappedServiceIntegrationTest {
 	@MockBean
 	private RestTemplate restTemplate;
 
+	@MockBean
+	private GenreAnalysisService genreAnalysisService;
+
 	private SoundWrappedService soundWrappedService;
 
 	@BeforeEach
 	void setUp() {
 		MockitoAnnotations.openMocks(this);
 		tokenStore = new TokenStore(tokenRepository);
-		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate);
+		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate, genreAnalysisService);
 
 		// Inject dummy SoundCloud API values
 		ReflectionTestUtils.setField(soundWrappedService, "soundCloudApiBaseUrl", "https://api.soundcloud.com");
