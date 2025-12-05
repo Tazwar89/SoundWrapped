@@ -4,13 +4,13 @@ import { Music, Github, Twitter, Mail } from 'lucide-react'
 
 const Footer: React.FC = () => {
   return (
-    <footer className="glass border-t border-white/10 mt-auto">
+    <footer className="bg-black/5 border-t border-white/5 mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center space-x-2 mb-4">
-              <Music className="h-8 w-8 text-primary-400" />
+              <Music className="h-8 w-8 text-orange-500" />
               <span className="text-2xl font-bold gradient-text">SoundWrapped</span>
             </div>
             <p className="text-slate-400 mb-6 max-w-md">

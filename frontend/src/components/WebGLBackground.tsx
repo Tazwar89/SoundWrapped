@@ -20,7 +20,6 @@ const WebGLBackground: React.FC<WebGLBackgroundProps> = ({ className = '' }) => 
     })
 
     if (!gl) {
-      // Fallback: Hide canvas if WebGL2 not supported
       canvas.style.display = 'none'
       return
     }
@@ -38,160 +37,182 @@ const WebGLBackground: React.FC<WebGLBackgroundProps> = ({ className = '' }) => 
     resizeCanvas()
     window.addEventListener('resize', resizeCanvas)
 
-    // Vertex shader source
+    // Vertex shader (adapted from provided shader)
     const vertexShaderSource = `#version 300 es
-      in vec2 a_position;
-      in vec2 a_texCoord;
+      precision highp float;
       
-      out vec2 v_texCoord;
+      in vec3 position;
+      in vec2 uv;
+      out vec2 vUv;
       
       void main() {
-        gl_Position = vec4(a_position, 0.0, 1.0);
-        v_texCoord = a_texCoord;
+        vUv = uv;
+        gl_Position = vec4(position, 1.0);
       }
     `
 
-    // Fragment shader source - Luma-inspired dynamic gradient with particles
+    // Fragment shader (from provided shader)
     const fragmentShaderSource = `#version 300 es
       precision highp float;
       
-      in vec2 v_texCoord;
-      out vec4 fragColor;
+      in vec2 vUv;
+      out vec4 pc_fragColor;
       
-      uniform float u_time;
-      uniform vec2 u_resolution;
-      uniform vec2 u_mouse;
+      uniform float uTime;
+      uniform float uSpeed;
+      uniform float uNoiseDensity;
+      uniform float uNoiseStrength;
+      uniform float uBrightness;
+      uniform float uAlpha;
+      uniform vec3 uColor1;
+      uniform vec3 uColor2;
+      uniform vec3 uColor3;
+      uniform vec2 uResolution;
+      uniform vec2 uAspectRatio;
+      uniform vec2 uOffset;
       
-      // Luma-inspired color palette: purple → pink/red → yellow/orange
-      // Based on Luma's default-gradient: #8a18a8 → #ce2756 → #e7a90d
-      vec3 purple = vec3(0.529, 0.094, 0.659);      // #8a18a8
-      vec3 pink = vec3(0.808, 0.153, 0.337);        // #ce2756
-      vec3 red = vec3(0.812, 0.165, 0.333);         // #cf2a55
-      vec3 yellow = vec3(0.906, 0.663, 0.051);     // #e7a90d
-      
-      // Improved noise function
-      float random(vec2 st) {
-        return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+      vec3 mod289(vec3 x) {
+        return x - floor(x * (1.0 / 289.0)) * 289.0;
       }
       
-      float noise(vec2 p) {
-        vec2 i = floor(p);
-        vec2 f = fract(p);
-        f = f * f * (3.0 - 2.0 * f);
-        
-        float a = random(i);
-        float b = random(i + vec2(1.0, 0.0));
-        float c = random(i + vec2(0.0, 1.0));
-        float d = random(i + vec2(1.0, 1.0));
-        
-        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+      vec4 mod289(vec4 x) {
+        return x - floor(x * (1.0 / 289.0)) * 289.0;
       }
       
-      float fbm(vec2 p) {
-        float value = 0.0;
-        float amplitude = 0.5;
-        float frequency = 1.0;
-        
-        for (int i = 0; i < 5; i++) {
-          value += amplitude * noise(p * frequency);
-          frequency *= 2.0;
-          amplitude *= 0.5;
-        }
-        
-        return value;
+      vec4 permute(vec4 x) {
+        return mod289(((x*34.0)+1.0)*x);
       }
       
-      // Bokeh-style particles (inspired by Luma's particle effects)
-      float bokeh(vec2 uv, vec2 center, float size, float intensity) {
-        float dist = distance(uv, center);
-        float circle = 1.0 - smoothstep(0.0, size, dist);
-        return circle * intensity;
+      vec4 taylorInvSqrt(vec4 r) {
+        return 1.79284291400159 - 0.85373472095314 * r;
+      }
+      
+      vec3 fade(vec3 t) {
+        return t*t*t*(t*(t*6.0-15.0)+10.0);
+      }
+      
+      float cnoise(vec3 P) {
+        vec3 Pi0 = floor(P);
+        vec3 Pi1 = Pi0 + vec3(1.0);
+        Pi0 = mod289(Pi0);
+        Pi1 = mod289(Pi1);
+        vec3 Pf0 = fract(P);
+        vec3 Pf1 = Pf0 - vec3(1.0);
+        vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);
+        vec4 iy = vec4(Pi0.yy, Pi1.yy);
+        vec4 iz0 = Pi0.zzzz;
+        vec4 iz1 = Pi1.zzzz;
+        
+        vec4 ixy = permute(permute(ix) + iy);
+        vec4 ixy0 = permute(ixy + iz0);
+        vec4 ixy1 = permute(ixy + iz1);
+        
+        vec4 gx0 = ixy0 * (1.0 / 7.0);
+        vec4 gy0 = fract(floor(gx0) * (1.0 / 7.0)) - 0.5;
+        gx0 = fract(gx0);
+        vec4 gz0 = vec4(0.5) - abs(gx0) - abs(gy0);
+        vec4 sz0 = step(gz0, vec4(0.0));
+        gx0 -= sz0 * (step(0.0, gx0) - 0.5);
+        gy0 -= sz0 * (step(0.0, gy0) - 0.5);
+        
+        vec4 gx1 = ixy1 * (1.0 / 7.0);
+        vec4 gy1 = fract(floor(gx1) * (1.0 / 7.0)) - 0.5;
+        gx1 = fract(gx1);
+        vec4 gz1 = vec4(0.5) - abs(gx1) - abs(gy1);
+        vec4 sz1 = step(gz1, vec4(0.0));
+        gx1 -= sz1 * (step(0.0, gx1) - 0.5);
+        gy1 -= sz1 * (step(0.0, gy1) - 0.5);
+        
+        vec3 g000 = vec3(gx0.x,gy0.x,gz0.x);
+        vec3 g100 = vec3(gx0.y,gy0.y,gz0.y);
+        vec3 g010 = vec3(gx0.z,gy0.z,gz0.z);
+        vec3 g110 = vec3(gx0.w,gy0.w,gz0.w);
+        vec3 g001 = vec3(gx1.x,gy1.x,gz1.x);
+        vec3 g101 = vec3(gx1.y,gy1.y,gz1.y);
+        vec3 g011 = vec3(gx1.z,gy1.z,gz1.z);
+        vec3 g111 = vec3(gx1.w,gy1.w,gz1.w);
+        
+        vec4 norm0 = taylorInvSqrt(vec4(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));
+        g000 *= norm0.x;
+        g010 *= norm0.y;
+        g100 *= norm0.z;
+        g110 *= norm0.w;
+        vec4 norm1 = taylorInvSqrt(vec4(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));
+        g001 *= norm1.x;
+        g011 *= norm1.y;
+        g101 *= norm1.z;
+        g111 *= norm1.w;
+        
+        float n000 = dot(g000, Pf0);
+        float n100 = dot(g100, vec3(Pf1.x, Pf0.yz));
+        float n010 = dot(g010, vec3(Pf0.x, Pf1.y, Pf0.z));
+        float n110 = dot(g110, vec3(Pf1.xy, Pf0.z));
+        float n001 = dot(g001, vec3(Pf0.xy, Pf1.z));
+        float n101 = dot(g101, vec3(Pf1.x, Pf0.y, Pf1.z));
+        float n011 = dot(g011, vec3(Pf0.x, Pf1.yz));
+        float n111 = dot(g111, Pf1);
+        
+        vec3 fade_xyz = fade(Pf0);
+        vec4 n_z = mix(vec4(n000, n100, n010, n110), vec4(n001, n101, n011, n111), fade_xyz.z);
+        vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);
+        float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x);
+        return 2.2 * n_xyz;
       }
       
       void main() {
-        vec2 uv = v_texCoord;
-        vec2 center = vec2(0.5, 0.5);
-        float dist = distance(uv, center);
+        vec2 uv = vUv;
         
-        // Luma-style diagonal gradient (-45deg, like CSS linear-gradient(-45deg, ...))
-        // For -45deg: gradient runs from top-left (0,0) to bottom-right (1,1)
-        // Position along diagonal: normalize (x + y) from [0, 2] to [0, 1]
-        float diagonal = (uv.x + uv.y) * 0.5;
+        // Normalize UV coordinates
+        uv -= vec2(0.5);
+        uv *= uAspectRatio;
+        uv += vec2(0.5);
         
-        // Subtle animation - slow drift
-        float timeOffset = sin(u_time * 0.15) * 0.03;
-        float gradientPos = diagonal + timeOffset;
-        gradientPos = mod(gradientPos, 1.0);
+        // Scale UV for noise sampling
+        vec2 scaledUV = uv * 2.0;
+        float t = uTime * uSpeed;
         
-        // Luma gradient stops: purple(0%) → pink(51.59%) → red(51.6%) → yellow(100%)
-        vec3 gradientColor;
-        if (gradientPos < 0.5159) {
-          // Purple to pink
-          float t = gradientPos / 0.5159;
-          gradientColor = mix(purple, pink, t);
-        } else if (gradientPos < 0.516) {
-          // Pink to red (very small transition)
-          gradientColor = mix(pink, red, 0.5);
-        } else {
-          // Red to yellow
-          float t = (gradientPos - 0.516) / (1.0 - 0.516);
-          gradientColor = mix(red, yellow, t);
-        }
+        // Create multiple layers of noise for organic, fluid patterns (like Luma)
+        // Layer 1: Large-scale flowing patterns (faster)
+        float noise1 = cnoise(vec3(scaledUV * 0.5, t * 0.8)) * 0.5 + 0.5;
         
-        // Add subtle flowing movement
-        vec2 flowUV = uv * 2.0;
-        flowUV.x += sin(u_time * 0.3 + uv.y * 2.0) * 0.05;
-        flowUV.y += cos(u_time * 0.25 + uv.x * 2.0) * 0.05;
+        // Layer 2: Medium-scale waves (faster)
+        float noise2 = cnoise(vec3(scaledUV * 1.2 + vec2(t * 0.6, t * 0.5), t * 1.0)) * 0.5 + 0.5;
         
-        // Subtle noise texture for depth
-        float n = fbm(flowUV * 1.5 + u_time * 0.1);
-        gradientColor = mix(gradientColor, gradientColor * 1.1, n * 0.15);
+        // Layer 3: Fine details (faster)
+        float noise3 = cnoise(vec3(scaledUV * 2.5 - vec2(t * 0.4, t * 0.6), t * 1.2)) * 0.5 + 0.5;
         
-        // Bokeh particles (subtle, elegant like Luma's champagne/bokeh particles)
-        float particles = 0.0;
-        vec2 particleUV = uv * 2.5;
+        // Combine noise layers with different weights for organic feel
+        float combinedNoise = noise1 * 0.5 + noise2 * 0.3 + noise3 * 0.2;
         
-        // Multiple subtle particle layers with varying sizes and speeds
-        for (int i = 0; i < 6; i++) {
-          float angle = float(i) * 1.047; // ~60 degrees spacing
-          float speed = 0.08 + float(i) * 0.03;
-          vec2 offset = vec2(
-            cos(angle + u_time * speed),
-            sin(angle + u_time * (speed * 1.3))
-          ) * (0.25 + float(i) * 0.05);
-          
-          vec2 particleCenter = vec2(0.5) + offset;
-          float size = 0.12 + float(i) * 0.02;
-          float intensity = 0.04 + float(i) * 0.01;
-          float pulse = 0.6 + 0.4 * sin(u_time * 1.5 + float(i) * 0.8);
-          
-          particles += bokeh(particleUV, particleCenter, size, intensity) * pulse;
-        }
+        // Create flowing, wavy distortion using multiple octaves (faster)
+        vec2 flow = vec2(
+          cnoise(vec3(scaledUV * 0.8, t * 0.7)),
+          cnoise(vec3(scaledUV * 0.8 + vec2(100.0), t * 0.7))
+        ) * 0.3;
         
-        // Soft, warm particle overlay (champagne-like)
-        gradientColor += particles * vec3(1.0, 0.95, 0.85) * 0.35;
+        // Apply flow to UV for more organic movement
+        vec2 distortedUV = scaledUV + flow;
         
-        // Radial glow from center (like Luma's subtle depth)
-        float radialGlow = 1.0 - smoothstep(0.0, 0.8, dist);
-        gradientColor = mix(gradientColor * 0.7, gradientColor, radialGlow);
+        // Create diagonal gradient from orange to black (SoundCloud style)
+        // Use the distorted UV for more organic gradient transitions
+        float diagonal = (distortedUV.x + distortedUV.y) * 0.3;
         
-        // Mouse interaction (subtle, like Luma's interactive feel)
-        vec2 mouseUV = u_mouse / u_resolution;
-        if (mouseUV.x > 0.0 && mouseUV.y > 0.0) {
-          float mouseDist = distance(uv, mouseUV);
-          float mouseGlow = smoothstep(0.4, 0.0, mouseDist);
-          gradientColor += mouseGlow * vec3(0.15, 0.1, 0.2) * 0.3;
-        }
+        // Smooth gradient transitions with multiple steps
+        vec3 color = mix(uColor1, uColor2, smoothstep(-1.5, 1.5, diagonal));
+        color = mix(color, uColor3, smoothstep(-0.5, 2.5, diagonal));
         
-        // Soft vignette for depth
-        float vignette = 1.0 - smoothstep(0.4, 1.2, dist);
-        gradientColor *= (0.75 + vignette * 0.25);
+        // Use combined noise to create organic color variations
+        // This creates the fluid, cloud-like effect similar to Luma
+        float noiseInfluence = (combinedNoise - 0.5) * uNoiseStrength;
+        color = mix(color, uColor3, noiseInfluence * 0.4);
         
-        // Subtle brightness adjustment for elegance
-        gradientColor = pow(gradientColor, vec3(0.95));
+        // Add subtle highlights using noise
+        float highlight = smoothstep(0.6, 0.8, combinedNoise);
+        color = mix(color, uColor1 * 1.2, highlight * 0.15);
         
-        // Luma-style opacity - subtle but visible
-        fragColor = vec4(gradientColor, 0.5);
+        color *= uBrightness;
+        
+        pc_fragColor = vec4(color, uAlpha);
       }
     `
 
@@ -234,14 +255,14 @@ const WebGLBackground: React.FC<WebGLBackgroundProps> = ({ className = '' }) => 
     const positionBuffer = gl.createBuffer()
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-      -1, -1,  // bottom left
-       1, -1,  // bottom right
-      -1,  1,  // top left
-       1,  1   // top right
+      -1, -1, 0,  // bottom left
+       1, -1, 0,  // bottom right
+      -1,  1, 0,  // top left
+       1,  1, 0   // top right
     ]), gl.STATIC_DRAW)
 
-    const texCoordBuffer = gl.createBuffer()
-    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer)
+    const uvBuffer = gl.createBuffer()
+    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
       0, 0,  // bottom left
       1, 0,  // bottom right
@@ -249,23 +270,39 @@ const WebGLBackground: React.FC<WebGLBackgroundProps> = ({ className = '' }) => 
       1, 1   // top right
     ]), gl.STATIC_DRAW)
 
-    // Get attribute locations
-    const positionLocation = gl.getAttribLocation(program, 'a_position')
-    const texCoordLocation = gl.getAttribLocation(program, 'a_texCoord')
-    const timeLocation = gl.getUniformLocation(program, 'u_time')
-    const resolutionLocation = gl.getUniformLocation(program, 'u_resolution')
-    const mouseLocation = gl.getUniformLocation(program, 'u_mouse')
+    // Get attribute and uniform locations
+    const positionLocation = gl.getAttribLocation(program, 'position')
+    const uvLocation = gl.getAttribLocation(program, 'uv')
+    
+    const uTimeLocation = gl.getUniformLocation(program, 'uTime')
+    const uSpeedLocation = gl.getUniformLocation(program, 'uSpeed')
+    const uNoiseDensityLocation = gl.getUniformLocation(program, 'uNoiseDensity')
+    const uNoiseStrengthLocation = gl.getUniformLocation(program, 'uNoiseStrength')
+    const uBrightnessLocation = gl.getUniformLocation(program, 'uBrightness')
+    const uAlphaLocation = gl.getUniformLocation(program, 'uAlpha')
+    const uColor1Location = gl.getUniformLocation(program, 'uColor1')
+    const uColor2Location = gl.getUniformLocation(program, 'uColor2')
+    const uColor3Location = gl.getUniformLocation(program, 'uColor3')
+    const uResolutionLocation = gl.getUniformLocation(program, 'uResolution')
+    const uAspectRatioLocation = gl.getUniformLocation(program, 'uAspectRatio')
+    const uOffsetLocation = gl.getUniformLocation(program, 'uOffset')
 
-    // Mouse position
-    let mouseX = 0
-    let mouseY = 0
-
-    const handleMouseMove = (e: MouseEvent) => {
-      mouseX = e.clientX
-      mouseY = e.clientY
+    // Shader parameters (SoundCloud orange-black gradient with Luma-style fluid animation)
+    // SoundCloud official brand colors:
+    // - Primary: #FF5500 (RGB: 255, 85, 0) - bright orange
+    // - Secondary: #000000 (RGB: 0, 0, 0) - black
+    // Animation style inspired by Luma's fluid, organic background
+    const params = {
+      speed: 1.5,                        // Fast, dynamic movement
+      noiseDensity: 1.0,
+      noiseStrength: 0.6,               // Increased for more organic variation
+      brightness: 1.0,
+      alpha: 1.0,                      // Fully opaque for maximum visibility
+      color1: [1.0, 0.333, 0.0],         // SoundCloud orange #FF5500 (RGB: 255, 85, 0)
+      color2: [0.5, 0.165, 0.0],         // Mid-tone dark orange #802A00 (RGB: 128, 42, 0)
+      color3: [0.0, 0.0, 0.0],           // Black #000000
+      offset: [0.0, 0.0]
     }
-
-    window.addEventListener('mousemove', handleMouseMove)
 
     // Animation loop
     let startTime = Date.now()
@@ -276,10 +313,24 @@ const WebGLBackground: React.FC<WebGLBackgroundProps> = ({ className = '' }) => 
 
       gl.useProgram(program)
 
+      // Calculate aspect ratio
+      const aspectRatio = canvas.width > canvas.height 
+        ? [canvas.height / canvas.width, 1.0]
+        : [1.0, canvas.width / canvas.height]
+
       // Set uniforms
-      gl.uniform1f(timeLocation, elapsed)
-      gl.uniform2f(resolutionLocation, canvas.width, canvas.height)
-      gl.uniform2f(mouseLocation, mouseX, canvas.height - mouseY)
+      gl.uniform1f(uTimeLocation, elapsed)
+      gl.uniform1f(uSpeedLocation, params.speed)
+      gl.uniform1f(uNoiseDensityLocation, params.noiseDensity)
+      gl.uniform1f(uNoiseStrengthLocation, params.noiseStrength)
+      gl.uniform1f(uBrightnessLocation, params.brightness)
+      gl.uniform1f(uAlphaLocation, params.alpha)
+      gl.uniform3fv(uColor1Location, params.color1)
+      gl.uniform3fv(uColor2Location, params.color2)
+      gl.uniform3fv(uColor3Location, params.color3)
+      gl.uniform2f(uResolutionLocation, canvas.width, canvas.height)
+      gl.uniform2fv(uAspectRatioLocation, aspectRatio)
+      gl.uniform2fv(uOffsetLocation, params.offset)
 
       // Enable blending for transparency
       gl.enable(gl.BLEND)
@@ -288,11 +339,11 @@ const WebGLBackground: React.FC<WebGLBackgroundProps> = ({ className = '' }) => 
       // Bind and draw
       gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
       gl.enableVertexAttribArray(positionLocation)
-      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0)
+      gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0)
 
-      gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer)
-      gl.enableVertexAttribArray(texCoordLocation)
-      gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0)
+      gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer)
+      gl.enableVertexAttribArray(uvLocation)
+      gl.vertexAttribPointer(uvLocation, 2, gl.FLOAT, false, 0, 0)
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
 
@@ -304,7 +355,6 @@ const WebGLBackground: React.FC<WebGLBackgroundProps> = ({ className = '' }) => 
     // Cleanup
     return () => {
       window.removeEventListener('resize', resizeCanvas)
-      window.removeEventListener('mousemove', handleMouseMove)
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
       }
@@ -312,18 +362,24 @@ const WebGLBackground: React.FC<WebGLBackgroundProps> = ({ className = '' }) => 
       gl.deleteShader(vertexShader)
       gl.deleteShader(fragmentShader)
       gl.deleteBuffer(positionBuffer)
-      gl.deleteBuffer(texCoordBuffer)
+      gl.deleteBuffer(uvBuffer)
     }
   }, [])
 
   return (
     <canvas
       ref={canvasRef}
-      className={`fixed inset-0 w-full h-full pointer-events-none ${className}`}
+      className={`fixed inset-0 w-full h-full pointer-events-none webgl-background ${className}`}
       style={{ 
         zIndex: 0,
         mixBlendMode: 'normal',
-        willChange: 'transform'
+        willChange: 'transform',
+        background: 'transparent',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%'
       }}
     />
   )

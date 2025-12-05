@@ -17,9 +17,19 @@ import java.util.Map;
 public class AnalyticsService {
 
     private final UserActivityRepository activityRepository;
+    private final GenreAnalysisService genreAnalysisService;
+    private final ListeningPatternService listeningPatternService;
+    private final MusicDoppelgangerService musicDoppelgangerService;
 
-    public AnalyticsService(UserActivityRepository activityRepository) {
+    public AnalyticsService(
+            UserActivityRepository activityRepository,
+            GenreAnalysisService genreAnalysisService,
+            ListeningPatternService listeningPatternService,
+            MusicDoppelgangerService musicDoppelgangerService) {
         this.activityRepository = activityRepository;
+        this.genreAnalysisService = genreAnalysisService;
+        this.listeningPatternService = listeningPatternService;
+        this.musicDoppelgangerService = musicDoppelgangerService;
     }
 
     /**
@@ -91,12 +101,32 @@ public class AnalyticsService {
             "note", "These stats only reflect activity within SoundWrapped app, not SoundCloud platform activity"
         ));
         
+        // Genre analysis
+        Map<String, Object> genreAnalysis = genreAnalysisService.analyzeGenres(apiTracksData);
+        analytics.put("genreAnalysis", genreAnalysis);
+        
+        // Listening pattern analysis
+        Map<String, Object> listeningPatterns = listeningPatternService.analyzeListeningPatterns(soundcloudUserId);
+        analytics.put("listeningPatterns", listeningPatterns);
+        
+        // Music Doppelgänger (taste matching) - run asynchronously or on-demand due to API calls
+        // Note: This can be slow, so we'll make it optional/async
+        try {
+            Map<String, Object> doppelganger = musicDoppelgangerService.findMusicDoppelganger();
+            analytics.put("musicDoppelganger", doppelganger);
+        } catch (Exception e) {
+            System.out.println("Error finding Music Doppelgänger: " + e.getMessage());
+            analytics.put("musicDoppelganger", Map.of("found", false, "message", "Could not analyze taste similarity"));
+        }
+        
         // Combined view (shows what we can actually calculate)
         analytics.put("availableMetrics", Map.of(
             "totalTracks", apiTrackCount, // From API
             "profileLikes", apiLikesCount, // From API
             "inAppListeningHours", trackedListeningHours, // From tracked activity
             "inAppPlays", trackedPlays, // From tracked activity
+            "genreDiscoveryCount", genreAnalysis.get("totalGenresDiscovered"),
+            "topGenres", genreAnalysisService.getTop5Genres(apiTracksData),
             "limitations", List.of(
                 "Listening history only tracks in-app activity",
                 "Platform-wide listening stats are not available from SoundCloud API",

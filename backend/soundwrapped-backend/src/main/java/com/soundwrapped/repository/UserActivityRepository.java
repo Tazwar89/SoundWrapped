@@ -60,4 +60,14 @@ public interface UserActivityRepository extends JpaRepository<UserActivity, Long
     List<Object[]> getActivityCountByType(@Param("userId") String userId,
                                            @Param("startDate") LocalDateTime startDate,
                                            @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * Find play activities for a user within a date range
+     */
+    List<UserActivity> findBySoundcloudUserIdAndActivityTypeAndCreatedAtBetween(
+        String soundcloudUserId,
+        UserActivity.ActivityType activityType,
+        LocalDateTime startDate,
+        LocalDateTime endDate
+    );
 }

@@ -62,7 +62,7 @@ const DashboardPage: React.FC = () => {
       <div className="flex items-center justify-center py-20">
         <div className="text-center">
           <h1 className="text-4xl font-bold gradient-text mb-4">Please Log In</h1>
-          <p className="text-slate-300 mb-8">Connect your account to view your dashboard</p>
+          <p className="text-white/90 mb-8 font-medium">Connect your account to view your dashboard</p>
           <Link to="/" className="btn-primary">
             Go to Home
           </Link>
@@ -76,6 +76,7 @@ const DashboardPage: React.FC = () => {
   const apiStats = analytics?.apiStats || {}
   const trackedStats = analytics?.trackedStats || {}
   const availableMetrics = analytics?.availableMetrics || {}
+  const genreAnalysis = analytics?.genreAnalysis || {}
 
   // API-available stats (from SoundCloud profile/data)
   const totalTracks = availableMetrics.totalTracks || apiStats.totalTracksAvailable || tracks.length
@@ -85,12 +86,28 @@ const DashboardPage: React.FC = () => {
   const inAppListeningHours = availableMetrics.inAppListeningHours || trackedStats.inAppListeningHours || 0
   const inAppPlays = availableMetrics.inAppPlays || trackedStats.inAppPlays || 0
 
+  // Genre stats
+  const genreDiscoveryCount = genreAnalysis.totalGenresDiscovered || availableMetrics.genreDiscoveryCount || 0
+  const topGenres = availableMetrics.topGenres || genreAnalysis.topGenresByListeningTime?.slice(0, 5)?.map((g: any) => g.genre) || []
+
+  // Listening pattern stats
+  const listeningPatterns = analytics?.listeningPatterns || {}
+  const listeningPersona = listeningPatterns.listeningPersona || null
+  const peakHour = listeningPatterns.peakHourLabel || null
+  const peakDay = listeningPatterns.peakDayLabel || null
+  const hasListeningData = listeningPatterns.hasData === true
+
+  // Music Doppelgänger stats
+  const musicDoppelganger = analytics?.musicDoppelganger || {}
+  const hasDoppelganger = musicDoppelganger.found === true
+  const doppelgangerData = musicDoppelganger.doppelganger || {}
+
   const stats = [
     {
       title: 'Available Tracks',
       value: totalTracks.toLocaleString(),
       icon: Music,
-      color: 'from-primary-500 to-primary-600',
+      color: 'from-orange-500 to-orange-600',
       subtitle: 'From SoundCloud API',
       dataSource: 'api' as const
     },
@@ -98,7 +115,7 @@ const DashboardPage: React.FC = () => {
       title: 'In-App Listening',
       value: inAppListeningHours > 0 ? inAppListeningHours.toFixed(1) : '0.0',
       icon: Clock,
-      color: 'from-soundcloud-500 to-soundcloud-600',
+      color: 'from-orange-500 to-orange-600',
       subtitle: 'Tracks in-app activity only',
       dataSource: 'tracked' as const
     },
@@ -106,7 +123,7 @@ const DashboardPage: React.FC = () => {
       title: 'In-App Plays',
       value: inAppPlays.toLocaleString(),
       icon: Play,
-      color: 'from-spotify-500 to-spotify-600',
+      color: 'from-orange-500 to-orange-600',
       subtitle: 'Plays within SoundWrapped',
       dataSource: 'tracked' as const
     },
@@ -114,7 +131,7 @@ const DashboardPage: React.FC = () => {
       title: 'Profile Likes',
       value: profileLikes.toLocaleString(),
       icon: Heart,
-      color: 'from-pink-500 to-pink-600',
+      color: 'from-orange-500 to-orange-600',
       subtitle: 'From SoundCloud profile',
       dataSource: 'api' as const
     }
@@ -129,7 +146,7 @@ const DashboardPage: React.FC = () => {
             <h1 className="text-3xl md:text-4xl font-bold gradient-text mb-2">
               Welcome back, {user?.username}!
             </h1>
-            <p className="text-slate-300">
+            <p className="text-white/90 font-medium">
               Here's what's happening with your music taste
             </p>
           </div>
@@ -156,13 +173,13 @@ const DashboardPage: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg"
+          className="mb-6 p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg"
         >
           <div className="flex items-start space-x-3">
-            <Info className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
+            <Info className="h-5 w-5 text-orange-400 mt-0.5 flex-shrink-0" />
             <div className="flex-1">
-              <h4 className="text-sm font-semibold text-blue-300 mb-1">About Your Analytics</h4>
-              <p className="text-xs text-blue-200/80">
+              <h4 className="text-sm font-semibold text-orange-300 mb-1">About Your Analytics</h4>
+              <p className="text-xs text-orange-200/80">
                 SoundCloud API doesn't provide listening history. The "In-App" stats only track activity within SoundWrapped. 
                 To build comprehensive analytics, use our player to listen to tracks. Platform-wide listening data is not available.
               </p>
@@ -182,7 +199,7 @@ const DashboardPage: React.FC = () => {
             >
               <StatCard {...stat} />
               {stat.subtitle && (
-                <p className="text-xs text-slate-500 mt-2 text-center">{stat.subtitle}</p>
+                <p className="text-xs text-white/70 mt-2 text-center">{stat.subtitle}</p>
               )}
             </motion.div>
           ))}
@@ -201,7 +218,7 @@ const DashboardPage: React.FC = () => {
               <h3 className="subsection-title">Top Tracks</h3>
               <Link
                 to="/wrapped"
-                className="text-primary-400 hover:text-primary-300 text-sm font-medium flex items-center space-x-1"
+                className="text-orange-400 hover:text-orange-300 text-sm font-medium flex items-center space-x-1"
               >
                 <span>View All</span>
                 <ArrowRight className="h-4 w-4" />
@@ -225,7 +242,7 @@ const DashboardPage: React.FC = () => {
               <h3 className="subsection-title">Top Artists</h3>
               <Link
                 to="/wrapped"
-                className="text-primary-400 hover:text-primary-300 text-sm font-medium flex items-center space-x-1"
+                className="text-orange-400 hover:text-orange-300 text-sm font-medium flex items-center space-x-1"
               >
                 <span>View All</span>
                 <ArrowRight className="h-4 w-4" />
@@ -238,6 +255,138 @@ const DashboardPage: React.FC = () => {
             )}
           </motion.div>
         </div>
+
+        {/* Genre Analysis Section */}
+        {genreDiscoveryCount > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="stat-card mb-8"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="subsection-title">Genre Discovery</h3>
+                <p className="text-sm text-white/80 mt-1 font-medium">
+                  You've explored {genreDiscoveryCount} {genreDiscoveryCount === 1 ? 'genre' : 'genres'}
+                </p>
+              </div>
+            </div>
+            {topGenres.length > 0 && (
+              <div className="flex flex-wrap gap-3">
+                {topGenres.map((genre: string, index: number) => (
+                  <motion.div
+                    key={genre}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3, delay: 0.4 + index * 0.05 }}
+                    className="px-4 py-2 bg-gradient-to-r from-orange-500/20 to-orange-600/20 rounded-full border border-orange-500/30"
+                  >
+                    <span className="text-sm font-medium text-orange-300 capitalize">
+                      {genre}
+                    </span>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* Listening Patterns Section */}
+        {hasListeningData && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="stat-card mb-8"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="subsection-title">Listening Patterns</h3>
+                <p className="text-sm text-white/80 mt-1 font-medium">
+                  Your music listening habits
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Listening Persona */}
+              {listeningPersona && (
+                <div className="p-4 bg-gradient-to-br from-orange-500/20 to-orange-600/20 rounded-lg border border-orange-500/30">
+                  <div className="text-sm text-white/80 mb-1">Your Persona</div>
+                  <div className="text-2xl font-bold text-soundcloud-300">{listeningPersona}</div>
+                </div>
+              )}
+              
+              {/* Peak Hour */}
+              {peakHour && (
+                <div className="p-4 bg-gradient-to-br from-orange-500/20 to-orange-600/20 rounded-lg border border-orange-500/30">
+                  <div className="text-sm text-white/80 mb-1">Peak Listening Time</div>
+                  <div className="text-2xl font-bold text-orange-300">{peakHour}</div>
+                </div>
+              )}
+              
+              {/* Peak Day */}
+              {peakDay && (
+                <div className="p-4 bg-gradient-to-br from-orange-500/20 to-orange-600/20 rounded-lg border border-orange-500/30">
+                  <div className="text-sm text-white/80 mb-1">Most Active Day</div>
+                  <div className="text-2xl font-bold text-spotify-300">{peakDay}</div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Music Doppelgänger Section */}
+        {hasDoppelganger && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.5 }}
+            className="stat-card mb-8"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="subsection-title">Music Doppelgänger</h3>
+                <p className="text-sm text-white/80 mt-1 font-medium">
+                  Your taste twin from people you follow
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-6 p-6 bg-gradient-to-r from-orange-500/20 to-orange-600/20 rounded-lg border border-orange-500/30">
+              {doppelgangerData.avatarUrl && (
+                <img 
+                  src={doppelgangerData.avatarUrl} 
+                  alt={doppelgangerData.username}
+                  className="w-16 h-16 rounded-full border-2 border-orange-400/50"
+                />
+              )}
+              <div className="flex-1">
+                <div className="flex items-center space-x-3 mb-2">
+                  <h4 className="text-xl font-bold text-orange-300">
+                    @{doppelgangerData.username}
+                  </h4>
+                  <span className="px-3 py-1 bg-orange-500/30 rounded-full text-sm font-medium text-orange-200">
+                    {doppelgangerData.similarityPercentage}% match
+                  </span>
+                </div>
+                {doppelgangerData.fullName && (
+                  <p className="text-white/90 mb-3">{doppelgangerData.fullName}</p>
+                )}
+                <div className="flex flex-wrap gap-4 text-sm text-white/80">
+                  {doppelgangerData.sharedTracks > 0 && (
+                    <span>{doppelgangerData.sharedTracks} shared tracks</span>
+                  )}
+                  {doppelgangerData.sharedArtists > 0 && (
+                    <span>{doppelgangerData.sharedArtists} shared artists</span>
+                  )}
+                  {doppelgangerData.sharedGenres > 0 && (
+                    <span>{doppelgangerData.sharedGenres} shared genres</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Recent Activity & Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -263,38 +412,38 @@ const DashboardPage: React.FC = () => {
             <div className="space-y-4">
               <Link
                 to="/wrapped"
-                className="flex items-center space-x-3 p-4 rounded-lg bg-gradient-to-r from-primary-500/20 to-primary-600/20 hover:from-primary-500/30 hover:to-primary-600/30 transition-all group"
+                className="flex items-center space-x-3 p-4 rounded-lg bg-gradient-to-r from-orange-500/20 to-orange-600/20 hover:from-orange-500/30 hover:to-orange-600/30 transition-all group"
               >
-                <BarChart3 className="h-5 w-5 text-primary-400" />
+                <BarChart3 className="h-5 w-5 text-orange-400" />
                 <div>
-                  <div className="font-medium text-slate-200">View Your Wrapped</div>
-                  <div className="text-sm text-slate-400">Complete music summary</div>
+                  <div className="font-medium text-white">View Your Wrapped</div>
+                  <div className="text-sm text-white/80">Complete music summary</div>
                 </div>
-                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:translate-x-1 transition-transform ml-auto" />
+                <ArrowRight className="h-4 w-4 text-white/80 group-hover:translate-x-1 transition-transform ml-auto" />
               </Link>
 
               <Link
                 to="/music-taste-map"
-                className="flex items-center space-x-3 p-4 rounded-lg bg-gradient-to-r from-soundcloud-500/20 to-soundcloud-600/20 hover:from-soundcloud-500/30 hover:to-soundcloud-600/30 transition-all group"
+                className="flex items-center space-x-3 p-4 rounded-lg bg-gradient-to-r from-orange-500/20 to-orange-600/20 hover:from-orange-500/30 hover:to-orange-600/30 transition-all group"
               >
                 <Users className="h-5 w-5 text-soundcloud-400" />
                 <div>
-                  <div className="font-medium text-slate-200">Music Taste Map</div>
-                  <div className="text-sm text-slate-400">Find similar listeners</div>
+                  <div className="font-medium text-white">Music Taste Map</div>
+                  <div className="text-sm text-white/80">Find similar listeners</div>
                 </div>
-                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:translate-x-1 transition-transform ml-auto" />
+                <ArrowRight className="h-4 w-4 text-white/80 group-hover:translate-x-1 transition-transform ml-auto" />
               </Link>
 
               <Link
                 to="/profile"
-                className="flex items-center space-x-3 p-4 rounded-lg bg-gradient-to-r from-spotify-500/20 to-spotify-600/20 hover:from-spotify-500/30 hover:to-spotify-600/30 transition-all group"
+                className="flex items-center space-x-3 p-4 rounded-lg bg-gradient-to-r from-orange-500/20 to-orange-600/20 hover:from-orange-500/30 hover:to-orange-600/30 transition-all group"
               >
                 <Share2 className="h-5 w-5 text-spotify-400" />
                 <div>
-                  <div className="font-medium text-slate-200">Share Profile</div>
-                  <div className="text-sm text-slate-400">Show off your taste</div>
+                  <div className="font-medium text-white">Share Profile</div>
+                  <div className="text-sm text-white/80">Show off your taste</div>
                 </div>
-                <ArrowRight className="h-4 w-4 text-slate-400 group-hover:translate-x-1 transition-transform ml-auto" />
+                <ArrowRight className="h-4 w-4 text-white/80 group-hover:translate-x-1 transition-transform ml-auto" />
               </Link>
             </div>
           </motion.div>

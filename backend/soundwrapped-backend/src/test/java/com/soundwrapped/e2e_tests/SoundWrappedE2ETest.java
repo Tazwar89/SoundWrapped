@@ -6,6 +6,7 @@ import com.soundwrapped.entity.Token;
 import com.soundwrapped.repository.TokenRepository;
 import com.soundwrapped.service.SoundWrappedService;
 import com.soundwrapped.service.TokenStore;
+import com.soundwrapped.service.GenreAnalysisService;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -34,12 +35,15 @@ class SoundWrappedE2ETest {
 	@MockBean
 	private RestTemplate restTemplate;
 
+	@MockBean
+	private GenreAnalysisService genreAnalysisService;
+
 	private SoundWrappedService soundWrappedService;
 
 	@BeforeEach
 	void setUp() {
 		tokenStore = new TokenStore(tokenRepository);
-		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate);
+		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate, genreAnalysisService);
 
 		ReflectionTestUtils.setField(soundWrappedService, "soundCloudApiBaseUrl", "https://api.soundcloud.com");
 		ReflectionTestUtils.setField(soundWrappedService, "clientId", "dummyClientId");

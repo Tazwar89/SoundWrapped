@@ -24,12 +24,15 @@ class SoundWrappedServiceTests {
 	@Mock
 	private RestTemplate restTemplate;
 
+	@Mock
+	private GenreAnalysisService genreAnalysisService;
+
 	private SoundWrappedService soundWrappedService;
 
 	@BeforeEach
 	void setUp() {
 		MockitoAnnotations.openMocks(this);
-		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate);
+		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate, genreAnalysisService);
 		// Inject a non-null base URL to avoid "null/me"
 		ReflectionTestUtils.setField(soundWrappedService, "soundCloudApiBaseUrl", "https://api.soundcloud.com");
 	}
