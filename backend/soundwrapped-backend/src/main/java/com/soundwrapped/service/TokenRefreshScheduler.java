@@ -24,10 +24,19 @@ public class TokenRefreshScheduler {
 	/**
 	 * Check and refresh tokens every hour if they're expiring soon.
 	 * This runs proactively to prevent token expiration during inactivity.
+	 * Initial delay of 5 minutes allows the application to fully start and
+	 * ensures tokens are loaded from the database before checking.
 	 */
-	@Scheduled(fixedRate = 3600000) // Every hour (3600000 ms)
+	@Scheduled(fixedRate = 3600000, initialDelay = 300000) // Every hour (3600000 ms), start after 5 minutes (300000 ms)
 	public void refreshTokensIfNeeded() {
 		try {
+			// Check if there are any tokens in the database first
+			if (!tokenStore.getToken().isPresent()) {
+				// No tokens in database - this is normal if user hasn't authenticated yet
+				// Only log at debug level to avoid confusion
+				return;
+			}
+			
 			if (tokenStore.needsRefresh()) {
 				String refreshToken = tokenStore.getRefreshToken();
 				if (refreshToken != null && !refreshToken.isBlank()) {

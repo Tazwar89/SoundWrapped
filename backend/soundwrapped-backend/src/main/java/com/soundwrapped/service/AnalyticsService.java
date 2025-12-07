@@ -77,7 +77,8 @@ public class AnalyticsService {
         
         // Combine API metadata with tracked activity
         // Note: API tracks have playback_count, but that's global plays, not user-specific
-        // For true listening stats, we rely on tracked in-app activity
+        // For true listening stats, we rely on tracked activity from the browser extension
+        // (which monitors SoundCloud.com playback)
         
         analytics.put("profile", Map.of(
             "soundcloudUserId", soundcloudUserId,
@@ -93,12 +94,12 @@ public class AnalyticsService {
             "tracksFromAPI", apiTracksData != null ? apiTracksData.size() : 0
         ));
         
-        // Tracked in-app activity (only tracks activity within our app)
+        // Tracked activity from browser extension (monitors SoundCloud.com playback)
         analytics.put("trackedStats", Map.of(
             "inAppPlays", trackedPlays,
             "inAppListeningHours", trackedListeningHours,
             "inAppLikes", trackedLikes,
-            "note", "These stats only reflect activity within SoundWrapped app, not SoundCloud platform activity"
+            "note", "These stats reflect SoundCloud.com playback tracked by the browser extension"
         ));
         
         // Genre analysis
@@ -128,7 +129,7 @@ public class AnalyticsService {
             "genreDiscoveryCount", genreAnalysis.get("totalGenresDiscovered"),
             "topGenres", genreAnalysisService.getTop5Genres(apiTracksData),
             "limitations", List.of(
-                "Listening history only tracks in-app activity",
+                "Listening history tracks SoundCloud.com playback via browser extension",
                 "Platform-wide listening stats are not available from SoundCloud API",
                 "To build comprehensive analytics, use SoundWrapped player to listen to tracks"
             )

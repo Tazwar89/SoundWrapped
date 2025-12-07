@@ -70,28 +70,28 @@ const MusicTasteMapPage: React.FC = () => {
           className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12"
         >
           <div className="stat-card text-center">
-            <Globe className="h-8 w-8 text-primary-400 mx-auto mb-3" />
+            <Globe className="h-8 w-8 text-orange-400 mx-auto mb-3" />
             <div className="text-2xl font-bold text-slate-200 mb-1">
               {musicTasteLocations.length}
             </div>
             <div className="text-slate-400">Cities Mapped</div>
           </div>
           <div className="stat-card text-center">
-            <Users className="h-8 w-8 text-soundcloud-400 mx-auto mb-3" />
+            <Users className="h-8 w-8 text-orange-400 mx-auto mb-3" />
             <div className="text-2xl font-bold text-slate-200 mb-1">
               {musicTasteLocations.reduce((acc, loc) => acc + loc.userCount, 0).toLocaleString()}
             </div>
             <div className="text-slate-400">Similar Listeners</div>
           </div>
           <div className="stat-card text-center">
-            <TrendingUp className="h-8 w-8 text-spotify-400 mx-auto mb-3" />
+            <TrendingUp className="h-8 w-8 text-orange-400 mx-auto mb-3" />
             <div className="text-2xl font-bold text-slate-200 mb-1">
               {musicTasteLocations.length > 0 ? Math.round(musicTasteLocations.reduce((acc, loc) => acc + loc.similarity, 0) / musicTasteLocations.length * 100) : 0}%
             </div>
             <div className="text-slate-400">Avg Similarity</div>
           </div>
           <div className="stat-card text-center">
-            <Heart className="h-8 w-8 text-pink-400 mx-auto mb-3" />
+            <Heart className="h-8 w-8 text-orange-400 mx-auto mb-3" />
             <div className="text-2xl font-bold text-slate-200 mb-1">
               {musicTasteLocations.length > 0 ? musicTasteLocations[0].city : 'N/A'}
             </div>
@@ -126,8 +126,8 @@ const MusicTasteMapPage: React.FC = () => {
                       key={location.city}
                       className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer"
                       style={{
-                        left: `${20 + (index * 15) % 60}%`,
-                        top: `${30 + (index * 20) % 40}%`
+                        left: `${((location.coordinates.lng + 180) / 360) * 100}%`,
+                        top: `${((90 - location.coordinates.lat) / 180) * 100}%`
                       }}
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
@@ -204,7 +204,7 @@ const MusicTasteMapPage: React.FC = () => {
               {/* Location Info */}
               <div className="flex-1">
                 <div className="flex items-center space-x-3 mb-4">
-                  <MapPin className="h-6 w-6 text-primary-400" />
+                  <MapPin className="h-6 w-6 text-orange-400" />
                   <h3 className="text-2xl font-bold text-slate-200">
                     {musicTasteLocations[selectedLocation].city}, {musicTasteLocations[selectedLocation].country}
                   </h3>
@@ -238,7 +238,7 @@ const MusicTasteMapPage: React.FC = () => {
                       {musicTasteLocations[selectedLocation].topGenres.map((genre) => (
                         <span
                           key={genre}
-                          className="px-2 py-1 bg-gradient-to-r from-primary-500/20 to-soundcloud-500/20 text-primary-300 text-xs rounded-full"
+                          className="px-2 py-1 bg-gradient-to-r from-orange-500/20 to-orange-600/20 text-orange-300 text-xs rounded-full"
                         >
                           {genre}
                         </span>
@@ -250,11 +250,11 @@ const MusicTasteMapPage: React.FC = () => {
                 <div className="text-slate-300">
                   <p>
                     People in {musicTasteLocations[selectedLocation].city} share a{' '}
-                    <span className="font-semibold text-primary-300">
+                    <span className="font-semibold text-orange-300">
                       {getSimilarityText(musicTasteLocations[selectedLocation].similarity).toLowerCase()}
                     </span>{' '}
                     similarity with your music taste. They particularly enjoy{' '}
-                    <span className="font-semibold text-soundcloud-300">
+                    <span className="font-semibold text-orange-300">
                       {musicTasteLocations[selectedLocation].topGenres.slice(0, 2).join(' and ')}
                     </span>{' '}
                     music, just like you!
@@ -290,13 +290,13 @@ const MusicTasteMapPage: React.FC = () => {
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 className={cn(
                   'music-card cursor-pointer group',
-                  selectedLocation === index && 'ring-2 ring-primary-500/50'
+                  selectedLocation === index && 'ring-2 ring-orange-500/50'
                 )}
                 onClick={() => setSelectedLocation(selectedLocation === index ? null : index)}
               >
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
-                    <MapPin className="h-5 w-5 text-primary-400" />
+                    <MapPin className="h-5 w-5 text-orange-400" />
                     <div>
                       <h4 className="font-semibold text-slate-200 group-hover:text-white transition-colors">
                         {location.city}

@@ -38,7 +38,7 @@ const TopArtistsChart: React.FC<TopArtistsChartProps> = ({ artists }) => {
             <div className="flex items-center space-x-4">
               {/* Rank & Avatar */}
               <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-primary-500 to-soundcloud-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
                   {index + 1}
                 </div>
                 <div 
@@ -85,8 +85,8 @@ const TopArtistsChart: React.FC<TopArtistsChartProps> = ({ artists }) => {
 
               {/* Hours Badge */}
               <div className="flex-shrink-0">
-                <div className="bg-gradient-to-r from-primary-500/20 to-soundcloud-500/20 px-3 py-1 rounded-full">
-                  <div className="flex items-center space-x-1 text-primary-300">
+                <div className="bg-gradient-to-r from-orange-500/20 to-orange-600/20 px-3 py-1 rounded-full">
+                  <div className="flex items-center space-x-1 text-orange-300">
                     <Clock className="h-3 w-3" />
                     <span className="text-xs font-medium">{formatHours(artist.listeningHours)}</span>
                   </div>

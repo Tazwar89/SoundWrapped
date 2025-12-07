@@ -41,13 +41,19 @@ class SoundWrappedServiceIntegrationTest {
 	@MockBean
 	private GenreAnalysisService genreAnalysisService;
 
+	@MockBean
+	private com.soundwrapped.repository.UserActivityRepository userActivityRepository;
+
+	@MockBean
+	private com.soundwrapped.service.ActivityTrackingService activityTrackingService;
+
 	private SoundWrappedService soundWrappedService;
 
 	@BeforeEach
 	void setUp() {
 		MockitoAnnotations.openMocks(this);
 		tokenStore = new TokenStore(tokenRepository);
-		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate, genreAnalysisService);
+		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate, genreAnalysisService, userActivityRepository, activityTrackingService);
 
 		// Inject dummy SoundCloud API values
 		ReflectionTestUtils.setField(soundWrappedService, "soundCloudApiBaseUrl", "https://api.soundcloud.com");

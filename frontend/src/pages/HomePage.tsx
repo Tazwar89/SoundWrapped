@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { useSearchParams } from 'react-router-dom'
@@ -15,10 +15,15 @@ import {
   TrendingUp
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { api } from '../services/api'
 
 const HomePage: React.FC = () => {
   const { isAuthenticated, login } = useAuth()
   const [searchParams] = useSearchParams()
+  const [featuredTrack, setFeaturedTrack] = useState<any>(null)
+  const [featuredArtist, setFeaturedArtist] = useState<any>(null)
+  const [trendingTracks, setTrendingTracks] = useState<any[]>([])
+  const [featuredGenre, setFeaturedGenre] = useState<any>(null)
 
   useEffect(() => {
     const authStatus = searchParams.get('auth')
@@ -32,6 +37,75 @@ const HomePage: React.FC = () => {
       // You can add a toast notification here
     }
   }, [searchParams])
+
+  // Fetch featured content (works for both authenticated and non-authenticated users)
+  useEffect(() => {
+    const fetchFeaturedContent = async () => {
+      // Fetch featured track from SoundCloud's popular tracks
+      try {
+        const trackResponse = await api.get('/soundcloud/featured/track')
+        console.log('[HomePage] Featured track response:', trackResponse?.data)
+        console.log('[HomePage] Featured track response keys:', trackResponse?.data ? Object.keys(trackResponse.data) : 'null')
+        if (trackResponse?.data && Object.keys(trackResponse.data).length > 0) {
+          setFeaturedTrack(trackResponse.data)
+        } else {
+          console.warn('[HomePage] Featured track response is empty or has no keys')
+        }
+      } catch (e: any) {
+        console.error('[HomePage] Error fetching featured track:', e)
+        console.error('[HomePage] Error details:', e.response?.data || e.message)
+        // Silently fail - use placeholder
+      }
+
+      // Fetch featured artist from SoundCloud's popular tracks
+      try {
+        const artistResponse = await api.get('/soundcloud/featured/artist')
+        console.log('[HomePage] Featured artist response:', artistResponse?.data)
+        if (artistResponse?.data && Object.keys(artistResponse.data).length > 0) {
+          setFeaturedArtist(artistResponse.data)
+        } else {
+          console.warn('[HomePage] Featured artist response is empty')
+        }
+      } catch (e) {
+        console.error('[HomePage] Error fetching featured artist:', e)
+        // Silently fail - use placeholder
+      }
+
+      // Fetch popular/trending tracks from SoundCloud
+      try {
+        const popularResponse = await api.get('/soundcloud/popular/tracks?limit=4')
+        console.log('[HomePage] Popular tracks response:', popularResponse?.data)
+        console.log('[HomePage] Popular tracks is array?', Array.isArray(popularResponse?.data))
+        console.log('[HomePage] Popular tracks length:', popularResponse?.data?.length)
+        if (popularResponse?.data && Array.isArray(popularResponse.data) && popularResponse.data.length > 0) {
+          setTrendingTracks(popularResponse.data)
+        } else {
+          console.warn('[HomePage] Popular tracks response is empty or not an array:', popularResponse?.data)
+        }
+      } catch (e: any) {
+        console.error('[HomePage] Error fetching popular tracks:', e)
+        console.error('[HomePage] Error details:', e.response?.data || e.message)
+        // Silently fail - use placeholder
+      }
+
+      // Fetch featured genre with tracks
+      try {
+        const genreResponse = await api.get('/soundcloud/featured/genre')
+        console.log('[HomePage] Featured genre response:', genreResponse?.data)
+        if (genreResponse?.data) {
+          setFeaturedGenre(genreResponse.data)
+        } else {
+          console.warn('[HomePage] Featured genre response is empty')
+        }
+      } catch (e) {
+        console.error('[HomePage] Error fetching featured genre:', e)
+        // Silently fail - use placeholder
+      }
+    }
+
+    fetchFeaturedContent()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const features = [
     {
@@ -47,331 +121,304 @@ const HomePage: React.FC = () => {
       color: 'from-orange-500 to-orange-600'
     },
     {
-      icon: Sparkles,
-      title: 'Personalized Wrapped',
-      description: 'Your own SoundCloud Playback-style summary with beautiful visualizations.',
-      color: 'from-orange-500 to-orange-600'
-    },
-    {
       icon: Users,
-      title: 'Community Insights',
-      description: 'Compare your taste with friends and discover new music together.',
+      title: 'Music Doppelgänger',
+      description: 'Find users with similar music taste and discover new tracks.',
       color: 'from-orange-500 to-orange-600'
     }
   ]
 
-  const stats = [
-    { label: 'Active Users', value: '10K+', icon: Users },
-    { label: 'Tracks Analyzed', value: '1M+', icon: Music },
-    { label: 'Cities Mapped', value: '500+', icon: MapPin },
-    { label: 'Hours Analyzed', value: '50K+', icon: Clock }
-  ]
-
   return (
-    <div className="relative">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden pt-20 pb-32 min-h-screen">
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              className="mb-8"
-            >
-              <h1 className="text-5xl md:text-7xl font-bold mb-6">
-                <span className="gradient-text">SoundWrapped</span>
-              </h1>
-              <p className="text-xl md:text-2xl text-white/90 mb-8 max-w-3xl mx-auto font-medium">
-                Discover your music journey with personalized insights from SoundCloud. 
-                Your taste, beautifully visualized.
-              </p>
-            </motion.div>
+    <div className="min-h-screen">
+      <div className="container mx-auto px-4 py-16">
+        <div className="text-center mb-16">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <h1 className="text-4xl md:text-6xl font-bold mb-6 gradient-text">
+              SoundWrapped
+            </h1>
+            <p className="text-xl md:text-2xl text-white/90 mb-8 max-w-3xl mx-auto font-medium">
+              Discover your music journey with personalized insights from SoundCloud. 
+              Your taste, beautifully visualized.
+            </p>
+          </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center mb-12"
-            >
-              {isAuthenticated ? (
-                <Link
-                  to="/dashboard"
-                  className="btn-primary text-lg px-8 py-4 inline-flex items-center justify-center group"
-                >
-                  <BarChart3 className="h-5 w-5 mr-2" />
-                  Go to Dashboard
-                  <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                </Link>
-              ) : (
-                <button
-                  onClick={() => login('soundcloud')}
-                  className="btn-secondary text-lg px-8 py-4 inline-flex items-center justify-center group"
-                >
-                  <Headphones className="h-5 w-5 mr-2" />
-                  Connect to SoundCloud
-                  <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                </button>
-              )}
-            </motion.div>
-
-            {/* Music Discovery Sections */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto mb-12">
-              {/* Artist of the Day */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="stat-card"
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="flex flex-col sm:flex-row gap-4 justify-center mb-12"
+          >
+            {isAuthenticated ? (
+              <Link
+                to="/dashboard"
+                className="btn-primary text-lg px-8 py-4 inline-flex items-center justify-center group"
               >
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold text-orange-400 uppercase tracking-wide">Artist of the Day</h3>
-                  <Star className="h-4 w-4 text-orange-500" />
-                </div>
-                <div className="text-center">
+                <BarChart3 className="h-5 w-5 mr-2" />
+                Go to Dashboard
+                <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            ) : (
+              <button
+                onClick={() => login('soundcloud')}
+                className="btn-secondary text-lg px-8 py-4 inline-flex items-center justify-center group"
+              >
+                <Headphones className="h-5 w-5 mr-2" />
+                Connect to SoundCloud
+                <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
+              </button>
+            )}
+          </motion.div>
+
+          {/* Music Discovery Sections */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-6xl mx-auto mb-12">
+            {/* Artist of the Day */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="stat-card"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-orange-400 uppercase tracking-wide">Artist of the Day</h3>
+                <Star className="h-4 w-4 text-orange-500" />
+              </div>
+              <div className="text-center">
+                {featuredArtist && featuredArtist.avatar_url ? (
+                  <img
+                    src={featuredArtist.avatar_url}
+                    alt={featuredArtist.username || 'Artist'}
+                    className="w-20 h-20 rounded-full mx-auto mb-3 border-2 border-orange-500/30"
+                  />
+                ) : (
                   <div className="w-20 h-20 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-3">
                     <Music className="h-10 w-10 text-white" />
                   </div>
-                  <h4 className="text-lg font-bold text-white mb-2">Discover New Artists</h4>
-                  <p className="text-sm text-white/70 mb-4">Explore SoundCloud's diverse music community</p>
-                  {isAuthenticated ? (
-                    <Link to="/dashboard" className="text-xs text-orange-400 hover:text-orange-300 transition-colors">
-                      View Your Top Artists →
-                    </Link>
-                  ) : (
-                    <button
-                      onClick={() => login('soundcloud')}
-                      className="text-xs text-orange-400 hover:text-orange-300 transition-colors"
-                    >
-                      Sign in to discover →
-                    </button>
-                  )}
-                </div>
-              </motion.div>
+                )}
+                <h4 className="text-lg font-bold text-white mb-2 truncate px-2">
+                  {featuredArtist?.username || featuredArtist?.full_name || 'Discover New Artists'}
+                </h4>
+                <p className="text-sm text-white/70 mb-4 truncate px-2">
+                  {featuredArtist?.full_name || 'Explore SoundCloud\'s diverse music community'}
+                </p>
+                {isAuthenticated ? (
+                  <Link to="/dashboard" className="text-xs text-orange-400 hover:text-orange-300 transition-colors">
+                    View Your Top Artists →
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => login('soundcloud')}
+                    className="text-xs text-orange-400 hover:text-orange-300 transition-colors"
+                  >
+                    Sign in to discover →
+                  </button>
+                )}
+              </div>
+            </motion.div>
 
-              {/* Song of the Day */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-                className="stat-card"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold text-orange-400 uppercase tracking-wide">Song of the Day</h3>
-                  <Music className="h-4 w-4 text-orange-500" />
-                </div>
-                <div className="text-center">
-                  <div className="w-20 h-20 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center mx-auto mb-3 shadow-lg shadow-orange-500/30">
-                    <Headphones className="h-10 w-10 text-white" />
-                  </div>
-                  <h4 className="text-lg font-bold text-white mb-2">Featured Track</h4>
-                  <p className="text-sm text-white/70 mb-4">Discover trending sounds on SoundCloud</p>
-                  {isAuthenticated ? (
-                    <Link to="/wrapped" className="text-xs text-orange-400 hover:text-orange-300 transition-colors">
-                      View Your Top Tracks →
-                    </Link>
-                  ) : (
-                    <button
-                      onClick={() => login('soundcloud')}
-                      className="text-xs text-orange-400 hover:text-orange-300 transition-colors"
-                    >
-                      Sign in to explore →
-                    </button>
-                  )}
-                </div>
-              </motion.div>
-
-              {/* Genre of the Day */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-                className="stat-card"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold text-orange-400 uppercase tracking-wide">Genre of the Day</h3>
-                  <Sparkles className="h-4 w-4 text-orange-500" />
-                </div>
-                <div className="text-center">
-                  <div className="w-20 h-20 bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl flex items-center justify-center mx-auto mb-3">
-                    <Sparkles className="h-10 w-10 text-white" />
-                  </div>
-                  <h4 className="text-lg font-bold text-white mb-2">Explore Genres</h4>
-                  <p className="text-sm text-white/70 mb-4">Dive into new musical styles and sounds</p>
-                  {isAuthenticated ? (
-                    <Link to="/dashboard" className="text-xs text-orange-400 hover:text-orange-300 transition-colors">
-                      See Your Genres →
-                    </Link>
-                  ) : (
-                    <button
-                      onClick={() => login('soundcloud')}
-                      className="text-xs text-orange-400 hover:text-orange-300 transition-colors"
-                    >
-                      Sign in to explore →
-                    </button>
-                  )}
-                </div>
-              </motion.div>
-            </div>
-
-            {/* Popular Now Section */}
+            {/* Song of the Day */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.5 }}
-              className="max-w-6xl mx-auto"
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="stat-card"
             >
-              <div className="stat-card">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h3 className="text-xl font-bold text-white mb-1">Popular Now</h3>
-                    <p className="text-sm text-white/70">What the SoundCloud community is listening to</p>
-                  </div>
-                  <TrendingUp className="h-6 w-6 text-orange-500" />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {[1, 2, 3, 4].map((item) => (
-                    <div
-                      key={item}
-                      className="p-4 bg-black/10 rounded-lg border border-white/5 hover:border-orange-500/30 transition-all group"
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="w-12 h-12 bg-gradient-to-r from-orange-500/20 to-orange-600/20 rounded-lg flex items-center justify-center">
-                          <Music className="h-6 w-6 text-orange-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white truncate">Track Title {item}</p>
-                          <p className="text-xs text-white/60 truncate">Artist Name</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-white/50">
-                        <span>🎵 Trending</span>
-                        <span>→</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {isAuthenticated ? (
-                  <div className="mt-6 text-center">
-                    <Link
-                      to="/dashboard"
-                      className="inline-flex items-center space-x-2 text-orange-400 hover:text-orange-300 transition-colors text-sm font-medium"
-                    >
-                      <span>View Your Music Stats</span>
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
-                  </div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-orange-400 uppercase tracking-wide">Song of the Day</h3>
+                <Music className="h-4 w-4 text-orange-500" />
+              </div>
+              <div className="text-center">
+                {featuredTrack && featuredTrack.artwork_url ? (
+                  <img
+                    src={featuredTrack.artwork_url}
+                    alt={featuredTrack.title || 'Track'}
+                    className="w-20 h-20 rounded-lg mx-auto mb-3 border-2 border-orange-500/30"
+                  />
                 ) : (
-                  <div className="mt-6 text-center">
-                    <button
-                      onClick={() => login('soundcloud')}
-                      className="inline-flex items-center space-x-2 text-orange-400 hover:text-orange-300 transition-colors text-sm font-medium"
-                    >
-                      <span>Sign in to see your personalized stats</span>
-                      <ArrowRight className="h-4 w-4" />
-                    </button>
+                  <div className="w-20 h-20 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center mx-auto mb-3 shadow-lg shadow-orange-500/30">
+                    <Headphones className="h-10 w-10 text-white" />
                   </div>
+                )}
+                <h4 className="text-lg font-bold text-white mb-2 truncate px-2">
+                  {featuredTrack?.title || 'Featured Track'}
+                </h4>
+                <p className="text-sm text-white/70 mb-4 truncate px-2">
+                  {featuredTrack?.user?.username || 'Discover trending sounds on SoundCloud'}
+                </p>
+                {isAuthenticated ? (
+                  <Link to="/wrapped" className="text-xs text-orange-400 hover:text-orange-300 transition-colors">
+                    View Your Top Tracks →
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => login('soundcloud')}
+                    className="text-xs text-orange-400 hover:text-orange-300 transition-colors"
+                  >
+                    Sign in to explore →
+                  </button>
                 )}
               </div>
             </motion.div>
           </div>
-        </div>
-      </section>
 
-      {/* Stats Section */}
-      <section className="relative z-10 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat, index) => {
-              const Icon = stat.icon
-              return (
-                <motion.div
-                  key={stat.label}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: index * 0.1 }}
-                  className="text-center"
-                >
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full mb-4">
-                    <Icon className="h-8 w-8 text-white" />
+          {/* Genre of the Day Section */}
+          {featuredGenre && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="max-w-6xl mx-auto mb-12"
+            >
+              <div className="stat-card">
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-orange-400 uppercase tracking-wide mb-3 text-left">Genre of the Day</h3>
+                  <h4 className="text-2xl font-bold text-white mb-2 capitalize text-left">
+                    {featuredGenre.genre || 'Unknown Genre'}
+                  </h4>
+                  <p className="text-white/80 leading-relaxed text-left">
+                    {featuredGenre.description || 'Explore this genre and discover new sounds.'}
+                  </p>
+                </div>
+                
+                {featuredGenre.tracks && featuredGenre.tracks.length > 0 ? (
+                  <div className="space-y-3">
+                    {featuredGenre.tracks.map((track: any, index: number) => (
+                      <a
+                        key={track.id || index}
+                        href={track.permalink_url || `https://soundcloud.com${track.uri || ''}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center space-x-4 p-3 bg-black/10 rounded-lg border border-white/5 hover:border-orange-500/30 hover:bg-black/20 transition-all group"
+                      >
+                        {track.artwork_url ? (
+                          <img
+                            src={track.artwork_url}
+                            alt={track.title || 'Track'}
+                            className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 bg-gradient-to-r from-orange-500/20 to-orange-600/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Music className="h-8 w-8 text-orange-400" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-base font-semibold text-white truncate group-hover:text-orange-400 transition-colors">
+                            {track.title || 'Unknown Track'}
+                          </p>
+                          <p className="text-sm text-white/70 truncate">
+                            {track.user?.username || 'Unknown Artist'}
+                          </p>
+                        </div>
+                        <ArrowRight className="h-5 w-5 text-white/40 group-hover:text-orange-400 group-hover:translate-x-1 transition-all flex-shrink-0" />
+                      </a>
+                    ))}
                   </div>
-                  <div className="text-3xl font-bold gradient-text mb-2">{stat.value}</div>
-                  <div className="text-white/80">{stat.label}</div>
-                </motion.div>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="relative z-10 py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-center mb-16"
-          >
-            <h2 className="section-title">Why Choose SoundWrapped?</h2>
-            <p className="text-xl text-white/90 max-w-3xl mx-auto font-medium">
-              Get deeper insights into your music taste with our comprehensive analytics and beautiful visualizations.
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => {
-              const Icon = feature.icon
-              return (
-                <motion.div
-                  key={feature.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: index * 0.1 }}
-                  className="stat-card group"
-                >
-                  <div className={`inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r ${feature.color} rounded-lg mb-4 group-hover:scale-110 transition-transform`}>
-                    <Icon className="h-6 w-6 text-white" />
+                ) : (
+                  <div className="text-center py-8 text-white/60">
+                    <Music className="h-12 w-12 mx-auto mb-3 text-white/40" />
+                    <p>No tracks available for this genre</p>
                   </div>
-                  <h3 className="text-xl font-semibold text-white mb-3">{feature.title}</h3>
-                  <p className="text-white/80">{feature.description}</p>
-                </motion.div>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="relative z-10 py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-          >
-            <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              Ready to Discover Your
-              <span className="gradient-text"> Music Story?</span>
-            </h2>
-            <p className="text-xl text-white/90 mb-8 font-medium">
-              Connect your SoundCloud account and get started with your personalized music insights.
-            </p>
-            {!isAuthenticated && (
-              <div className="flex justify-center">
-                <button
-                  onClick={() => login('soundcloud')}
-                  className="btn-secondary text-lg px-8 py-4 inline-flex items-center justify-center group"
-                >
-                  <Headphones className="h-5 w-5 mr-2" />
-                  Connect to SoundCloud
-                  <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                </button>
+                )}
               </div>
-            )}
+            </motion.div>
+          )}
+
+          {/* Popular Now Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.5 }}
+            className="max-w-6xl mx-auto"
+          >
+            <div className="stat-card">
+              <div className="text-center mb-6">
+                <div className="flex items-center justify-center space-x-2 mb-2">
+                  <TrendingUp className="h-5 w-5 text-orange-500" />
+                  <h3 className="text-xl font-bold text-white">Popular Now</h3>
+                </div>
+                <p className="text-sm text-white/70">What the SoundCloud community is listening to</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {trendingTracks.length > 0 ? (
+                  trendingTracks.map((track: any, index: number) => (
+                    <div
+                      key={track.id || index}
+                      className="p-4 bg-black/10 rounded-lg border border-white/5 hover:border-orange-500/30 transition-all group"
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        {track.artwork_url ? (
+                          <img
+                            src={track.artwork_url}
+                            alt={track.title || 'Track'}
+                            className="w-12 h-12 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-gradient-to-r from-orange-500/20 to-orange-600/20 rounded-lg flex items-center justify-center">
+                            <Music className="h-6 w-6 text-orange-400" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{track.title || 'Unknown Track'}</p>
+                          <p className="text-xs text-white/60 truncate">
+                            {track.user?.username || 'Unknown Artist'}
+                          </p>
+                        </div>
+                      </div>
+                      {track.permalink_url && (
+                        <a
+                          href={track.permalink_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-orange-400 hover:text-orange-300 transition-colors inline-flex items-center"
+                        >
+                          Listen on SoundCloud <ArrowRight className="h-3 w-3 ml-1" />
+                        </a>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full text-center py-8 text-white/60">
+                    <Music className="h-12 w-12 mx-auto mb-3 text-white/40" />
+                    <p>No popular tracks available</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </motion.div>
         </div>
-      </section>
+
+        {/* Features Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.6 }}
+          className="max-w-6xl mx-auto mt-20"
+        >
+          <h2 className="text-3xl font-bold text-center mb-12 gradient-text">
+            What You Can Do
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {features.map((feature, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.7 + index * 0.1 }}
+                className="stat-card text-center"
+              >
+                <div className={`w-16 h-16 bg-gradient-to-r ${feature.color} rounded-full flex items-center justify-center mx-auto mb-4`}>
+                  <feature.icon className="h-8 w-8 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">{feature.title}</h3>
+                <p className="text-white/70">{feature.description}</p>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
     </div>
   )
 }

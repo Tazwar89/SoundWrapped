@@ -143,13 +143,15 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
         title: track.title || 'Unknown Track',
         artist: track.user?.username || 'Unknown Artist',
         duration: track.duration || 0,
-        playCount: track.playback_count || 0,
+        // Use user's tracked play count if available, otherwise fall back to global playback_count
+        playCount: track.user_play_count || track.playback_count || 0,
         reposts: track.reposts_count || 0,
         likes: track.likes_count || 0,
         createdAt: track.created_at || new Date().toISOString(),
         artwork: track.artwork_url || track.user?.avatar_url || 'https://via.placeholder.com/300x300/ff5500/ffffff?text=Track',
         platform: 'soundcloud' as const
       }))
+      // Tracks are already sorted by user's play count from backend
       
       setTracks(tracksData)
       console.log('fetchTracks: Real tracks loaded, count:', tracksData.length)
@@ -249,53 +251,34 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
   const fetchMusicTasteMap = useCallback(async () => {
     try {
       setIsLoadingMusicTasteMap(true)
-      // Mock data for now - in production this would come from your backend
-      const mockLocations: MusicTasteLocation[] = [
-        {
-          city: 'New York',
-          country: 'United States',
-          similarity: 0.87,
-          userCount: 1250,
-          topGenres: ['Electronic', 'Hip Hop', 'Indie'],
-          coordinates: { lat: 40.7128, lng: -74.0060 }
-        },
-        {
-          city: 'London',
-          country: 'United Kingdom',
-          similarity: 0.82,
-          userCount: 980,
-          topGenres: ['Electronic', 'Alternative', 'Pop'],
-          coordinates: { lat: 51.5074, lng: -0.1278 }
-        },
-        {
-          city: 'Berlin',
-          country: 'Germany',
-          similarity: 0.79,
-          userCount: 750,
-          topGenres: ['Electronic', 'Techno', 'Ambient'],
-          coordinates: { lat: 52.5200, lng: 13.4050 }
-        },
-        {
-          city: 'Tokyo',
-          country: 'Japan',
-          similarity: 0.75,
-          userCount: 650,
-          topGenres: ['Electronic', 'J-Pop', 'Ambient'],
-          coordinates: { lat: 35.6762, lng: 139.6503 }
-        },
-        {
-          city: 'Los Angeles',
-          country: 'United States',
-          similarity: 0.73,
-          userCount: 890,
-          topGenres: ['Hip Hop', 'Electronic', 'Indie'],
-          coordinates: { lat: 34.0522, lng: -118.2437 }
-        }
-      ]
-      setMusicTasteLocations(mockLocations)
+      
+      // First, try to update user location (non-blocking)
+      try {
+        await api.post('/tracking/update-location')
+      } catch (e) {
+        // Silently fail - location update is optional
+      }
+      
+      // Then fetch the music taste map
+      const response = await api.get('/soundcloud/music-taste-map')
+      if (response?.data && Array.isArray(response.data)) {
+        // Transform backend data to frontend format
+        const locations: MusicTasteLocation[] = response.data.map((loc: any) => ({
+          city: loc.city || 'Unknown',
+          country: loc.country || 'Unknown',
+          similarity: typeof loc.similarity === 'number' ? loc.similarity : 0,
+          userCount: typeof loc.userCount === 'number' ? loc.userCount : 0,
+          topGenres: Array.isArray(loc.topGenres) ? loc.topGenres : [],
+          coordinates: loc.coordinates || { lat: 0, lng: 0 }
+        }))
+        setMusicTasteLocations(locations)
+      } else {
+        setMusicTasteLocations([])
+      }
     } catch (error) {
       console.error('Failed to fetch music taste map data:', error)
       toast.error('Failed to load music taste map')
+      setMusicTasteLocations([])
     } finally {
       setIsLoadingMusicTasteMap(false)
     }

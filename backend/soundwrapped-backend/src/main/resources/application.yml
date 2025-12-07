@@ -9,14 +9,18 @@ spring:
   server:
     port: 8080
   datasource:
-    url: jdbc:h2:mem:testdb
+    # Use file-based H2 database for persistence across restarts
+    # Change to jdbc:h2:mem:testdb for in-memory (data lost on restart)
+    url: jdbc:h2:file:./data/soundwrapped;AUTO_SERVER=TRUE
     username: sa
     password: 
     driver-class-name: org.h2.Driver
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: create-drop
+      # Use 'update' instead of 'create-drop' to preserve data across restarts
+      # 'create-drop' drops all tables on shutdown, losing all tokens
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate.format_sql: true
