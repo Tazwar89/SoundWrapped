@@ -406,14 +406,18 @@
         try {
             // Method 1: Check for audio element (most reliable)
             const audioElements = document.querySelectorAll('audio');
-            for (const audio of audioElements) {
-                // Check if audio is actually playing
-                if (!audio.paused && !audio.ended && audio.currentTime > 0 && audio.readyState > 0) {
-                    // Double check - audio might be paused but not updated yet
-                    if (audio.currentTime > 0) {
-                        return true;
+            if (audioElements.length > 0) {
+                for (const audio of audioElements) {
+                    // Check if audio is actually playing
+                    if (!audio.paused && !audio.ended && audio.currentTime > 0 && audio.readyState > 0) {
+                        // Double check - audio might be paused but not updated yet
+                        if (audio.currentTime > 0) {
+                            return true;
+                        }
                     }
                 }
+                // If we found audio elements but none are playing, it's paused
+                return false;
             }
 
             // Method 2: Check button states - look for pause button (means playing) or play button (means paused)
@@ -421,17 +425,20 @@
             const pauseButtons = document.querySelectorAll(
                 'button[aria-label*="Pause"], button[aria-label*="pause"], ' +
                 '.sc-button-pause, button[class*="pause"], button[class*="Pause"], ' +
-                '[data-testid="pause-button"]'
+                '[data-testid="pause-button"], [aria-label="Pause"], [aria-label="pause"]'
             );
             
+            let foundPauseButton = false;
             for (const button of pauseButtons) {
                 const ariaLabel = (button.getAttribute('aria-label') || '').toLowerCase();
                 const classList = button.classList;
+                const isVisible = button.offsetParent !== null; // Check if button is visible
                 
-                // If button explicitly says "pause", track is playing
-                if (ariaLabel.includes('pause') || 
+                // If button explicitly says "pause" and is visible, track is playing
+                if (isVisible && (ariaLabel.includes('pause') || 
                     classList.contains('sc-button-pause') ||
-                    classList.contains('pause')) {
+                    classList.contains('pause'))) {
+                    foundPauseButton = true;
                     return true;
                 }
             }
@@ -440,16 +447,17 @@
             const playButtons = document.querySelectorAll(
                 'button[aria-label*="Play"], button[aria-label*="play"], ' +
                 '.sc-button-play, button[class*="play"], button[class*="Play"], ' +
-                '[data-testid="play-button"], .playControl'
+                '[data-testid="play-button"], .playControl, [aria-label="Play"], [aria-label="play"]'
             );
             
             let foundPlayButton = false;
             for (const button of playButtons) {
                 const ariaLabel = (button.getAttribute('aria-label') || '').toLowerCase();
                 const classList = button.classList;
+                const isVisible = button.offsetParent !== null; // Check if button is visible
                 
-                // If button says "play" (and not "pause"), track is paused
-                if (ariaLabel.includes('play') && !ariaLabel.includes('pause')) {
+                // If button says "play" (and not "pause") and is visible, track is paused
+                if (isVisible && ariaLabel.includes('play') && !ariaLabel.includes('pause')) {
                     foundPlayButton = true;
                     // But check if it has a "playing" class which might override
                     if (classList.contains('playing') || 
@@ -460,10 +468,14 @@
                 }
             }
             
-            // If we found a play button (not pause), it's likely paused
-            // But we need to be more careful - check if there's a pause button visible
-            if (foundPlayButton && pauseButtons.length === 0) {
-                return false; // Only play button, no pause button = paused
+            // If we found a play button (not pause) and no pause button, it's paused
+            if (foundPlayButton && !foundPauseButton) {
+                return false; // Only play button visible, no pause button = paused
+            }
+            
+            // If we found a pause button, it's playing
+            if (foundPauseButton) {
+                return true;
             }
 
             // Method 3: Check for progress bar animation

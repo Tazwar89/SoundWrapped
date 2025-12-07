@@ -35,7 +35,7 @@ const TopTracksChart: React.FC<TopTracksChartProps> = ({ tracks }) => {
           >
             <div className="flex items-center space-x-4">
               {/* Rank */}
-              <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-primary-500 to-soundcloud-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+              <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
                 {index + 1}
               </div>
 
@@ -59,7 +59,7 @@ const TopTracksChart: React.FC<TopTracksChartProps> = ({ tracks }) => {
                   </div>
                   <div className="w-full bg-slate-700 rounded-full h-1.5">
                     <motion.div
-                      className="h-1.5 bg-gradient-to-r from-primary-500 to-soundcloud-500 rounded-full"
+                      className="h-1.5 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full"
                       initial={{ width: 0 }}
                       animate={{ width: `${playPercentage}%` }}
                       transition={{ duration: 1, delay: index * 0.1 }}
@@ -78,7 +78,7 @@ const TopTracksChart: React.FC<TopTracksChartProps> = ({ tracks }) => {
                   <Share2 className="h-4 w-4" />
                   <span className="text-xs">{formatNumber(track.reposts)}</span>
                 </div>
-                <button className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors group-hover:bg-primary-500/20">
+                <button className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors group-hover:bg-orange-500/20">
                   <Play className="h-4 w-4" />
                 </button>
               </div>

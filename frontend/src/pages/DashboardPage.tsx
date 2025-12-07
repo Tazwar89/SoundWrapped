@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import { 
   BarChart3, 
   Music, 
@@ -35,6 +36,9 @@ const DashboardPage: React.FC = () => {
   
   const [analytics, setAnalytics] = useState<any>(null)
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
+  const [recentActivity, setRecentActivity] = useState<any[]>([])
+  const [isLoadingActivity, setIsLoadingActivity] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   useEffect(() => {
     console.log('Dashboard useEffect: isAuthenticated =', isAuthenticated)
@@ -42,8 +46,59 @@ const DashboardPage: React.FC = () => {
       console.log('Dashboard: Calling refreshAllData...')
       refreshAllData()
       fetchAnalytics()
+      fetchRecentActivity()
     }
   }, [isAuthenticated])
+
+  const handleRefresh = async () => {
+    try {
+      setIsRefreshing(true)
+      console.log('[Dashboard] Refresh button clicked - refreshing all data...')
+      
+      // Refresh all data in parallel for better performance
+      await Promise.all([
+        refreshAllData(), // Refreshes tracks, artists, playlists, wrapped data, music taste map
+        fetchAnalytics(), // Refreshes analytics stats
+        fetchRecentActivity() // Refreshes recent activity
+      ])
+      
+      console.log('[Dashboard] All data refreshed successfully')
+      toast.success('Dashboard refreshed successfully!', {
+        icon: '✅',
+        duration: 2000
+      })
+    } catch (error) {
+      console.error('[Dashboard] Error refreshing data:', error)
+      toast.error('Failed to refresh dashboard. Please try again.', {
+        icon: '❌',
+        duration: 3000
+      })
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
+  const fetchRecentActivity = async () => {
+    try {
+      setIsLoadingActivity(true)
+      console.log('[Dashboard] Fetching recent activity...')
+      const response = await api.get('/soundcloud/recent-activity?limit=5')
+      console.log('[Dashboard] Recent activity response:', response?.data)
+      if (response?.data && Array.isArray(response.data)) {
+        console.log('[Dashboard] Setting recent activity, count:', response.data.length)
+        setRecentActivity(response.data)
+      } else {
+        console.warn('[Dashboard] Invalid recent activity response:', response?.data)
+        setRecentActivity([])
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch recent activity:', error)
+      console.error('Error details:', error.response?.data || error.message)
+      setRecentActivity([])
+    } finally {
+      setIsLoadingActivity(false)
+    }
+  }
 
   const fetchAnalytics = async () => {
     try {
@@ -152,11 +207,14 @@ const DashboardPage: React.FC = () => {
           </div>
           <div className="flex space-x-4 mt-4 md:mt-0">
             <button
-              onClick={refreshAllData}
-              className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors flex items-center space-x-2"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className={`px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors flex items-center space-x-2 ${
+                isRefreshing ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
-              <RefreshCw className="h-4 w-4" />
-              <span>Refresh</span>
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
             </button>
             <Link
               to="/wrapped"
@@ -313,7 +371,7 @@ const DashboardPage: React.FC = () => {
               {listeningPersona && (
                 <div className="p-4 bg-gradient-to-br from-orange-500/20 to-orange-600/20 rounded-lg border border-orange-500/30">
                   <div className="text-sm text-white/80 mb-1">Your Persona</div>
-                  <div className="text-2xl font-bold text-soundcloud-300">{listeningPersona}</div>
+                  <div className="text-2xl font-bold text-orange-300">{listeningPersona}</div>
                 </div>
               )}
               
@@ -329,7 +387,7 @@ const DashboardPage: React.FC = () => {
               {peakDay && (
                 <div className="p-4 bg-gradient-to-br from-orange-500/20 to-orange-600/20 rounded-lg border border-orange-500/30">
                   <div className="text-sm text-white/80 mb-1">Most Active Day</div>
-                  <div className="text-2xl font-bold text-spotify-300">{peakDay}</div>
+                  <div className="text-2xl font-bold text-orange-300">{peakDay}</div>
                 </div>
               )}
             </div>
@@ -337,21 +395,21 @@ const DashboardPage: React.FC = () => {
         )}
 
         {/* Music Doppelgänger Section */}
-        {hasDoppelganger && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            className="stat-card mb-8"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="subsection-title">Music Doppelgänger</h3>
-                <p className="text-sm text-white/80 mt-1 font-medium">
-                  Your taste twin from people you follow
-                </p>
-              </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.5 }}
+          className="stat-card mb-8"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="subsection-title">Music Doppelgänger</h3>
+              <p className="text-sm text-white/80 mt-1 font-medium">
+                Your taste twin from people you follow
+              </p>
             </div>
+          </div>
+          {hasDoppelganger ? (
             <div className="flex items-center space-x-6 p-6 bg-gradient-to-r from-orange-500/20 to-orange-600/20 rounded-lg border border-orange-500/30">
               {doppelgangerData.avatarUrl && (
                 <img 
@@ -385,8 +443,14 @@ const DashboardPage: React.FC = () => {
                 </div>
               </div>
             </div>
-          </motion.div>
-        )}
+          ) : (
+            <div className="p-6 bg-black/10 rounded-lg border border-white/5">
+              <p className="text-white/70 text-center">
+                {musicDoppelganger.message || 'Not enough data to find your Music Doppelgänger. Make sure you have tracks and follow some users!'}
+              </p>
+            </div>
+          )}
+        </motion.div>
 
         {/* Recent Activity & Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -398,7 +462,13 @@ const DashboardPage: React.FC = () => {
             className="lg:col-span-2 stat-card"
           >
             <h3 className="subsection-title">Recent Activity</h3>
-            <RecentActivity tracks={tracks.slice(0, 5)} />
+            {isLoadingActivity ? (
+              <div className="flex items-center justify-center py-8">
+                <LoadingSpinner />
+              </div>
+            ) : (
+              <RecentActivity activities={recentActivity} />
+            )}
           </motion.div>
 
           {/* Quick Actions */}
@@ -426,7 +496,7 @@ const DashboardPage: React.FC = () => {
                 to="/music-taste-map"
                 className="flex items-center space-x-3 p-4 rounded-lg bg-gradient-to-r from-orange-500/20 to-orange-600/20 hover:from-orange-500/30 hover:to-orange-600/30 transition-all group"
               >
-                <Users className="h-5 w-5 text-soundcloud-400" />
+                <Users className="h-5 w-5 text-orange-400" />
                 <div>
                   <div className="font-medium text-white">Music Taste Map</div>
                   <div className="text-sm text-white/80">Find similar listeners</div>
@@ -438,7 +508,7 @@ const DashboardPage: React.FC = () => {
                 to="/profile"
                 className="flex items-center space-x-3 p-4 rounded-lg bg-gradient-to-r from-orange-500/20 to-orange-600/20 hover:from-orange-500/30 hover:to-orange-600/30 transition-all group"
               >
-                <Share2 className="h-5 w-5 text-spotify-400" />
+                <Share2 className="h-5 w-5 text-orange-400" />
                 <div>
                   <div className="font-medium text-white">Share Profile</div>
                   <div className="text-sm text-white/80">Show off your taste</div>

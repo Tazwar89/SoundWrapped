@@ -4,6 +4,7 @@ import com.soundwrapped.service.SoundWrappedService;
 import com.soundwrapped.service.AnalyticsService;
 import com.soundwrapped.service.MusicDoppelgangerService;
 import com.soundwrapped.service.ArtistAnalyticsService;
+import com.soundwrapped.service.MusicTasteMapService;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
@@ -24,16 +25,19 @@ public class SoundWrappedController {
 	private final AnalyticsService analyticsService;
 	private final MusicDoppelgangerService musicDoppelgangerService;
 	private final ArtistAnalyticsService artistAnalyticsService;
+	private final MusicTasteMapService musicTasteMapService;
 
 	public SoundWrappedController(
 			SoundWrappedService soundCloudService,
 			AnalyticsService analyticsService,
 			MusicDoppelgangerService musicDoppelgangerService,
-			ArtistAnalyticsService artistAnalyticsService) {
+			ArtistAnalyticsService artistAnalyticsService,
+			MusicTasteMapService musicTasteMapService) {
 		this.soundWrappedService = soundCloudService;
 		this.analyticsService = analyticsService;
 		this.musicDoppelgangerService = musicDoppelgangerService;
 		this.artistAnalyticsService = artistAnalyticsService;
+		this.musicTasteMapService = musicTasteMapService;
 	}
 
 	// =========================
@@ -76,10 +80,74 @@ public class SoundWrappedController {
 	@GetMapping("/tracks")
 	public List<Map<String, Object>> getUserTracks() {
 		try {
-			return soundWrappedService.getUserTracks();
+			// Get user profile to extract userId
+			Map<String, Object> profile = soundWrappedService.getUserProfile();
+			String userId = String.valueOf(profile.getOrDefault("id", "unknown"));
+			
+			// Get top tracks based on user's tracked plays
+			return soundWrappedService.getUserTopTracksByPlays(userId, 50);
 		} catch (Exception e) {
 			System.out.println("Error fetching tracks: " + e.getMessage());
 			return new ArrayList<>();
+		}
+	}
+
+	@GetMapping("/popular/tracks")
+	public List<Map<String, Object>> getPopularTracks(@RequestParam(defaultValue = "4") int limit) {
+		try {
+			List<Map<String, Object>> result = soundWrappedService.getPopularTracks(limit);
+			System.out.println("Controller: Popular tracks result size: " + result.size());
+			if (result.isEmpty()) {
+				System.err.println("Controller: Popular tracks list is empty!");
+			}
+			return result;
+		} catch (Exception e) {
+			System.err.println("Error fetching popular tracks: " + e.getMessage());
+			e.printStackTrace();
+			return new ArrayList<>();
+		}
+	}
+
+	@GetMapping("/featured/track")
+	public Map<String, Object> getFeaturedTrack() {
+		try {
+			Map<String, Object> result = soundWrappedService.getFeaturedTrack();
+			System.out.println("Controller: Featured track result size: " + result.size());
+			if (result.isEmpty()) {
+				System.err.println("Controller: Featured track is empty!");
+			}
+			return result;
+		} catch (Exception e) {
+			System.err.println("Error fetching featured track: " + e.getMessage());
+			e.printStackTrace();
+			return new HashMap<>();
+		}
+	}
+
+	@GetMapping("/featured/artist")
+	public Map<String, Object> getFeaturedArtist() {
+		try {
+			return soundWrappedService.getFeaturedArtist();
+		} catch (Exception e) {
+			System.out.println("Error fetching featured artist: " + e.getMessage());
+			return new HashMap<>();
+		}
+	}
+
+	@GetMapping("/featured/genre")
+	public Map<String, Object> getFeaturedGenre() {
+		System.out.println("Controller: /featured/genre endpoint called");
+		try {
+			return soundWrappedService.getFeaturedGenreWithTracks();
+		} catch (Exception e) {
+			System.err.println("Error fetching featured genre: " + e.getMessage());
+			e.printStackTrace();
+			// Return default genre with tracks even on error
+			Map<String, Object> result = new HashMap<>();
+			result.put("genre", "electronic");
+			result.put("description", "Electronic music encompasses a wide range of genres that primarily use electronic instruments and technology.");
+			result.put("tracks", new ArrayList<>());
+			return result;
 		}
 	}
 
@@ -223,6 +291,73 @@ public class SoundWrappedController {
 		} catch (Exception e) {
 			System.out.println("Error fetching artist recommendations: " + e.getMessage());
 			return new ArrayList<>();
+		}
+	}
+
+	/**
+	 * Get music taste map data showing cities with similar listeners
+	 */
+	@GetMapping("/music-taste-map")
+	public List<Map<String, Object>> getMusicTasteMap() {
+		try {
+			return musicTasteMapService.getMusicTasteMap();
+		} catch (Exception e) {
+			System.out.println("Error fetching music taste map: " + e.getMessage());
+			return new ArrayList<>();
+		}
+	}
+
+	/**
+	 * Get recent activity (likes, uploads, follows) from SoundCloud
+	 */
+	@GetMapping("/recent-activity")
+	public List<Map<String, Object>> getRecentActivity(@RequestParam(defaultValue = "10") int limit) {
+		try {
+			return soundWrappedService.getRecentActivity(limit);
+		} catch (Exception e) {
+			System.err.println("Error fetching recent activity: " + e.getMessage());
+			e.printStackTrace();
+			return new ArrayList<>();
+		}
+	}
+
+	// Debug endpoint to test SoundCloud API connection
+	@GetMapping("/debug/test-api")
+	public Map<String, Object> testSoundCloudAPI() {
+		try {
+			// Test basic API call - use reflection to get clientId since it's private
+			java.lang.reflect.Field clientIdField = soundWrappedService.getClass().getDeclaredField("clientId");
+			clientIdField.setAccessible(true);
+			String clientId = (String) clientIdField.get(soundWrappedService);
+			
+			String testUrl = "https://api.soundcloud.com/tracks?client_id=" + clientId + "&limit=1";
+			org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+			org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+			headers.set("User-Agent", "SoundWrapped/1.0");
+			headers.set("Accept", "application/json");
+			org.springframework.http.HttpEntity<String> request = new org.springframework.http.HttpEntity<String>(headers);
+			
+			org.springframework.core.ParameterizedTypeReference<List<Map<String, Object>>> typeRef = 
+				new org.springframework.core.ParameterizedTypeReference<List<Map<String, Object>>>(){};
+			org.springframework.http.ResponseEntity<List<Map<String, Object>>> response = 
+				restTemplate.exchange(testUrl, org.springframework.http.HttpMethod.GET, request, typeRef);
+			
+			Map<String, Object> result = new HashMap<>();
+			result.put("status", "success");
+			result.put("httpStatus", response.getStatusCode().toString());
+			result.put("tracksReturned", response.getBody() != null ? response.getBody().size() : 0);
+			result.put("clientIdConfigured", clientId != null && !clientId.isEmpty());
+			if (response.getBody() != null && !response.getBody().isEmpty()) {
+				result.put("sampleTrack", response.getBody().get(0));
+			}
+			return result;
+		} catch (Exception e) {
+			Map<String, Object> result = new HashMap<>();
+			result.put("status", "error");
+			result.put("error", e.getMessage());
+			result.put("errorType", e.getClass().getSimpleName());
+			e.printStackTrace();
+			return result;
 		}
 	}
 

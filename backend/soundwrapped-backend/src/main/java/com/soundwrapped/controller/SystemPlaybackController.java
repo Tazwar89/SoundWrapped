@@ -2,10 +2,12 @@ package com.soundwrapped.controller;
 
 import com.soundwrapped.service.ActivityTrackingService;
 import com.soundwrapped.service.SoundWrappedService;
+import com.soundwrapped.service.UserLocationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,12 +23,33 @@ public class SystemPlaybackController {
 
     private final ActivityTrackingService activityTrackingService;
     private final SoundWrappedService soundWrappedService;
+    private final UserLocationService userLocationService;
 
     public SystemPlaybackController(
             ActivityTrackingService activityTrackingService,
-            SoundWrappedService soundWrappedService) {
+            SoundWrappedService soundWrappedService,
+            UserLocationService userLocationService) {
         this.activityTrackingService = activityTrackingService;
         this.soundWrappedService = soundWrappedService;
+        this.userLocationService = userLocationService;
+    }
+    
+    /**
+     * Extract IP address from HTTP request
+     */
+    private String getClientIpAddress(HttpServletRequest request) {
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+            // X-Forwarded-For can contain multiple IPs, take the first one
+            return xForwardedFor.split(",")[0].trim();
+        }
+        
+        String xRealIp = request.getHeader("X-Real-IP");
+        if (xRealIp != null && !xRealIp.isEmpty()) {
+            return xRealIp;
+        }
+        
+        return request.getRemoteAddr();
     }
 
     /**
@@ -46,7 +69,8 @@ public class SystemPlaybackController {
      */
     @PostMapping("/system-playback")
     public ResponseEntity<Map<String, Object>> trackSystemPlayback(
-            @RequestBody Map<String, Object> playbackEvent) {
+            @RequestBody Map<String, Object> playbackEvent,
+            HttpServletRequest request) {
         try {
             System.out.println("[SystemPlayback] Received playback event: " + playbackEvent);
             
@@ -55,6 +79,22 @@ public class SystemPlaybackController {
             String userId = String.valueOf(profile.getOrDefault("id", "unknown"));
             
             System.out.println("[SystemPlayback] User ID: " + userId);
+            
+            // Extract IP address and update user location (async, non-blocking)
+            try {
+                String clientIp = getClientIpAddress(request);
+                // Update location in background (don't block playback tracking)
+                new Thread(() -> {
+                    try {
+                        userLocationService.updateUserLocation(userId, clientIp);
+                        System.out.println("[SystemPlayback] ✅ Updated user location from IP: " + clientIp);
+                    } catch (Exception e) {
+                        System.out.println("[SystemPlayback] ⚠️ Failed to update location: " + e.getMessage());
+                    }
+                }).start();
+            } catch (Exception e) {
+                System.out.println("[SystemPlayback] ⚠️ Error extracting IP: " + e.getMessage());
+            }
             
             // Extract track information
             String trackId = (String) playbackEvent.getOrDefault("trackId", "");
@@ -101,10 +141,25 @@ public class SystemPlaybackController {
      */
     @PostMapping("/system-like")
     public ResponseEntity<Map<String, Object>> trackSystemLike(
-            @RequestParam String trackId) {
+            @RequestParam String trackId,
+            HttpServletRequest request) {
         try {
             Map<String, Object> profile = soundWrappedService.getUserProfile();
             String userId = String.valueOf(profile.getOrDefault("id", "unknown"));
+            
+            // Update location if needed (async)
+            try {
+                String clientIp = getClientIpAddress(request);
+                new Thread(() -> {
+                    try {
+                        userLocationService.updateUserLocation(userId, clientIp);
+                    } catch (Exception e) {
+                        // Silently fail
+                    }
+                }).start();
+            } catch (Exception e) {
+                // Silently fail
+            }
             
             activityTrackingService.trackLike(userId, trackId);
             
@@ -116,6 +171,30 @@ public class SystemPlaybackController {
             Map<String, Object> error = new HashMap<>();
             error.put("success", false);
             error.put("message", "Failed to track like event: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+    
+    /**
+     * Endpoint to update user location explicitly (can be called from frontend)
+     */
+    @PostMapping("/update-location")
+    public ResponseEntity<Map<String, Object>> updateLocation(HttpServletRequest request) {
+        try {
+            Map<String, Object> profile = soundWrappedService.getUserProfile();
+            String userId = String.valueOf(profile.getOrDefault("id", "unknown"));
+            
+            String clientIp = getClientIpAddress(request);
+            userLocationService.updateUserLocation(userId, clientIp);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Location updated");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("message", "Failed to update location: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
         }
     }

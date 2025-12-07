@@ -20,7 +20,7 @@ const Header: React.FC = () => {
   const isActive = (path: string) => location.pathname === path
 
   return (
-    <header className="sticky top-0 z-50 bg-black/5 border-b border-white/5">
+    <header className="sticky top-0 z-50 bg-black/95 backdrop-blur-md border-b border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
@@ -116,7 +116,7 @@ const Header: React.FC = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-black/5 border-t border-white/5"
+            className="md:hidden bg-black/95 backdrop-blur-md border-t border-white/10"
           >
             <div className="px-4 py-4 space-y-2">
               {navigation.map((item) => {

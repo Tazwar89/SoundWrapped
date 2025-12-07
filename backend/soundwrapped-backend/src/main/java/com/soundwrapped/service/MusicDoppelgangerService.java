@@ -128,18 +128,19 @@ public class MusicDoppelgangerService {
             }
             
             // Format response
+            Map<String, Object> doppelgangerData = new HashMap<>();
+            doppelgangerData.put("userId", doppelganger.get("userId"));
+            doppelgangerData.put("username", doppelganger.get("username"));
+            doppelgangerData.put("fullName", doppelganger.get("fullName"));
+            doppelgangerData.put("avatarUrl", doppelganger.get("avatarUrl"));
+            doppelgangerData.put("similarityPercentage", Math.round((Double) doppelganger.get("similarity") * 100));
+            doppelgangerData.put("sharedTracks", doppelganger.get("sharedTracks"));
+            doppelgangerData.put("sharedArtists", doppelganger.get("sharedArtists"));
+            doppelgangerData.put("sharedGenres", doppelganger.get("sharedGenres"));
+            
             Map<String, Object> result = new HashMap<>();
             result.put("found", true);
-            result.put("doppelganger", Map.of(
-                "userId", doppelganger.get("userId"),
-                "username", doppelganger.get("username"),
-                "fullName", doppelganger.get("fullName"),
-                "avatarUrl", doppelganger.get("avatarUrl"),
-                "similarityPercentage", Math.round((Double) doppelganger.get("similarity") * 100),
-                "sharedTracks", doppelganger.get("sharedTracks"),
-                "sharedArtists", doppelganger.get("sharedArtists"),
-                "sharedGenres", doppelganger.get("sharedGenres")
-            ));
+            result.put("doppelganger", doppelgangerData);
             result.put("totalCompared", similarityScores.size());
             
             return result;

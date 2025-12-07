@@ -38,12 +38,18 @@ class SoundWrappedE2ETest {
 	@MockBean
 	private GenreAnalysisService genreAnalysisService;
 
+	@MockBean
+	private com.soundwrapped.repository.UserActivityRepository userActivityRepository;
+
+	@MockBean
+	private com.soundwrapped.service.ActivityTrackingService activityTrackingService;
+
 	private SoundWrappedService soundWrappedService;
 
 	@BeforeEach
 	void setUp() {
 		tokenStore = new TokenStore(tokenRepository);
-		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate, genreAnalysisService);
+		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate, genreAnalysisService, userActivityRepository, activityTrackingService);
 
 		ReflectionTestUtils.setField(soundWrappedService, "soundCloudApiBaseUrl", "https://api.soundcloud.com");
 		ReflectionTestUtils.setField(soundWrappedService, "clientId", "dummyClientId");

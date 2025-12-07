@@ -31,26 +31,26 @@ The following data **is available** directly from SoundCloud API:
 - User's followers/following lists
 - **Playback counts** (global plays on tracks, NOT user-specific)
 
-## What We Track In-App
+## What We Track via Browser Extension
 
-Since SoundCloud API doesn't provide user-specific listening history, we track activity **within the SoundWrapped application**:
+Since SoundCloud API doesn't provide user-specific listening history, we track activity **on SoundCloud.com** using a browser extension:
 
 ### Tracked Events
 
-1. **Play Events** - When a user plays a track using our in-app player
+1. **Play Events** - When a user plays a track on SoundCloud.com (detected by browser extension)
    - Track ID
    - Play duration (milliseconds)
    - Timestamp
 
-2. **Like Events** - When a user likes a track in-app
+2. **Like Events** - When a user likes a track on SoundCloud.com (detected by browser extension)
    - Track ID
    - Timestamp
 
-3. **Repost Events** - When a user reposts a track in-app
+3. **Repost Events** - When a user reposts a track on SoundCloud.com (detected by browser extension)
    - Track ID
    - Timestamp
 
-4. **Share Events** - When a user shares a track in-app
+4. **Share Events** - When a user shares a track on SoundCloud.com (detected by browser extension)
    - Track ID
    - Timestamp
 

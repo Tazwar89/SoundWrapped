@@ -4,7 +4,7 @@ import { Music, Github, Twitter, Mail } from 'lucide-react'
 
 const Footer: React.FC = () => {
   return (
-    <footer className="bg-black/5 border-t border-white/5 mt-auto">
+    <footer className="bg-black/95 backdrop-blur-md border-t border-white/10 mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
@@ -14,7 +14,7 @@ const Footer: React.FC = () => {
               <span className="text-2xl font-bold gradient-text">SoundWrapped</span>
             </div>
             <p className="text-slate-400 mb-6 max-w-md">
-              Discover your music taste with personalized insights from SoundCloud and Spotify. 
+              Discover your music taste with personalized insights from SoundCloud. 
               Your musical journey, beautifully visualized.
             </p>
             <div className="flex space-x-4">
@@ -101,7 +101,7 @@ const Footer: React.FC = () => {
         <div className="border-t border-white/10 mt-8 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <p className="text-slate-400 text-sm">
-              © 2024 SoundWrapped. All rights reserved.
+              © 2026 SoundWrapped. All rights reserved.
             </p>
             <p className="text-slate-500 text-sm mt-2 md:mt-0">
               Made with ❤️ for music lovers

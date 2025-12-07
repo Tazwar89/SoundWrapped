@@ -6,9 +6,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
- * Service for tracking user activity within the SoundWrapped application.
+ * Service for tracking user activity detected by the browser extension.
+ * The extension monitors SoundCloud.com playback and sends events to this service.
  * This allows us to build analytics by collecting data over time, since
  * SoundCloud API doesn't provide listening history.
  */
@@ -22,7 +24,7 @@ public class ActivityTrackingService {
     }
 
     /**
-     * Track a play event when user plays a track in-app
+     * Track a play event when the browser extension detects playback on SoundCloud.com
      */
     @Transactional
     public void trackPlay(String soundcloudUserId, String trackId, Long durationMs) {
@@ -35,7 +37,7 @@ public class ActivityTrackingService {
     }
 
     /**
-     * Track a like event when user likes a track in-app
+     * Track a like event when the browser extension detects a like on SoundCloud.com
      */
     @Transactional
     public void trackLike(String soundcloudUserId, String trackId) {
@@ -47,7 +49,7 @@ public class ActivityTrackingService {
     }
 
     /**
-     * Track a repost event when user reposts a track in-app
+     * Track a repost event when the browser extension detects a repost on SoundCloud.com
      */
     @Transactional
     public void trackRepost(String soundcloudUserId, String trackId) {
@@ -59,7 +61,7 @@ public class ActivityTrackingService {
     }
 
     /**
-     * Track a share event when user shares a track in-app
+     * Track a share event when the browser extension detects a share on SoundCloud.com
      */
     @Transactional
     public void trackShare(String soundcloudUserId, String trackId) {
@@ -71,17 +73,22 @@ public class ActivityTrackingService {
     }
 
     /**
-     * Get total play count for a user (in-app only)
+     * Get total play count for a user (tracked by browser extension from SoundCloud.com)
+     * within the specified date range
      */
     public long getTotalPlays(String soundcloudUserId, LocalDateTime startDate, LocalDateTime endDate) {
-        return activityRepository.countBySoundcloudUserIdAndActivityType(
-            soundcloudUserId, 
-            UserActivity.ActivityType.PLAY
+        List<UserActivity> plays = activityRepository.findBySoundcloudUserIdAndActivityTypeAndCreatedAtBetween(
+            soundcloudUserId,
+            UserActivity.ActivityType.PLAY,
+            startDate,
+            endDate
         );
+        return plays.size();
     }
 
     /**
-     * Get total listening time in milliseconds (in-app only)
+     * Get total listening time in milliseconds (tracked by browser extension from SoundCloud.com)
+     * within the specified date range
      */
     public long getTotalListeningTimeMs(String soundcloudUserId, LocalDateTime startDate, LocalDateTime endDate) {
         Long totalMs = activityRepository.getTotalPlayDurationMs(soundcloudUserId, startDate, endDate);
@@ -89,12 +96,16 @@ public class ActivityTrackingService {
     }
 
     /**
-     * Get total likes tracked in-app
+     * Get total likes tracked by browser extension from SoundCloud.com
+     * within the specified date range
      */
     public long getTotalLikes(String soundcloudUserId, LocalDateTime startDate, LocalDateTime endDate) {
-        return activityRepository.countBySoundcloudUserIdAndActivityType(
-            soundcloudUserId, 
-            UserActivity.ActivityType.LIKE
+        List<UserActivity> likes = activityRepository.findBySoundcloudUserIdAndActivityTypeAndCreatedAtBetween(
+            soundcloudUserId,
+            UserActivity.ActivityType.LIKE,
+            startDate,
+            endDate
         );
+        return likes.size();
     }
 }

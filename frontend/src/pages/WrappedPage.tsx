@@ -88,7 +88,7 @@ const WrappedPage: React.FC = () => {
             transition={{ duration: 0.8, type: "spring" }}
             className="mb-8"
           >
-            <div className="w-32 h-32 bg-gradient-to-r from-primary-500 to-soundcloud-500 rounded-full flex items-center justify-center mx-auto mb-6">
+            <div className="w-32 h-32 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <Music className="h-16 w-16 text-white" />
             </div>
           </motion.div>
@@ -258,9 +258,9 @@ const WrappedPage: React.FC = () => {
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.6, delay: index * 0.2 }}
-                className="flex items-center space-x-6 p-6 rounded-xl bg-gradient-to-r from-primary-500/10 to-soundcloud-500/10 hover:from-primary-500/20 hover:to-soundcloud-500/20 transition-all mb-4"
+                className="flex items-center space-x-6 p-6 rounded-xl bg-gradient-to-r from-orange-500/10 to-orange-600/10 hover:from-orange-500/20 hover:to-orange-600/20 transition-all mb-4"
               >
-                <div className="w-16 h-16 bg-gradient-to-r from-primary-500 to-soundcloud-500 rounded-full flex items-center justify-center text-white font-bold text-xl">
+                <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-xl">
                   {artist.artist.charAt(0)}
                 </div>
                 <div className="flex-1 text-left">
@@ -449,7 +449,7 @@ const WrappedPage: React.FC = () => {
         <div className="flex justify-between items-center mb-8">
           <button
             onClick={prevSlide}
-            className="flex items-center space-x-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-orange-500/20 to-orange-600/20 hover:from-orange-500/30 hover:to-orange-600/30 border border-orange-500/30 rounded-lg transition-all text-white"
           >
             <ChevronLeft className="h-4 w-4" />
             <span>Previous</span>
@@ -465,19 +465,19 @@ const WrappedPage: React.FC = () => {
                     setIsAutoPlaying(false)
                   }}
                   className={`w-3 h-3 rounded-full transition-colors ${
-                    index === currentSlide ? 'bg-primary-500' : 'bg-slate-600'
+                    index === currentSlide ? 'bg-orange-500' : 'bg-slate-600'
                   }`}
                 />
               ))}
             </div>
-            <span className="text-sm text-slate-400 ml-4">
+            <span className="text-sm text-orange-300 font-medium ml-4">
               {currentSlide + 1} of {slides.length}
             </span>
           </div>
           
           <button
             onClick={nextSlide}
-            className="flex items-center space-x-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-orange-500/20 to-orange-600/20 hover:from-orange-500/30 hover:to-orange-600/30 border border-orange-500/30 rounded-lg transition-all text-white"
           >
             <span>Next</span>
             <ChevronRight className="h-4 w-4" />
