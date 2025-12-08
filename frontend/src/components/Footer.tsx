@@ -13,9 +13,12 @@ const Footer: React.FC = () => {
               <Music className="h-8 w-8 text-orange-500" />
               <span className="text-2xl font-bold gradient-text">SoundWrapped</span>
             </div>
-            <p className="text-slate-400 mb-6 max-w-md">
+            <p className="text-slate-400 mb-4 max-w-md">
               Discover your music taste with personalized insights from SoundCloud. 
               Your musical journey, beautifully visualized.
+            </p>
+            <p className="text-slate-500 text-xs mb-6 max-w-md">
+              Music data, artist images, track artwork, and audio streams are provided by SoundCloud. SoundCloud is a trademark of SoundCloud Global Limited & Co. KG.
             </p>
             <div className="flex space-x-4">
               <a

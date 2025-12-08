@@ -13,6 +13,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -45,6 +46,10 @@ public class SoundWrappedService {
 	private final GenreAnalysisService genreAnalysisService;
 	private final UserActivityRepository userActivityRepository;
 	private final ActivityTrackingService activityTrackingService;
+	
+	// Daily cache for "Genre of the Day"
+	private static Map<String, Object> cachedGenreOfTheDay = null;
+	private static LocalDate cachedGenreDate = null;
 
 	public SoundWrappedService(
 			TokenStore tokenStore, 
@@ -1297,6 +1302,13 @@ public class SoundWrappedService {
 	 */
 	public Map<String, Object> getFeaturedGenreWithTracks() {
 		try {
+			// Check if we have a cached genre for today
+			LocalDate today = LocalDate.now();
+			if (cachedGenreOfTheDay != null && cachedGenreDate != null && cachedGenreDate.equals(today)) {
+				System.out.println("Returning cached genre of the day: " + cachedGenreOfTheDay.get("genre") + " (cached on " + cachedGenreDate + ")");
+				return cachedGenreOfTheDay;
+			}
+			
 			// List of popular genres to choose from
 			List<String> popularGenres = Arrays.asList(
 				"wave", "electronic", "hip-hop", "indie", "rock", "pop", 
@@ -1304,8 +1316,10 @@ public class SoundWrappedService {
 				"alternative", "folk", "country", "metal", "punk", "reggae"
 			);
 			
-			// Randomly select a genre
-			Random random = new Random();
+			// Use date-based seed for deterministic but daily-changing selection
+			// This ensures the same genre is selected throughout the day
+			long seed = today.toEpochDay(); // Convert date to a number
+			Random random = new Random(seed);
 			String selectedGenre = popularGenres.get(random.nextInt(popularGenres.size()));
 			
 			// Get genre description
@@ -1319,7 +1333,11 @@ public class SoundWrappedService {
 			result.put("description", genreDescription);
 			result.put("tracks", genreTracks);
 			
-			System.out.println("Featured genre: " + selectedGenre + ", tracks: " + genreTracks.size());
+			// Cache the result for today
+			cachedGenreOfTheDay = result;
+			cachedGenreDate = today;
+			
+			System.out.println("Featured genre of the day: " + selectedGenre + ", tracks: " + genreTracks.size() + " (cached for " + today + ")");
 			return result;
 		} catch (Exception e) {
 			System.err.println("Error fetching featured genre with tracks: " + e.getMessage());
@@ -1348,18 +1366,56 @@ public class SoundWrappedService {
 				return new ArrayList<>();
 			}
 			
-			// Use exact genre name with proper URL encoding
-			// Spaces will be encoded as %20, special characters like & will be encoded properly
-			// Format: https://api.soundcloud.com/tracks?tags=r%26b&limit=50&linked_partitioning=true
-			// For "R&B", URLEncoder will encode & as %26, spaces as %20
-			// Fetch more tracks initially since we'll filter for English titles and genre in tags
-			String encodedGenre = java.net.URLEncoder.encode(genreName.toLowerCase(), "UTF-8");
-			String url = soundCloudApiBaseUrl + "/tracks?tags=" + encodedGenre + 
-				"&limit=" + (limit * 10) + "&linked_partitioning=true";
+		// Try using the resolve endpoint first for tag URLs (e.g., soundcloud.com/tags/ambient/popular-tracks)
+		// If that fails, fall back to the direct /tracks?tags= endpoint
+		String encodedGenre = java.net.URLEncoder.encode(genreName.toLowerCase(), "UTF-8");
+		String tagUrl = "https://soundcloud.com/tags/" + encodedGenre + "/popular-tracks";
+		
+		System.out.println("Fetching tracks from genre tag: " + genreName);
+		System.out.println("Encoded genre: " + encodedGenre);
+		System.out.println("Tag URL: " + tagUrl);
+		
+		// First, try to resolve the tag URL
+		String url = null;
+		try {
+			String resolveUrl = soundCloudApiBaseUrl + "/resolve?url=" + java.net.URLEncoder.encode(tagUrl, "UTF-8");
+			System.out.println("Attempting to resolve tag URL: " + resolveUrl);
 			
-			System.out.println("Fetching tracks from genre tag: " + genreName);
-			System.out.println("Encoded genre: " + encodedGenre);
-			System.out.println("URL: " + url);
+			HttpHeaders resolveHeaders = new HttpHeaders();
+			resolveHeaders.setBearerAuth(accessToken);
+			resolveHeaders.set("User-Agent", "SoundWrapped/1.0 (https://github.com/tazwarsikder/SoundWrapped)");
+			resolveHeaders.set("Accept", "application/json");
+			HttpEntity<String> resolveRequest = new HttpEntity<String>(resolveHeaders);
+			
+			ResponseEntity<Map<String, Object>> resolveResponse = restTemplate.exchange(
+				resolveUrl,
+				HttpMethod.GET,
+				resolveRequest,
+				new ParameterizedTypeReference<Map<String, Object>>(){}
+			);
+			
+			if (resolveResponse.getStatusCode().is2xxSuccessful() && resolveResponse.getBody() != null) {
+				Map<String, Object> resolved = resolveResponse.getBody();
+				Object kind = resolved.get("kind");
+				if ("playlist".equals(kind) || "system-playlist".equals(kind)) {
+					// If it resolves to a playlist, get tracks from the playlist
+					Object playlistId = resolved.get("id");
+					if (playlistId != null) {
+						url = soundCloudApiBaseUrl + "/playlists/" + playlistId + "/tracks?limit=" + (limit * 10) + "&linked_partitioning=true";
+						System.out.println("Resolved to playlist, using URL: " + url);
+					}
+				}
+			}
+		} catch (Exception e) {
+			System.out.println("Could not resolve tag URL, will try direct /tracks?tags= endpoint: " + e.getMessage());
+		}
+		
+		// Fallback to direct /tracks?tags= endpoint if resolve didn't work
+		if (url == null) {
+			url = soundCloudApiBaseUrl + "/tracks?tags=" + encodedGenre + 
+				"&limit=" + (limit * 10) + "&linked_partitioning=true";
+			System.out.println("Using direct tracks endpoint: " + url);
+		}
 			
 			try {
 				HttpHeaders headers = new HttpHeaders();
@@ -1395,6 +1451,20 @@ public class SoundWrappedService {
 				// Extract tracks from paginated response
 				@SuppressWarnings("unchecked")
 				List<Map<String, Object>> tracks = (List<Map<String, Object>>) responseBody.get("collection");
+				
+				// Log how many tracks were returned
+				if (tracks != null) {
+					System.out.println("Received " + tracks.size() + " tracks from API for genre: " + genreName);
+					if (tracks.size() > 0) {
+						// Log first track's tags for debugging
+						Map<String, Object> firstTrack = tracks.get(0);
+						Object firstTagList = firstTrack.get("tag_list");
+						System.out.println("Sample track tags: " + firstTagList);
+					}
+				} else {
+					System.out.println("No tracks in collection (tracks is null)");
+				}
+				
 				if (tracks == null || tracks.isEmpty()) {
 					// Try direct list format (some endpoints return arrays directly)
 					if (responseBody instanceof List) {
