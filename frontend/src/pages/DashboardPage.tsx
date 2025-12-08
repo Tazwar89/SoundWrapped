@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { 
   BarChart3, 
@@ -24,7 +24,8 @@ import RecentActivity from '../components/RecentActivity'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 const DashboardPage: React.FC = () => {
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth()
+  const location = useLocation()
   const { 
     tracks, 
     artists, 
@@ -40,15 +41,51 @@ const DashboardPage: React.FC = () => {
   const [isLoadingActivity, setIsLoadingActivity] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
+  // Define fetch functions before useEffect
+  const fetchRecentActivity = useCallback(async () => {
+    try {
+      setIsLoadingActivity(true)
+      console.log('[Dashboard] Fetching recent activity...')
+      const response = await api.get('/soundcloud/recent-activity?limit=5')
+      console.log('[Dashboard] Recent activity response:', response?.data)
+      if (response?.data && Array.isArray(response.data)) {
+        console.log('[Dashboard] Setting recent activity, count:', response.data.length)
+        setRecentActivity(response.data)
+      } else {
+        console.warn('[Dashboard] Invalid recent activity response:', response?.data)
+        setRecentActivity([])
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch recent activity:', error)
+      console.error('Error details:', error.response?.data || error.message)
+      setRecentActivity([])
+    } finally {
+      setIsLoadingActivity(false)
+    }
+  }, [])
+
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      setIsLoadingAnalytics(true)
+      const response = await api.get('/soundcloud/dashboard/analytics')
+      setAnalytics(response.data)
+    } catch (error) {
+      console.error('Failed to fetch analytics:', error)
+    } finally {
+      setIsLoadingAnalytics(false)
+    }
+  }, [])
+
+  // Auto-refresh whenever the Dashboard page is visited
   useEffect(() => {
-    console.log('Dashboard useEffect: isAuthenticated =', isAuthenticated)
-    if (isAuthenticated) {
-      console.log('Dashboard: Calling refreshAllData...')
+    console.log('Dashboard useEffect: isAuthenticated =', isAuthenticated, 'location =', location.pathname)
+    if (isAuthenticated && location.pathname === '/dashboard') {
+      console.log('Dashboard: Auto-refreshing all data on page visit...')
       refreshAllData()
       fetchAnalytics()
       fetchRecentActivity()
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, location.pathname, refreshAllData, fetchAnalytics, fetchRecentActivity])
 
   const handleRefresh = async () => {
     try {
@@ -78,38 +115,13 @@ const DashboardPage: React.FC = () => {
     }
   }
 
-  const fetchRecentActivity = async () => {
-    try {
-      setIsLoadingActivity(true)
-      console.log('[Dashboard] Fetching recent activity...')
-      const response = await api.get('/soundcloud/recent-activity?limit=5')
-      console.log('[Dashboard] Recent activity response:', response?.data)
-      if (response?.data && Array.isArray(response.data)) {
-        console.log('[Dashboard] Setting recent activity, count:', response.data.length)
-        setRecentActivity(response.data)
-      } else {
-        console.warn('[Dashboard] Invalid recent activity response:', response?.data)
-        setRecentActivity([])
-      }
-    } catch (error: any) {
-      console.error('Failed to fetch recent activity:', error)
-      console.error('Error details:', error.response?.data || error.message)
-      setRecentActivity([])
-    } finally {
-      setIsLoadingActivity(false)
-    }
-  }
-
-  const fetchAnalytics = async () => {
-    try {
-      setIsLoadingAnalytics(true)
-      const response = await api.get('/soundcloud/dashboard/analytics')
-      setAnalytics(response.data)
-    } catch (error) {
-      console.error('Failed to fetch analytics:', error)
-    } finally {
-      setIsLoadingAnalytics(false)
-    }
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <LoadingSpinner />
+      </div>
+    )
   }
 
   if (!isAuthenticated) {
