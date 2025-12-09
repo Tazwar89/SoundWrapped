@@ -75,7 +75,7 @@ const HomePage: React.FC = () => {
 
       // Fetch popular/trending tracks from SoundCloud
       try {
-        const popularResponse = await api.get('/soundcloud/popular/tracks?limit=4')
+        const popularResponse = await api.get('/soundcloud/popular/tracks?limit=5')
         console.log('[HomePage] Popular tracks response:', popularResponse?.data)
         console.log('[HomePage] Popular tracks is array?', Array.isArray(popularResponse?.data))
         console.log('[HomePage] Popular tracks length:', popularResponse?.data?.length)
@@ -395,61 +395,51 @@ const HomePage: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.5 }}
-            className="max-w-6xl mx-auto"
+            className="max-w-6xl mx-auto mb-12"
           >
             <div className="stat-card">
-              <div className="text-center mb-6">
-                <div className="flex items-center justify-center space-x-2 mb-2">
-                  <TrendingUp className="h-5 w-5 text-orange-500" />
-                  <h3 className="text-xl font-bold text-white">Popular Now</h3>
-                </div>
-                <p className="text-sm text-white/70">What the SoundCloud community is listening to</p>
+              <div className="text-left mb-6">
+                <h3 className="text-sm font-semibold text-orange-400 uppercase tracking-wide mb-3">Popular Now</h3>
+                <p className="text-sm text-white/80 mb-4">What the SoundCloud community is listening to</p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {trendingTracks.length > 0 ? (
-                  trendingTracks.map((track: any, index: number) => (
-                    <div
+              
+              {/* Popular Tracks List */}
+              {trendingTracks.length > 0 ? (
+                <div className="space-y-3">
+                  {trendingTracks.map((track: any, index: number) => (
+                    <a
                       key={track.id || index}
-                      className="p-4 bg-black/10 rounded-lg border border-white/5 hover:border-orange-500/30 transition-all group"
+                      href={track.permalink_url || `https://soundcloud.com${track.uri?.replace('soundcloud:', '') || ''}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center space-x-4 p-3 bg-black/10 rounded-lg border border-white/5 hover:border-orange-500/30 hover:bg-black/20 transition-all group"
                     >
-                      <div className="flex items-center space-x-3 mb-2">
-                        {track.artwork_url ? (
-                          <img
-                            src={track.artwork_url}
-                            alt={track.title || 'Track'}
-                            className="w-12 h-12 rounded-lg object-cover"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 bg-gradient-to-r from-orange-500/20 to-orange-600/20 rounded-lg flex items-center justify-center">
-                            <Music className="h-6 w-6 text-orange-400" />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white truncate">{track.title || 'Unknown Track'}</p>
-                          <p className="text-xs text-white/60 truncate">
-                            {track.user?.username || 'Unknown Artist'}
-                          </p>
+                      {track.artwork_url ? (
+                        <img
+                          src={track.artwork_url}
+                          alt={track.title || 'Track'}
+                          className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 bg-gradient-to-r from-orange-500/20 to-orange-600/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Music className="h-8 w-8 text-orange-400" />
                         </div>
-                      </div>
-                      {track.permalink_url && (
-                        <a
-                          href={track.permalink_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-orange-400 hover:text-orange-300 transition-colors inline-flex items-center"
-                        >
-                          Listen on SoundCloud <ArrowRight className="h-3 w-3 ml-1" />
-                        </a>
                       )}
-                    </div>
-                  ))
-                ) : (
-                  <div className="col-span-full text-center py-8 text-white/60">
-                    <Music className="h-12 w-12 mx-auto mb-3 text-white/40" />
-                    <p>No popular tracks available</p>
-                  </div>
-                )}
-              </div>
+                      <div className="flex-1 min-w-0">
+                        <h6 className="text-white font-medium truncate group-hover:text-orange-400 transition-colors">
+                          {track.title || 'Untitled Track'}
+                        </h6>
+                        <p className="text-sm text-white/70 truncate">
+                          {track.user?.username || 'Unknown Artist'}
+                        </p>
+                      </div>
+                      <ArrowRight className="h-5 w-5 text-white/50 group-hover:text-orange-400 group-hover:translate-x-1 transition-all flex-shrink-0" />
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-white/60 text-left">No popular tracks available</p>
+              )}
             </div>
           </motion.div>
         </div>
