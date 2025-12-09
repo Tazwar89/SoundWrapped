@@ -1646,7 +1646,12 @@ public class SoundWrappedService {
 			List<String> popularGenres = Arrays.asList(
 				"wave", "electronic", "hip-hop", "indie", "rock", "pop", 
 				"house", "techno", "dubstep", "ambient", "jazz", "r&b",
-				"alternative", "folk", "country", "metal", "punk", "reggae"
+				"alternative", "folk", "country", "metal", "punk", "reggae",
+				// Obscure subgenres
+				"indietronica", "future garage", "vaporwave", "synthwave",
+				"drum & bass", "rage", "lo-fi", "chillwave", "shoegaze",
+				"post-rock", "math rock", "hyperpop", "neo-soul",
+				"afrobeats", "phonk", "dancehall", "grime", "drill"
 			);
 			
 			// Use date-based seed for deterministic but daily-changing selection
