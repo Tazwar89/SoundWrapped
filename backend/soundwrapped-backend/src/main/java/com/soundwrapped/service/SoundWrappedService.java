@@ -988,7 +988,82 @@ public class SoundWrappedService {
 				return new ArrayList<>();
 			}
 			
-			// Use /resolve endpoint to get playlist info
+			// Try alternative approach: extract username and set name from URL
+			// URL format: https://soundcloud.com/{username}/sets/{set-name}
+			// For example: https://soundcloud.com/music-charts-us/sets/all-music-genres
+			String username = null;
+			String setName = null;
+			try {
+				java.net.URL url = new java.net.URL(playlistUrl);
+				String path = url.getPath();
+				// Remove leading slash and split
+				String[] parts = path.startsWith("/") ? path.substring(1).split("/") : path.split("/");
+				if (parts.length >= 3 && parts[1].equals("sets")) {
+					username = parts[0];
+					setName = parts[2];
+					System.out.println("Extracted username: " + username + ", set name: " + setName);
+				}
+			} catch (Exception e) {
+				System.err.println("Error parsing playlist URL: " + e.getMessage());
+			}
+			
+			// First, try to get user's playlists to find the set
+			if (username != null && setName != null) {
+				try {
+					String userPlaylistsUrl = soundCloudApiBaseUrl + "/users/" + username + "/playlists?limit=200&linked_partitioning=true";
+					System.out.println("Attempting to fetch playlists from user: " + userPlaylistsUrl);
+					
+					HttpHeaders headers = new HttpHeaders();
+					headers.setBearerAuth(accessToken);
+					headers.set("User-Agent", "SoundWrapped/1.0 (https://github.com/tazwarsikder/SoundWrapped)");
+					headers.set("Accept", "application/json");
+					HttpEntity<String> request = new HttpEntity<String>(headers);
+					
+					ResponseEntity<Map<String, Object>> playlistsResponse = restTemplate.exchange(
+						userPlaylistsUrl,
+						HttpMethod.GET,
+						request,
+						new ParameterizedTypeReference<Map<String, Object>>(){}
+					);
+					
+					if (playlistsResponse.getStatusCode().is2xxSuccessful() && playlistsResponse.getBody() != null) {
+						Map<String, Object> playlistsBody = playlistsResponse.getBody();
+						@SuppressWarnings("unchecked")
+						List<Map<String, Object>> playlists = (List<Map<String, Object>>) playlistsBody.get("collection");
+						
+						if (playlists == null && playlistsBody instanceof List) {
+							@SuppressWarnings("unchecked")
+							List<Map<String, Object>> directPlaylists = (List<Map<String, Object>>) playlistsBody;
+							playlists = directPlaylists;
+						}
+						
+						if (playlists != null) {
+							// Find the playlist with matching permalink or title
+							for (Map<String, Object> playlist : playlists) {
+								String playlistPermalink = (String) playlist.getOrDefault("permalink", "");
+								String playlistTitle = (String) playlist.getOrDefault("title", "");
+								
+								if (playlistPermalink.equals(setName) || playlistTitle.toLowerCase().contains(setName.toLowerCase())) {
+									System.out.println("Found matching playlist: " + playlistTitle + " (ID: " + playlist.get("id") + ")");
+									
+									// Get tracks from this playlist
+									Object playlistIdObj = playlist.get("id");
+									if (playlistIdObj != null) {
+										String playlistId = String.valueOf(playlistIdObj);
+										return getTracksFromPlaylistById(playlistId, accessToken);
+									}
+								}
+							}
+							System.err.println("Playlist '" + setName + "' not found in user '" + username + "' playlists");
+						}
+					}
+				} catch (Exception e) {
+					System.err.println("Error fetching user playlists: " + e.getMessage());
+					e.printStackTrace();
+				}
+			}
+			
+			// Fallback: Use /resolve endpoint to get playlist info
 			String resolveUrl = soundCloudApiBaseUrl + "/resolve?url=" + java.net.URLEncoder.encode(playlistUrl, "UTF-8");
 			
 			HttpHeaders headers = new HttpHeaders();
@@ -1057,27 +1132,74 @@ public class SoundWrappedService {
 			String playlistId = String.valueOf(playlistIdObj);
 			System.out.println("Resolved playlist ID: " + playlistId);
 			
-			// Fetch tracks from playlist
+			return getTracksFromPlaylistById(playlistId, accessToken);
+		} catch (Exception e) {
+			System.err.println("Error fetching tracks from playlist " + playlistUrl + ": " + e.getMessage());
+			e.printStackTrace();
+			return new ArrayList<>();
+		}
+	}
+	
+	/**
+	 * Helper method to fetch tracks from a playlist by ID.
+	 * @param playlistId The playlist ID
+	 * @param accessToken The access token for authentication
+	 * @return List of tracks from the playlist
+	 */
+	private List<Map<String, Object>> getTracksFromPlaylistById(String playlistId, String accessToken) {
+		try {
+			// Fetch tracks from playlist - try as paginated response first
 			String tracksUrl = soundCloudApiBaseUrl + "/playlists/" + playlistId + "/tracks?limit=50&linked_partitioning=true";
 			System.out.println("Fetching tracks from: " + tracksUrl);
 			
-			ResponseEntity<List<Map<String, Object>>> tracksResponse = restTemplate.exchange(
+			HttpHeaders headers = new HttpHeaders();
+			headers.setBearerAuth(accessToken);
+			headers.set("User-Agent", "SoundWrapped/1.0 (https://github.com/tazwarsikder/SoundWrapped)");
+			headers.set("Accept", "application/json");
+			HttpEntity<String> request = new HttpEntity<String>(headers);
+			
+			// Try as paginated response with collection field
+			ResponseEntity<Map<String, Object>> tracksResponse = restTemplate.exchange(
 				tracksUrl,
 				HttpMethod.GET,
 				request,
-				new ParameterizedTypeReference<List<Map<String, Object>>>(){}
+				new ParameterizedTypeReference<Map<String, Object>>(){}
 			);
 			
-			List<Map<String, Object>> tracks = tracksResponse.getBody();
-			if (tracks == null || tracks.isEmpty()) {
-				System.err.println("No tracks returned from playlist " + playlistId + " (" + playlistUrl + ")");
-				System.err.println("Response status: " + tracksResponse.getStatusCode());
+			System.out.println("Tracks API response status: " + tracksResponse.getStatusCode());
+			
+			if (tracksResponse.getStatusCode().is2xxSuccessful() && tracksResponse.getBody() != null) {
+				Map<String, Object> responseBody = tracksResponse.getBody();
+				System.out.println("Tracks response body keys: " + responseBody.keySet());
+				
+				// Check if tracks are in a "collection" field (paginated response)
+				@SuppressWarnings("unchecked")
+				List<Map<String, Object>> tracks = (List<Map<String, Object>>) responseBody.get("collection");
+				
+				if (tracks == null || tracks.isEmpty()) {
+					// Try direct list format
+					if (responseBody instanceof List) {
+						@SuppressWarnings("unchecked")
+						List<Map<String, Object>> directTracks = (List<Map<String, Object>>) responseBody;
+						tracks = directTracks;
+					}
+				}
+				
+				if (tracks != null && !tracks.isEmpty()) {
+					System.out.println("Successfully fetched " + tracks.size() + " tracks from playlist ID: " + playlistId);
+					return tracks;
+				} else {
+					System.err.println("No tracks found in response for playlist " + playlistId);
+					System.err.println("Response body keys: " + responseBody.keySet());
+				}
 			} else {
-				System.out.println("Successfully fetched " + tracks.size() + " tracks from playlist: " + playlistUrl);
+				System.err.println("Failed to fetch tracks from playlist " + playlistId);
+				System.err.println("Response status: " + tracksResponse.getStatusCode());
 			}
-			return tracks != null ? tracks : new ArrayList<>();
+			
+			return new ArrayList<>();
 		} catch (Exception e) {
-			System.err.println("Error fetching tracks from playlist " + playlistUrl + ": " + e.getMessage());
+			System.err.println("Error fetching tracks from playlist ID " + playlistId + ": " + e.getMessage());
 			e.printStackTrace();
 			return new ArrayList<>();
 		}
@@ -1093,68 +1215,133 @@ public class SoundWrappedService {
 	 */
 	public List<Map<String, Object>> getPopularTracks(int limit) {
 		try {
-			// Use only the two specified playlists
-			List<String> chartPlaylists = Arrays.asList(
-				"https://soundcloud.com/music-charts-us/sets/all-music-genres",
-				"https://soundcloud.com/music-charts-uk/sets/all-music-genres"
-			);
+			// Use the playlist URN directly from the embed code: soundcloud:playlists:1714689261
+			// This is the US Top 50 charts playlist: https://soundcloud.com/music-charts-us/sets/all-music-genres
+			String playlistUrn = "soundcloud:playlists:1714689261";
+			// Extract the playlist ID from the URN (the number after the last colon)
+			String playlistId = playlistUrn.substring(playlistUrn.lastIndexOf(':') + 1);
 			
-			// Collect top 10 tracks from each playlist
-			List<Map<String, Object>> allTracks = new ArrayList<>();
+			System.out.println("Fetching popular tracks from US chart playlist");
+			System.out.println("Playlist URN: " + playlistUrn);
+			System.out.println("Extracted playlist ID: " + playlistId);
 			
-			for (String playlistUrl : chartPlaylists) {
-				try {
-					List<Map<String, Object>> playlistTracks = getTracksFromPlaylist(playlistUrl);
-					
-					// Get top 10 tracks from this playlist (sorted by playback_count)
+			String accessToken = getAccessTokenForRequest();
+			if (accessToken == null) {
+				System.err.println("No access token available for popular tracks. User may need to authenticate.");
+				return getPopularTracksFallback(limit);
+			}
+			
+			try {
+				// Try using the playlist ID directly first (simpler approach)
+				System.out.println("Attempting to fetch tracks directly using playlist ID: " + playlistId);
+				List<Map<String, Object>> playlistTracks = getTracksFromPlaylistById(playlistId, accessToken);
+				
+				if (playlistTracks != null && !playlistTracks.isEmpty()) {
+					// Get top tracks from this playlist (sorted by playback_count, descending)
 					List<Map<String, Object>> topTracks = playlistTracks.stream()
 						.sorted((a, b) -> {
 							long countA = ((Number) a.getOrDefault("playback_count", 0)).longValue();
 							long countB = ((Number) b.getOrDefault("playback_count", 0)).longValue();
 							return Long.compare(countB, countA);
 						})
-						.limit(10)
+						.limit(limit)
 						.collect(java.util.stream.Collectors.toList());
 					
-					allTracks.addAll(topTracks);
-					System.out.println("Fetched " + topTracks.size() + " top tracks from " + playlistUrl);
-				} catch (Exception e) {
-					System.err.println("Failed to fetch from playlist " + playlistUrl + ": " + e.getMessage());
-					if (e instanceof org.springframework.web.client.HttpClientErrorException) {
-						org.springframework.web.client.HttpClientErrorException httpEx = (org.springframework.web.client.HttpClientErrorException) e;
-						System.err.println("  HTTP Status: " + httpEx.getStatusCode());
-						System.err.println("  Response Body: " + httpEx.getResponseBodyAsString());
-					}
-					// Continue with next playlist
+					System.out.println("Fetched " + topTracks.size() + " top tracks from US chart playlist using ID");
+					return topTracks;
 				}
-			}
-			
-			if (allTracks.isEmpty()) {
-				System.err.println("No tracks fetched from chart playlists, falling back to alternative method");
-				// Fallback to old method if chart playlists fail
-				return getPopularTracksFallback(limit);
-			}
-			
-			// Remove duplicates (by track ID)
-			Map<String, Map<String, Object>> uniqueTracks = new HashMap<>();
-			for (Map<String, Object> track : allTracks) {
-				Object trackIdObj = track.get("id");
-				if (trackIdObj != null) {
-					String trackId = String.valueOf(trackIdObj);
-					if (!uniqueTracks.containsKey(trackId)) {
-						uniqueTracks.put(trackId, track);
-					}
+				
+				// If direct ID approach fails, try using the URN
+				System.out.println("Direct ID approach returned no tracks, trying URN approach...");
+				// URL-encode the URN for the API call (colon becomes %3A)
+				// Use proper URL encoding for path segments (not form encoding)
+				String encodedUrn = playlistUrn.replace(":", "%3A");
+				String playlistUrl = soundCloudApiBaseUrl + "/playlists/" + encodedUrn;
+				System.out.println("Fetching playlist from: " + playlistUrl);
+				System.out.println("Original URN: " + playlistUrn);
+				System.out.println("Encoded URN: " + encodedUrn);
+				
+				HttpHeaders headers = new HttpHeaders();
+				headers.setBearerAuth(accessToken);
+				headers.set("User-Agent", "SoundWrapped/1.0 (https://github.com/tazwarsikder/SoundWrapped)");
+				headers.set("Accept", "application/json");
+				HttpEntity<String> request = new HttpEntity<String>(headers);
+				
+				// First, get the playlist to verify it exists and get its tracks
+				ResponseEntity<Map<String, Object>> playlistResponse;
+				try {
+					playlistResponse = restTemplate.exchange(
+						playlistUrl,
+						HttpMethod.GET,
+						request,
+						new ParameterizedTypeReference<Map<String, Object>>(){}
+					);
+				} catch (org.springframework.web.client.HttpClientErrorException e) {
+					System.err.println("HTTP error fetching playlist: " + e.getStatusCode() + " - " + e.getMessage());
+					System.err.println("Response body: " + e.getResponseBodyAsString());
+					throw e;
 				}
+				
+				if (playlistResponse.getStatusCode().is2xxSuccessful() && playlistResponse.getBody() != null) {
+					Map<String, Object> playlist = playlistResponse.getBody();
+					if (playlist == null) {
+						System.err.println("Playlist response body is null");
+						return getPopularTracksFallback(limit);
+					}
+					System.out.println("Successfully fetched playlist. Keys: " + playlist.keySet());
+					
+					// Get tracks from the playlist - they might be in a "tracks" field or we need to fetch them separately
+					Object tracksObj = playlist.get("tracks");
+					List<Map<String, Object>> playlistTracksFromResponse = new ArrayList<>();
+					
+					if (tracksObj instanceof List) {
+						@SuppressWarnings("unchecked")
+						List<Map<String, Object>> directTracks = (List<Map<String, Object>>) tracksObj;
+						playlistTracksFromResponse = directTracks;
+						System.out.println("Found " + playlistTracksFromResponse.size() + " tracks directly in playlist response");
+					} else {
+						// Tracks might not be included, try fetching them separately
+						Object playlistIdFromResponseObj = playlist.get("id");
+						if (playlistIdFromResponseObj != null) {
+							String playlistIdFromResponse = String.valueOf(playlistIdFromResponseObj);
+							System.out.println("Fetching tracks separately for playlist ID: " + playlistIdFromResponse);
+							playlistTracksFromResponse = getTracksFromPlaylistById(playlistIdFromResponse, accessToken);
+						}
+					}
+					
+					if (playlistTracksFromResponse != null && !playlistTracksFromResponse.isEmpty()) {
+						// Get top tracks from this playlist (sorted by playback_count, descending)
+						List<Map<String, Object>> topTracks = playlistTracksFromResponse.stream()
+							.sorted((a, b) -> {
+								long countA = ((Number) a.getOrDefault("playback_count", 0)).longValue();
+								long countB = ((Number) b.getOrDefault("playback_count", 0)).longValue();
+								return Long.compare(countB, countA);
+							})
+							.limit(limit)
+							.collect(java.util.stream.Collectors.toList());
+						
+						System.out.println("Fetched " + topTracks.size() + " top tracks from US chart playlist");
+						return topTracks;
+					} else {
+						System.err.println("No tracks found in playlist response");
+					}
+				} else {
+					System.err.println("Failed to fetch playlist. Status: " + playlistResponse.getStatusCode());
+				}
+			} catch (org.springframework.web.client.HttpClientErrorException e) {
+				System.err.println("HTTP error fetching playlist URN " + playlistUrn + ": " + e.getStatusCode() + " - " + e.getMessage());
+				System.err.println("Response body: " + e.getResponseBodyAsString());
+				System.err.println("Attempted URL: " + soundCloudApiBaseUrl + "/playlists/" + playlistUrn.replace(":", "%3A"));
+				e.printStackTrace();
+			} catch (Exception e) {
+				System.err.println("Failed to fetch from playlist URN " + playlistUrn + ": " + e.getMessage());
+				System.err.println("Exception type: " + e.getClass().getSimpleName());
+				e.printStackTrace();
 			}
 			
-			// Randomize and limit
-			List<Map<String, Object>> randomizedTracks = new ArrayList<>(uniqueTracks.values());
-			Collections.shuffle(randomizedTracks);
-			
-			System.out.println("Returning " + Math.min(limit, randomizedTracks.size()) + " randomized tracks from " + uniqueTracks.size() + " unique tracks");
-			return randomizedTracks.stream()
-				.limit(limit)
-				.collect(java.util.stream.Collectors.toList());
+			// Fallback to alternative method if playlist fetch fails
+			System.err.println("Falling back to alternative method for popular tracks");
+			return getPopularTracksFallback(limit);
 		} catch (Exception e) {
 			System.err.println("Error fetching popular tracks from charts: " + e.getMessage());
 			e.printStackTrace();
