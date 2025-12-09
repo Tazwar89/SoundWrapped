@@ -227,9 +227,11 @@ const HomePage: React.FC = () => {
                         })()}
                       </h4>
                     </a>
-                    <p className="text-sm text-white/80 mb-4">
-                      {featuredArtist.description || 'Explore SoundCloud\'s diverse music community'}
-                    </p>
+                    {featuredArtist.description && (
+                      <p className="text-sm text-white/80 mb-4">
+                        {featuredArtist.description}
+                      </p>
+                    )}
                   </div>
                 </div>
                 
@@ -310,19 +312,6 @@ const HomePage: React.FC = () => {
                   <div className="py-8 text-white/60">
                     <p>No featured track available</p>
                   </div>
-                )}
-                
-                {isAuthenticated ? (
-                  <Link to="/wrapped" className="text-xs text-orange-400 hover:text-orange-300 transition-colors">
-                    View Your Top Tracks →
-                  </Link>
-                ) : (
-                  <button
-                    onClick={() => login('soundcloud')}
-                    className="text-xs text-orange-400 hover:text-orange-300 transition-colors"
-                  >
-                    Sign in to explore →
-                  </button>
                 )}
               </div>
             </motion.div>

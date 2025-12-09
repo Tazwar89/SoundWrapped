@@ -39,6 +39,10 @@ soundcloud:
   api:
     base-url: https://api.soundcloud.com
 
+google:
+  knowledge-graph:
+    api-key: AIzaSyBp9N4840pSJwoR-0_6by08Ga_n7gfeZlM
+
 # ----------------------------
 # Test profile (Testcontainers)
 # ----------------------------

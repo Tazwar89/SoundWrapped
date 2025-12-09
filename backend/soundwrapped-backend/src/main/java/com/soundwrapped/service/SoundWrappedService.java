@@ -42,6 +42,9 @@ public class SoundWrappedService {
 	@Value("${soundcloud.client-secret}")
 	private String clientSecret;
 
+	@Value("${google.knowledge-graph.api-key}")
+	private String googleKnowledgeGraphApiKey;
+
 	private final TokenStore tokenStore;
 	private final RestTemplate restTemplate;
 	private final GenreAnalysisService genreAnalysisService;
@@ -1237,17 +1240,13 @@ public class SoundWrappedService {
 				List<Map<String, Object>> playlistTracks = getTracksFromPlaylistById(playlistId, accessToken);
 				
 				if (playlistTracks != null && !playlistTracks.isEmpty()) {
-					// Get top tracks from this playlist (sorted by playback_count, descending)
+					// Return the first 'limit' tracks in their original order (first tracks of the playlist)
+					// Don't sort - the playlist order is already the chart order
 					List<Map<String, Object>> topTracks = playlistTracks.stream()
-						.sorted((a, b) -> {
-							long countA = ((Number) a.getOrDefault("playback_count", 0)).longValue();
-							long countB = ((Number) b.getOrDefault("playback_count", 0)).longValue();
-							return Long.compare(countB, countA);
-						})
 						.limit(limit)
 						.collect(java.util.stream.Collectors.toList());
 					
-					System.out.println("Fetched " + topTracks.size() + " top tracks from US chart playlist using ID");
+					System.out.println("Fetched " + topTracks.size() + " first tracks from US chart playlist using ID (in original order)");
 					return topTracks;
 				}
 				
@@ -1310,17 +1309,13 @@ public class SoundWrappedService {
 					}
 					
 					if (playlistTracksFromResponse != null && !playlistTracksFromResponse.isEmpty()) {
-						// Get top tracks from this playlist (sorted by playback_count, descending)
+						// Return the first 'limit' tracks in their original order (first tracks of the playlist)
+						// Don't sort - the playlist order is already the chart order
 						List<Map<String, Object>> topTracks = playlistTracksFromResponse.stream()
-							.sorted((a, b) -> {
-								long countA = ((Number) a.getOrDefault("playback_count", 0)).longValue();
-								long countB = ((Number) b.getOrDefault("playback_count", 0)).longValue();
-								return Long.compare(countB, countA);
-							})
 							.limit(limit)
 							.collect(java.util.stream.Collectors.toList());
 						
-						System.out.println("Fetched " + topTracks.size() + " top tracks from US chart playlist");
+						System.out.println("Fetched " + topTracks.size() + " first tracks from US chart playlist (in original order)");
 						return topTracks;
 					} else {
 						System.err.println("No tracks found in playlist response");
@@ -1466,9 +1461,12 @@ public class SoundWrappedService {
 	public Map<String, Object> getFeaturedArtist() {
 		System.out.println("getFeaturedArtist() method called");
 		try {
-			// TEMPORARILY DISABLED: Date-based caching for debugging
-			// Always fetch fresh artist for debugging
-			System.out.println("Fetching fresh artist (caching disabled for debugging)");
+			// Check if we have a cached artist for today
+			LocalDate today = LocalDate.now();
+			if (cachedArtistOfTheDay != null && cachedArtistDate != null && cachedArtistDate.equals(today)) {
+				System.out.println("Returning cached artist of the day: " + cachedArtistOfTheDay.get("username") + " (cached on " + cachedArtistDate + ")");
+				return cachedArtistOfTheDay;
+			}
 			
 			List<Map<String, Object>> popularTracks = getPopularTracks(50);
 			System.out.println("getFeaturedArtist: Retrieved " + popularTracks.size() + " popular tracks");
@@ -1504,9 +1502,11 @@ public class SoundWrappedService {
 						.sorted(Map.Entry.<String, Double>comparingByValue().reversed())
 						.collect(java.util.stream.Collectors.toList());
 					
-					// TEMPORARILY: Use random selection instead of date-based seed for debugging
-					Random random = new Random();
-					int selectedIndex = random.nextInt(Math.min(sortedArtists.size(), 10)); // Select randomly from top 10
+					// Use date-based seed for deterministic but daily-changing selection
+					// This ensures the same artist is selected throughout the day
+					long seed = today.toEpochDay(); // Convert date to a number
+					Random random = new Random(seed);
+					int selectedIndex = random.nextInt(Math.min(sortedArtists.size(), 10)); // Select from top 10
 					String selectedArtistId = sortedArtists.get(selectedIndex).getKey();
 					Map<String, Object> selectedArtist = artistMap.get(selectedArtistId);
 					
@@ -1592,9 +1592,9 @@ public class SoundWrappedService {
 					result.put("description", artistDescription);
 					result.put("tracks", artistTracks);
 					
-					// TEMPORARILY DISABLED: Cache the result for today
-					// cachedArtistOfTheDay = result;
-					// cachedArtistDate = today;
+					// Cache the result for today
+					cachedArtistOfTheDay = result;
+					cachedArtistDate = today;
 					
 					@SuppressWarnings("unchecked")
 					List<Map<String, Object>> cachedTracks = (List<Map<String, Object>>) result.get("tracks");
@@ -1986,7 +1986,23 @@ public class SoundWrappedService {
 	 * @param genreName The genre name
 	 * @return Description of the genre
 	 */
+	/**
+	 * Gets a description for a music genre.
+	 * First tries to fetch from Google Knowledge Graph API for obscure subgenres.
+	 * Falls back to hardcoded descriptions for well-known genres.
+	 * 
+	 * @param genreName The name of the genre
+	 * @return A description of the genre
+	 */
 	private String getGenreDescription(String genreName) {
+		// First, try to get description from Google Knowledge Graph API
+		// This is especially useful for obscure subgenres like "indietronica", "wave", "future garage"
+		String kgDescription = getGoogleKnowledgeGraphDescription(genreName + " music genre");
+		if (kgDescription != null && !kgDescription.trim().isEmpty()) {
+			return kgDescription;
+		}
+		
+		// Fallback to hardcoded descriptions for well-known genres
 		Map<String, String> genreDescriptions = new HashMap<>();
 		genreDescriptions.put("wave", "Wave is a subgenre of electronic music characterized by its atmospheric, ethereal soundscapes and emotional melodies. Often featuring reverb-drenched synths and haunting vocals, wave music creates a dreamy, introspective listening experience.");
 		genreDescriptions.put("electronic", "Electronic music encompasses a wide range of genres that primarily use electronic instruments and technology. From ambient soundscapes to high-energy dance tracks, electronic music continues to evolve and influence modern music culture.");
@@ -2007,8 +2023,14 @@ public class SoundWrappedService {
 		genreDescriptions.put("punk", "Punk rock is a music genre that emerged in the mid-1970s as a reaction against mainstream rock. Known for its fast tempos, short songs, and anti-establishment lyrics, punk has influenced countless artists and movements.");
 		genreDescriptions.put("reggae", "Reggae is a music genre that originated in Jamaica in the late 1960s. Characterized by its distinctive rhythm, offbeat accents, and socially conscious lyrics, reggae has spread worldwide and influenced many other genres.");
 		
-		return genreDescriptions.getOrDefault(genreName.toLowerCase(), 
-			genreName.substring(0, 1).toUpperCase() + genreName.substring(1) + " is a diverse and evolving music genre with a rich history and dedicated fanbase.");
+		// Check hardcoded descriptions first
+		String hardcoded = genreDescriptions.get(genreName.toLowerCase());
+		if (hardcoded != null) {
+			return hardcoded;
+		}
+		
+		// Final fallback: generic description
+		return genreName.substring(0, 1).toUpperCase() + genreName.substring(1) + " is a diverse and evolving music genre with a rich history and dedicated fanbase.";
 	}
 	
 	/**
@@ -2016,6 +2038,19 @@ public class SoundWrappedService {
 	 * 
 	 * @param artist Artist data from SoundCloud API
 	 * @return A description of the artist
+	 */
+	/**
+	 * Gets a description for an artist based on their profile information.
+	 * Generates AI-style descriptions similar to genre descriptions.
+	 * Returns null if no verified information is available.
+	 * 
+	 * NEW CONDITIONS: Only generates description if artist has:
+	 * - >= 10000 followers, OR
+	 * - A Wikipedia entry, OR
+	 * - A Google Search About section (indicated by substantial SoundCloud bio >100 chars)
+	 * 
+	 * @param artist Artist data from SoundCloud API
+	 * @return A description of the artist, or null if no verified information is available
 	 */
 	private String getArtistDescription(Map<String, Object> artist) {
 		String username = (String) artist.getOrDefault("username", "");
@@ -2026,41 +2061,460 @@ public class SoundWrappedService {
 		Object trackCountObj = artist.get("track_count");
 		long trackCount = trackCountObj instanceof Number ? ((Number) trackCountObj).longValue() : 0;
 		
+		// Determine search terms for Wikipedia check
+		// Try username first, then fullName, as username is more likely to match Wikipedia
+		String searchTerm = username != null && !username.isEmpty() ? username : 
+			(fullName != null && !fullName.isEmpty() ? fullName : null);
+		
+		// Check if artist meets the new criteria:
+		// 1. >= 10000 followers
+		boolean hasEnoughFollowers = followersCount >= 10000;
+		
+		// 2. Has Wikipedia entry
+		boolean hasWikipediaEntry = false;
+		if (searchTerm != null) {
+			hasWikipediaEntry = checkWikipediaEntry(searchTerm);
+		}
+		
+		// 3. Has Google Search About section (checked via Google Knowledge Graph API)
+		boolean hasGoogleAboutSection = false;
+		if (searchTerm != null) {
+			hasGoogleAboutSection = checkGoogleKnowledgeGraph(searchTerm);
+		}
+		
+		// Only proceed if at least one condition is met
+		if (!hasEnoughFollowers && !hasWikipediaEntry && !hasGoogleAboutSection) {
+			// Artist doesn't meet any of the criteria for verified public information
+			return null;
+		}
+		
+		// PRIORITY ORDER: Wikipedia > Google Knowledge Graph > SoundCloud Bio > Generated Description
+		
+		// 1. Try Wikipedia description first (highest priority)
+		if (hasWikipediaEntry && searchTerm != null) {
+			String wikipediaDescription = getWikipediaDescription(searchTerm);
+			if (wikipediaDescription != null && !wikipediaDescription.trim().isEmpty()) {
+				return wikipediaDescription;
+			}
+		}
+		
+		// 2. Try Google Knowledge Graph description (second priority)
+		if (hasGoogleAboutSection && searchTerm != null) {
+			String kgDescription = getGoogleKnowledgeGraphDescription(searchTerm);
+			if (kgDescription != null && !kgDescription.trim().isEmpty()) {
+				return kgDescription;
+			}
+		}
+		
+		// 3. Use the artist's SoundCloud bio if available and it's substantial (not just a link or placeholder)
+		if (descriptionText != null && !descriptionText.trim().isEmpty()) {
+			// Check if it's a meaningful description (not just a URL or very short)
+			String trimmed = descriptionText.trim();
+			if (trimmed.length() > 50 && !trimmed.toLowerCase().startsWith("http") &&
+				!trimmed.matches(".*https?://[^\\s]+.*")) {
+				// Truncate if too long, but keep it informative
+				if (trimmed.length() > 250) {
+					// Try to truncate at a sentence boundary
+					int lastPeriod = trimmed.lastIndexOf('.', 250);
+					if (lastPeriod > 100) {
+						return trimmed.substring(0, lastPeriod + 1);
+					}
+					return trimmed.substring(0, 247) + "...";
+				}
+				return trimmed;
+			}
+		}
+		
+		// 4. Generate an AI-style description as final fallback (only if we have verified info)
 		StringBuilder description = new StringBuilder();
-		String displayName = (fullName != null && !fullName.isEmpty() && !fullName.equals(username)) ? fullName : 
-			(username != null && !username.isEmpty() ? username.substring(0, 1).toUpperCase() + username.substring(1) : "This artist");
+		String displayName = username != null && !username.isEmpty() ? 
+			username.substring(0, 1).toUpperCase() + username.substring(1) : 
+			(fullName != null && !fullName.isEmpty() ? fullName : "This artist");
 		
 		description.append(displayName);
 		
-		// Add description if available
-		if (descriptionText != null && !descriptionText.trim().isEmpty()) {
-			// Truncate description if too long
-			String truncatedDesc = descriptionText.length() > 200 ? descriptionText.substring(0, 200) + "..." : descriptionText;
-			description.append(" is ").append(truncatedDesc);
+		// Build a comprehensive description based on available stats
+		if (followersCount >= 1000000) {
+			description.append(" is a prominent artist on SoundCloud with over ")
+				.append(followersCount / 1000000).append(" million followers");
+		} else if (followersCount >= 100000) {
+			description.append(" is a well-established artist on SoundCloud with over ")
+				.append(followersCount / 1000).append("k followers");
+		} else if (followersCount >= 10000) {
+			description.append(" is an emerging artist on SoundCloud with over ")
+				.append(followersCount / 1000).append("k followers");
 		} else {
-			// Generate a more detailed description similar to genre descriptions
-			description.append(" is a talented artist on SoundCloud");
-			
-			if (trackCount > 0) {
-				if (trackCount >= 100) {
-					description.append(" with over ").append(trackCount).append(" tracks");
-				} else if (trackCount >= 10) {
-					description.append(" with ").append(trackCount).append(" tracks");
-				}
+			// If we're here, they have Wikipedia or Google About section
+			if (hasWikipediaEntry) {
+				description.append(" is a notable artist");
+			} else {
+				description.append(" is a talented artist");
 			}
-			
-			if (followersCount > 0) {
-				if (followersCount >= 1000000) {
-					description.append(" and over ").append(followersCount / 1000000).append(" million followers");
-				} else if (followersCount >= 1000) {
-					description.append(" and over ").append(followersCount / 1000).append("k followers");
-				}
-			}
-			
-			description.append(". Explore their popular tracks and discover new sounds.");
 		}
 		
+		if (trackCount > 0) {
+			if (trackCount >= 100) {
+				description.append(" and has released over ").append(trackCount).append(" tracks");
+			} else if (trackCount >= 50) {
+				description.append(" with ").append(trackCount).append(" tracks");
+			} else if (trackCount >= 20) {
+				description.append(" and has released ").append(trackCount).append(" tracks");
+			}
+		}
+		
+		description.append(". Explore their popular tracks and discover new sounds.");
+		
 		return description.toString();
+	}
+	
+	/**
+	 * Checks if an artist has a Wikipedia entry using the Wikipedia API.
+	 * Uses the search API to find matching articles.
+	 * 
+	 * @param searchTerm The artist's name to search for
+	 * @return true if a Wikipedia entry exists, false otherwise
+	 */
+	private boolean checkWikipediaEntry(String searchTerm) {
+		try {
+			// Wikipedia API endpoint for searching
+			String encodedSearch = java.net.URLEncoder.encode(searchTerm, "UTF-8");
+			String wikiUrl = "https://en.wikipedia.org/api/rest_v1/page/summary/" + encodedSearch;
+			
+			HttpHeaders headers = new HttpHeaders();
+			headers.set("User-Agent", "SoundWrapped/1.0 (https://soundwrapped.com; contact@example.com)");
+			headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+			HttpEntity<String> request = new HttpEntity<>(headers);
+			
+			ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+				wikiUrl,
+				HttpMethod.GET,
+				request,
+				new ParameterizedTypeReference<Map<String, Object>>() {}
+			);
+			
+			Map<String, Object> responseBody = response.getBody();
+			if (responseBody != null) {
+				// Check if the response indicates a valid page (not a disambiguation or missing page)
+				String type = (String) responseBody.get("type");
+				// "standard" means a regular article exists
+				// "disambiguation" means multiple pages exist (still counts as having an entry)
+				if ("standard".equals(type) || "disambiguation".equals(type)) {
+					return true;
+				}
+			}
+		} catch (Exception e) {
+			// If Wikipedia API call fails, silently return false
+			// This prevents API failures from blocking the description generation
+			System.out.println("Wikipedia check failed for '" + searchTerm + "': " + e.getMessage());
+		}
+		
+		return false;
+	}
+	
+	/**
+	 * Gets a description from Wikipedia for an artist.
+	 * Tries multiple name variations to find the correct Wikipedia page.
+	 * Handles cases like "osamason" -> "OsamaSon" by trying various capitalizations.
+	 * 
+	 * @param searchTerm The artist's name to search for
+	 * @return Description from Wikipedia, or null if not found
+	 */
+	private String getWikipediaDescription(String searchTerm) {
+		// Build list of search variations to try
+		java.util.List<String> searchVariations = new java.util.ArrayList<>();
+		
+		// Add original search term
+		searchVariations.add(searchTerm);
+		
+		// Add title case (first letter uppercase, rest lowercase)
+		if (searchTerm.length() > 0) {
+			searchVariations.add(searchTerm.substring(0, 1).toUpperCase() + searchTerm.substring(1).toLowerCase());
+		}
+		
+		// Add all lowercase
+		searchVariations.add(searchTerm.toLowerCase());
+		
+		// Add all uppercase
+		searchVariations.add(searchTerm.toUpperCase());
+		
+		// For names that might have mixed case (like "osamason" -> "OsamaSon")
+		// Try camelCase variations if the name contains common suffixes
+		String lower = searchTerm.toLowerCase();
+		if (lower.contains("son")) {
+			int sonIndex = lower.indexOf("son");
+			if (sonIndex > 0) {
+				// Try "OsamaSon" style: capitalize first letter and the "Son" part
+				String beforeSon = lower.substring(0, sonIndex);
+				String sonPart = lower.substring(sonIndex);
+				String camelCase = (beforeSon.length() > 0 ? beforeSon.substring(0, 1).toUpperCase() : "") +
+					(beforeSon.length() > 1 ? beforeSon.substring(1) : "") +
+					(sonPart.length() > 0 ? sonPart.substring(0, 1).toUpperCase() : "") +
+					(sonPart.length() > 1 ? sonPart.substring(1) : "");
+				searchVariations.add(camelCase);
+			}
+		}
+		
+		// Also try with common suffixes like "rapper", "musician" appended
+		// This helps when the Wikipedia page title includes the profession
+		searchVariations.add(searchTerm + " (rapper)");
+		searchVariations.add(searchTerm + " (musician)");
+		if (searchTerm.length() > 0) {
+			String titleCase = searchTerm.substring(0, 1).toUpperCase() + searchTerm.substring(1).toLowerCase();
+			searchVariations.add(titleCase + " (rapper)");
+			searchVariations.add(titleCase + " (musician)");
+		}
+		
+		// Remove duplicates
+		java.util.Set<String> uniqueVariations = new java.util.LinkedHashSet<>(searchVariations);
+		
+		for (String variation : uniqueVariations) {
+			try {
+				String encodedSearch = java.net.URLEncoder.encode(variation, "UTF-8");
+				String wikiUrl = "https://en.wikipedia.org/api/rest_v1/page/summary/" + encodedSearch;
+				
+				HttpHeaders headers = new HttpHeaders();
+				headers.set("User-Agent", "SoundWrapped/1.0 (https://soundwrapped.com; contact@example.com)");
+				headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+				HttpEntity<String> request = new HttpEntity<>(headers);
+				
+				ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+					wikiUrl,
+					HttpMethod.GET,
+					request,
+					new ParameterizedTypeReference<Map<String, Object>>() {}
+				);
+				
+				Map<String, Object> responseBody = response.getBody();
+				if (responseBody != null) {
+					String type = (String) responseBody.get("type");
+					// Only use "standard" type (not disambiguation)
+					if ("standard".equals(type)) {
+						String extract = (String) responseBody.get("extract");
+						if (extract != null && extract.length() > 50) {
+							// Return the full extract paragraph (Wikipedia's extract is already a concise summary)
+							// Only truncate if it's extremely long (over 1000 chars) to prevent UI issues
+							if (extract.length() > 1000) {
+								// Try to truncate at a sentence boundary near 1000 chars
+								int lastPeriod = extract.lastIndexOf('.', 1000);
+								if (lastPeriod > 500) {
+									return extract.substring(0, lastPeriod + 1);
+								}
+								// If no good sentence boundary, truncate at 997 chars
+								return extract.substring(0, 997) + "...";
+							}
+							return extract.trim();
+						}
+					}
+				}
+			} catch (Exception e) {
+				// Continue to next variation if this one fails
+				continue;
+			}
+		}
+		
+		return null;
+	}
+	
+	/**
+	 * Extracts the first two sentences from a text string.
+	 * Handles various sentence-ending punctuation (. ! ?) and common abbreviations.
+	 * 
+	 * @param text The text to extract sentences from
+	 * @return The first two sentences, or null if less than two sentences found
+	 */
+	private String extractFirstTwoSentences(String text) {
+		if (text == null || text.trim().isEmpty()) {
+			return null;
+		}
+		
+		// Find sentence boundaries (period, exclamation, question mark followed by space or end of string)
+		// Use regex to find sentence endings, but be careful with abbreviations
+		java.util.regex.Pattern sentencePattern = java.util.regex.Pattern.compile(
+			"([.!?])(\\s+|$)"
+		);
+		java.util.regex.Matcher matcher = sentencePattern.matcher(text);
+		
+		int sentenceCount = 0;
+		int lastMatchEnd = 0;
+		
+		while (matcher.find() && sentenceCount < 2) {
+			int matchStart = matcher.start();
+			int matchEnd = matcher.end();
+			
+			// Check if this might be an abbreviation (common ones like "Mr.", "Dr.", "U.S.", etc.)
+			String beforeMatch = text.substring(Math.max(0, matchStart - 3), matchStart);
+			boolean isAbbreviation = beforeMatch.matches(".*\\b(Mr|Mrs|Ms|Dr|Prof|Sr|Jr|U\\.S|U\\.K|etc|vs|e\\.g|i\\.e|a\\.m|p\\.m)\\.");
+			
+			if (!isAbbreviation) {
+				sentenceCount++;
+				lastMatchEnd = matchEnd;
+			}
+		}
+		
+		// If we found at least two sentences, return them
+		if (sentenceCount >= 2) {
+			return text.substring(0, lastMatchEnd).trim();
+		}
+		
+		// If we found only one sentence, return it
+		if (sentenceCount == 1) {
+			return text.substring(0, lastMatchEnd).trim();
+		}
+		
+		// If no clear sentence boundaries found, return the text up to 500 characters
+		// (to ensure we get substantial content even if sentence detection fails)
+		if (text.length() > 500) {
+			// Try to find a good breaking point near 500 chars
+			int breakPoint = 500;
+			int lastPeriod = text.lastIndexOf('.', breakPoint);
+			int lastExclamation = text.lastIndexOf('!', breakPoint);
+			int lastQuestion = text.lastIndexOf('?', breakPoint);
+			int lastSentenceEnd = Math.max(Math.max(lastPeriod, lastExclamation), lastQuestion);
+			
+			if (lastSentenceEnd > 200) {
+				return text.substring(0, lastSentenceEnd + 1).trim();
+			}
+			return text.substring(0, 497).trim() + "...";
+		}
+		
+		return text.trim();
+	}
+	
+	/**
+	 * Checks if an entity has a Google Knowledge Graph entry (About section).
+	 * Uses the Google Knowledge Graph Search API.
+	 * 
+	 * @param searchTerm The entity name to search for (artist name or genre name)
+	 * @return true if a Knowledge Graph entry exists with detailed description, false otherwise
+	 */
+	private boolean checkGoogleKnowledgeGraph(String searchTerm) {
+		try {
+			// Google Knowledge Graph Search API endpoint
+			String encodedQuery = java.net.URLEncoder.encode(searchTerm, "UTF-8");
+			String kgUrl = "https://kgsearch.googleapis.com/v1/entities:search" +
+				"?query=" + encodedQuery +
+				"&key=" + googleKnowledgeGraphApiKey +
+				"&limit=1" +
+				"&indent=true";
+			
+			HttpHeaders headers = new HttpHeaders();
+			headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+			HttpEntity<String> request = new HttpEntity<>(headers);
+			
+			ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+				kgUrl,
+				HttpMethod.GET,
+				request,
+				new ParameterizedTypeReference<Map<String, Object>>() {}
+			);
+			
+			Map<String, Object> responseBody = response.getBody();
+			if (responseBody != null) {
+				@SuppressWarnings("unchecked")
+				List<Map<String, Object>> itemList = (List<Map<String, Object>>) responseBody.get("itemListElement");
+				if (itemList != null && !itemList.isEmpty()) {
+					// Check if the first result has a detailed description (About section)
+					Map<String, Object> firstItem = itemList.get(0);
+					@SuppressWarnings("unchecked")
+					Map<String, Object> result = (Map<String, Object>) firstItem.get("result");
+					if (result != null) {
+						// Check for detailedDescription or description field
+						@SuppressWarnings("unchecked")
+						Map<String, Object> detailedDescription = (Map<String, Object>) result.get("detailedDescription");
+						if (detailedDescription != null) {
+							String articleBody = (String) detailedDescription.get("articleBody");
+							if (articleBody != null && articleBody.length() > 50) {
+								return true;
+							}
+						}
+						// Also check for description field
+						String description = (String) result.get("description");
+						if (description != null && description.length() > 50) {
+							return true;
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			// If Google Knowledge Graph API call fails, silently return false
+			// This prevents API failures from blocking the description generation
+			System.out.println("Google Knowledge Graph check failed for '" + searchTerm + "': " + e.getMessage());
+		}
+		
+		return false;
+	}
+	
+	/**
+	 * Gets a description from Google Knowledge Graph for an entity (artist or genre).
+	 * 
+	 * @param searchTerm The entity name to search for
+	 * @return Description from Knowledge Graph, or null if not found
+	 */
+	private String getGoogleKnowledgeGraphDescription(String searchTerm) {
+		try {
+			// Google Knowledge Graph Search API endpoint
+			String encodedQuery = java.net.URLEncoder.encode(searchTerm, "UTF-8");
+			String kgUrl = "https://kgsearch.googleapis.com/v1/entities:search" +
+				"?query=" + encodedQuery +
+				"&key=" + googleKnowledgeGraphApiKey +
+				"&limit=1" +
+				"&indent=true";
+			
+			HttpHeaders headers = new HttpHeaders();
+			headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+			HttpEntity<String> request = new HttpEntity<>(headers);
+			
+			ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+				kgUrl,
+				HttpMethod.GET,
+				request,
+				new ParameterizedTypeReference<Map<String, Object>>() {}
+			);
+			
+			Map<String, Object> responseBody = response.getBody();
+			if (responseBody != null) {
+				@SuppressWarnings("unchecked")
+				List<Map<String, Object>> itemList = (List<Map<String, Object>>) responseBody.get("itemListElement");
+				if (itemList != null && !itemList.isEmpty()) {
+					Map<String, Object> firstItem = itemList.get(0);
+					@SuppressWarnings("unchecked")
+					Map<String, Object> result = (Map<String, Object>) firstItem.get("result");
+					if (result != null) {
+						// Try to get detailedDescription first (more comprehensive)
+						@SuppressWarnings("unchecked")
+						Map<String, Object> detailedDescription = (Map<String, Object>) result.get("detailedDescription");
+						if (detailedDescription != null) {
+							String articleBody = (String) detailedDescription.get("articleBody");
+							if (articleBody != null && articleBody.length() > 50) {
+								// Return the full articleBody paragraph
+								// Only truncate if it's extremely long (over 1000 chars) to prevent UI issues
+								if (articleBody.length() > 1000) {
+									// Try to truncate at a sentence boundary near 1000 chars
+									int lastPeriod = articleBody.lastIndexOf('.', 1000);
+									if (lastPeriod > 500) {
+										return articleBody.substring(0, lastPeriod + 1);
+									}
+									// If no good sentence boundary, truncate at 997 chars
+									return articleBody.substring(0, 997) + "...";
+								}
+								return articleBody.trim();
+							}
+						}
+						// Fallback to description field
+						String description = (String) result.get("description");
+						if (description != null && description.length() > 50) {
+							// Return the full description
+							return description.trim();
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			// If Google Knowledge Graph API call fails, return null
+			System.out.println("Google Knowledge Graph description fetch failed for '" + searchTerm + "': " + e.getMessage());
+		}
+		
+		return null;
 	}
 	
 	/**
@@ -2090,10 +2544,18 @@ public class SoundWrappedService {
 				return new ArrayList<>();
 			}
 			
-			// TEMPORARILY: Skip popular-tracks URL resolution and go straight to fallback
-			// The popular-tracks URL doesn't exist for most artists, so we'll use the more reliable method
-			System.out.println("Skipping popular-tracks URL resolution, using fallback method directly...");
-			return getTracksFromArtistFallback(artistPermalink, limit, accessToken);
+		// Try to get tracks from popular-tracks URL first
+		System.out.println("Attempting to fetch tracks from popular-tracks URL...");
+		List<Map<String, Object>> popularTracks = getTracksFromPopularTracksUrl(artistPermalink, limit);
+		
+		if (popularTracks != null && !popularTracks.isEmpty()) {
+			System.out.println("Successfully fetched " + popularTracks.size() + " tracks from popular-tracks URL");
+			return popularTracks;
+		}
+		
+		// If popular-tracks URL fails, use fallback but sort by popularity
+		System.out.println("Popular-tracks URL failed, using fallback method...");
+		return getTracksFromArtistFallback(artistPermalink, limit, accessToken);
 			
 		} catch (Exception e) {
 			System.err.println("========================================");
@@ -2245,9 +2707,12 @@ public class SoundWrappedService {
 				return new ArrayList<>();
 			}
 			
-			// Try /users/{userId}/tracks
-			String tracksUrl = soundCloudApiBaseUrl + "/users/" + userId + "/tracks?limit=" + (limit * 3) + "&linked_partitioning=true";
+			// Fetch a large number of tracks to ensure we get the popular ones
+			// SoundCloud returns tracks in chronological order, so we need to fetch many and sort by popularity
+			int fetchLimit = Math.max(limit * 20, 200); // Fetch at least 200 tracks to get popular ones
+			String tracksUrl = soundCloudApiBaseUrl + "/users/" + userId + "/tracks?limit=" + fetchLimit + "&linked_partitioning=true";
 			System.out.println("Fetching tracks from URL: " + tracksUrl);
+			System.out.println("Fetching " + fetchLimit + " tracks to find the most popular ones");
 			
 			HttpHeaders headers = new HttpHeaders();
 			headers.setBearerAuth(accessToken);
@@ -2273,16 +2738,23 @@ public class SoundWrappedService {
 					List<Map<String, Object>> tracks = (List<Map<String, Object>>) responseBody.get("collection");
 					
 					if (tracks != null && !tracks.isEmpty()) {
-						System.out.println("Found " + tracks.size() + " tracks, sorting by popularity...");
-						// Sort by playback_count (descending) and limit
+						System.out.println("Found " + tracks.size() + " tracks, sorting by popularity (playback_count)...");
+						// Sort by playback_count (descending) to get the most popular tracks
+						// This ensures we get the artist's actual popular tracks, not just recent ones
 						List<Map<String, Object>> sortedTracks = tracks.stream()
-							.sorted((a, b) -> Long.compare(
-								((Number) b.getOrDefault("playback_count", 0)).longValue(),
-								((Number) a.getOrDefault("playback_count", 0)).longValue()))
+							.sorted((a, b) -> {
+								long countA = ((Number) a.getOrDefault("playback_count", 0)).longValue();
+								long countB = ((Number) b.getOrDefault("playback_count", 0)).longValue();
+								return Long.compare(countB, countA); // Descending order (most popular first)
+							})
 							.limit(limit)
 							.collect(java.util.stream.Collectors.toList());
 						
-						System.out.println("SUCCESS - Returning " + sortedTracks.size() + " tracks for user ID: " + userId);
+						System.out.println("SUCCESS - Returning " + sortedTracks.size() + " popular tracks (sorted by playback_count) for user ID: " + userId);
+						if (!sortedTracks.isEmpty()) {
+							long topPlayCount = ((Number) sortedTracks.get(0).getOrDefault("playback_count", 0)).longValue();
+							System.out.println("Top track playback_count: " + topPlayCount);
+						}
 						return sortedTracks;
 					} else {
 						System.err.println("No tracks found in collection for user ID: " + userId);
@@ -2368,8 +2840,12 @@ public class SoundWrappedService {
 						// Try multiple approaches to get tracks
 						
 						// Approach 1: Try /users/{userId}/tracks (may only work for authenticated user's own tracks)
-						String tracksUrl = soundCloudApiBaseUrl + "/users/" + userId + "/tracks?limit=" + (limit * 3) + "&linked_partitioning=true";
+						// Fetch a large number of tracks to ensure we get the popular ones
+						// SoundCloud returns tracks in chronological order (newest first), so we need to fetch many and sort by popularity
+						int fetchLimit = Math.max(limit * 20, 200); // Fetch at least 200 tracks to get popular ones
+						String tracksUrl = soundCloudApiBaseUrl + "/users/" + userId + "/tracks?limit=" + fetchLimit + "&linked_partitioning=true";
 						System.out.println("Fallback: Attempting Approach 1 - Fetching tracks from URL: " + tracksUrl);
+						System.out.println("Fallback: Fetching " + fetchLimit + " tracks to find the most popular ones (not just recent)");
 						
 						HttpHeaders headers = new HttpHeaders();
 						headers.setBearerAuth(accessToken);
@@ -2395,16 +2871,23 @@ public class SoundWrappedService {
 								List<Map<String, Object>> tracks = (List<Map<String, Object>>) responseBody.get("collection");
 								
 								if (tracks != null && !tracks.isEmpty()) {
-									System.out.println("Fallback: Approach 1 - Found " + tracks.size() + " tracks, sorting by popularity...");
-									// Sort by playback_count (descending) and limit
+									System.out.println("Fallback: Approach 1 - Found " + tracks.size() + " tracks, sorting by popularity (playback_count)...");
+									// Sort by playback_count (descending) to get the most popular tracks
+									// This ensures we get the artist's actual popular tracks, not just recent ones
 									List<Map<String, Object>> sortedTracks = tracks.stream()
-										.sorted((a, b) -> Long.compare(
-											((Number) b.getOrDefault("playback_count", 0)).longValue(),
-											((Number) a.getOrDefault("playback_count", 0)).longValue()))
+										.sorted((a, b) -> {
+											long countA = ((Number) a.getOrDefault("playback_count", 0)).longValue();
+											long countB = ((Number) b.getOrDefault("playback_count", 0)).longValue();
+											return Long.compare(countB, countA); // Descending order (most popular first)
+										})
 										.limit(limit)
 										.collect(java.util.stream.Collectors.toList());
 									
-									System.out.println("Fallback: Approach 1 - SUCCESS - Returning " + sortedTracks.size() + " tracks for artist: " + artistPermalink);
+									System.out.println("Fallback: Approach 1 - SUCCESS - Returning " + sortedTracks.size() + " popular tracks (sorted by playback_count) for artist: " + artistPermalink);
+									if (!sortedTracks.isEmpty()) {
+										long topPlayCount = ((Number) sortedTracks.get(0).getOrDefault("playback_count", 0)).longValue();
+										System.out.println("Fallback: Top track playback_count: " + topPlayCount);
+									}
 									return sortedTracks;
 								}
 							}
