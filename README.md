@@ -31,7 +31,7 @@ The homepage showcases three daily rotating features that persist throughout the
     - Google Knowledge Graph entry
   - **Track Fetching**: Uses multiple fallback strategies:
     - Attempts `popular-tracks` URL resolution
-    - Falls back to direct user ID track fetching
+    - Falls back to direct user URN track fetching
     - Fetches at least 200 tracks before sorting by `playback_count` to ensure accurate popularity
   - **Name Matching**: Tries multiple name variations (case-insensitive, camelCase) to find Wikipedia pages
   - Cached for 24 hours using date-based seed
@@ -52,7 +52,7 @@ The homepage showcases three daily rotating features that persist throughout the
 #### 🔥 Popular Now
 - **Feature**: Displays the first 5 tracks from the US Top 50 charts playlist
 - **Technical Implementation**:
-  - Fetches tracks from SoundCloud playlist ID `1714689261` (US Top 50: `https://soundcloud.com/music-charts-us/sets/all-music-genres`)
+  - Fetches tracks from SoundCloud playlist URN `1714689261` (US Top 50: `https://soundcloud.com/music-charts-us/sets/all-music-genres`)
   - Returns tracks in their original playlist order (no sorting) to show the actual top 5
   - Uses `/playlists/{id}/tracks` endpoint with pagination support
 
@@ -275,7 +275,7 @@ SoundWrapped/
 ├── backend/
 │   └── soundwrapped-backend/
 │       ├── src/main/java/com/soundwrapped/
-│       │   ├── controller/     # REST controllers
+│       │   ├── controller/      # REST controllers
 │       │   ├── service/         # Business logic
 │       │   ├── entity/          # JPA entities
 │       │   ├── repository/      # Data access
