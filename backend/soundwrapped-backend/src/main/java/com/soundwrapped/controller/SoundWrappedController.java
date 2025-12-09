@@ -126,10 +126,33 @@ public class SoundWrappedController {
 
 	@GetMapping("/featured/artist")
 	public Map<String, Object> getFeaturedArtist() {
+		System.out.println("========================================");
+		System.out.println("Controller: /featured/artist endpoint called");
+		System.out.println("========================================");
 		try {
-			return soundWrappedService.getFeaturedArtist();
+			Map<String, Object> result = soundWrappedService.getFeaturedArtist();
+			System.out.println("Controller: Service returned result with keys: " + result.keySet());
+			@SuppressWarnings("unchecked")
+			List<Map<String, Object>> tracks = (List<Map<String, Object>>) result.get("tracks");
+			System.out.println("Controller: Featured artist response - username: " + result.get("username") + ", tracks count: " + (tracks != null ? tracks.size() : 0));
+			if (tracks == null || tracks.isEmpty()) {
+				System.err.println("Controller: WARNING - Featured artist has no tracks! Result keys: " + result.keySet());
+				System.err.println("Controller: Attempting to manually fetch tracks...");
+				// Try to manually fetch tracks if they're missing
+				String artistPermalink = (String) result.getOrDefault("permalink", result.get("username"));
+				if (artistPermalink != null && !artistPermalink.toString().isEmpty()) {
+					System.out.println("Controller: Manually fetching tracks for: " + artistPermalink);
+					// We can't call private methods from controller, so we'll just log
+					System.err.println("Controller: Cannot manually fetch - tracks should have been included by service");
+				}
+			} else {
+				System.out.println("Controller: SUCCESS - Featured artist has " + tracks.size() + " tracks");
+			}
+			System.out.println("Controller: Returning result with tracks: " + (tracks != null ? tracks.size() : 0));
+			return result;
 		} catch (Exception e) {
-			System.out.println("Error fetching featured artist: " + e.getMessage());
+			System.err.println("Error fetching featured artist: " + e.getMessage());
+			e.printStackTrace();
 			return new HashMap<>();
 		}
 	}
