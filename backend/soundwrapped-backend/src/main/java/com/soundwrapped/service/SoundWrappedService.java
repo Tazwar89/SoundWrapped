@@ -1151,9 +1151,10 @@ public class SoundWrappedService {
 	 */
 	private List<Map<String, Object>> getTracksFromPlaylistById(String playlistId, String accessToken) {
 		try {
-			// Fetch tracks from playlist - try as paginated response first
-			String tracksUrl = soundCloudApiBaseUrl + "/playlists/" + playlistId + "/tracks?limit=50&linked_partitioning=true";
-			System.out.println("Fetching tracks from: " + tracksUrl);
+			List<Map<String, Object>> allTracks = new ArrayList<>();
+			String nextUrl = soundCloudApiBaseUrl + "/playlists/" + playlistId + "/tracks?limit=50&linked_partitioning=true";
+			
+			System.out.println("Fetching tracks from playlist ID: " + playlistId);
 			
 			HttpHeaders headers = new HttpHeaders();
 			headers.setBearerAuth(accessToken);
@@ -1161,43 +1162,69 @@ public class SoundWrappedService {
 			headers.set("Accept", "application/json");
 			HttpEntity<String> request = new HttpEntity<String>(headers);
 			
-			// Try as paginated response with collection field
-			ResponseEntity<Map<String, Object>> tracksResponse = restTemplate.exchange(
-				tracksUrl,
-				HttpMethod.GET,
-				request,
-				new ParameterizedTypeReference<Map<String, Object>>(){}
-			);
+			// Fetch all tracks with pagination to ensure we get them in the correct order
+			int maxPages = 3; // Limit to prevent infinite loops, but get enough tracks
+			int pageCount = 0;
 			
-			System.out.println("Tracks API response status: " + tracksResponse.getStatusCode());
-			
-			if (tracksResponse.getStatusCode().is2xxSuccessful() && tracksResponse.getBody() != null) {
-				Map<String, Object> responseBody = tracksResponse.getBody();
-				System.out.println("Tracks response body keys: " + responseBody.keySet());
+			while (nextUrl != null && pageCount < maxPages) {
+				System.out.println("Fetching page " + (pageCount + 1) + " from: " + nextUrl);
 				
-				// Check if tracks are in a "collection" field (paginated response)
-				@SuppressWarnings("unchecked")
-				List<Map<String, Object>> tracks = (List<Map<String, Object>>) responseBody.get("collection");
+				ResponseEntity<Map<String, Object>> tracksResponse = restTemplate.exchange(
+					nextUrl,
+					HttpMethod.GET,
+					request,
+					new ParameterizedTypeReference<Map<String, Object>>(){}
+				);
 				
-				if (tracks == null || tracks.isEmpty()) {
-					// Try direct list format
-					if (responseBody instanceof List) {
-						@SuppressWarnings("unchecked")
-						List<Map<String, Object>> directTracks = (List<Map<String, Object>>) responseBody;
-						tracks = directTracks;
+				System.out.println("Tracks API response status: " + tracksResponse.getStatusCode());
+				
+				if (tracksResponse.getStatusCode().is2xxSuccessful() && tracksResponse.getBody() != null) {
+					Map<String, Object> responseBody = tracksResponse.getBody();
+					System.out.println("Tracks response body keys: " + responseBody.keySet());
+					
+					// Check if tracks are in a "collection" field (paginated response)
+					@SuppressWarnings("unchecked")
+					List<Map<String, Object>> tracks = (List<Map<String, Object>>) responseBody.get("collection");
+					
+					if (tracks == null || tracks.isEmpty()) {
+						// Try direct list format
+						if (responseBody instanceof List) {
+							@SuppressWarnings("unchecked")
+							List<Map<String, Object>> directTracks = (List<Map<String, Object>>) responseBody;
+							tracks = directTracks;
+						}
 					}
+					
+					if (tracks != null && !tracks.isEmpty()) {
+						allTracks.addAll(tracks);
+						System.out.println("Fetched " + tracks.size() + " tracks from page " + (pageCount + 1) + ". Total so far: " + allTracks.size());
+						
+						// Check for next page URL
+						Object nextHref = responseBody.get("next_href");
+						if (nextHref != null && nextHref instanceof String) {
+							nextUrl = (String) nextHref;
+						} else {
+							nextUrl = null;
+						}
+					} else {
+						System.err.println("No tracks found in response for playlist " + playlistId + " on page " + (pageCount + 1));
+						break;
+					}
+				} else {
+					System.err.println("Failed to fetch tracks from playlist " + playlistId);
+					System.err.println("Response status: " + tracksResponse.getStatusCode());
+					break;
 				}
 				
-				if (tracks != null && !tracks.isEmpty()) {
-					System.out.println("Successfully fetched " + tracks.size() + " tracks from playlist ID: " + playlistId);
-					return tracks;
-				} else {
-					System.err.println("No tracks found in response for playlist " + playlistId);
-					System.err.println("Response body keys: " + responseBody.keySet());
-				}
+				pageCount++;
+			}
+			
+			if (!allTracks.isEmpty()) {
+				System.out.println("Successfully fetched " + allTracks.size() + " total tracks from playlist ID: " + playlistId);
+				// Return tracks in the order they were received (playlist order)
+				return allTracks;
 			} else {
-				System.err.println("Failed to fetch tracks from playlist " + playlistId);
-				System.err.println("Response status: " + tracksResponse.getStatusCode());
+				System.err.println("No tracks found in response for playlist " + playlistId);
 			}
 			
 			return new ArrayList<>();
@@ -1240,6 +1267,20 @@ public class SoundWrappedService {
 				List<Map<String, Object>> playlistTracks = getTracksFromPlaylistById(playlistId, accessToken);
 				
 				if (playlistTracks != null && !playlistTracks.isEmpty()) {
+					// Log the first few tracks to debug
+					System.out.println("First " + Math.min(10, playlistTracks.size()) + " tracks from playlist (before limiting):");
+					for (int i = 0; i < Math.min(10, playlistTracks.size()); i++) {
+						Map<String, Object> track = playlistTracks.get(i);
+						Object userObj = track.get("user");
+						String artistName = "Unknown";
+						if (userObj instanceof Map) {
+							@SuppressWarnings("unchecked")
+							Map<String, Object> user = (Map<String, Object>) userObj;
+							artistName = (String) user.getOrDefault("username", "Unknown");
+						}
+						System.out.println("  Track " + (i + 1) + ": " + track.get("title") + " by " + artistName);
+					}
+					
 					// Return the first 'limit' tracks in their original order (first tracks of the playlist)
 					// Don't sort - the playlist order is already the chart order
 					List<Map<String, Object>> topTracks = playlistTracks.stream()
@@ -2000,14 +2041,30 @@ public class SoundWrappedService {
 	 * @return A description of the genre
 	 */
 	private String getGenreDescription(String genreName) {
-		// First, try to get description from Google Knowledge Graph API
+		// PRIORITY ORDER: Wikipedia > Google Knowledge Graph > Hardcoded > Generic
+		
+		// 1. Try Wikipedia description first (highest priority)
+		String wikipediaDescription = getWikipediaDescription(genreName + " (music genre)");
+		if (wikipediaDescription == null || wikipediaDescription.trim().isEmpty()) {
+			// Try without the suffix
+			wikipediaDescription = getWikipediaDescription(genreName);
+		}
+		if (wikipediaDescription != null && !wikipediaDescription.trim().isEmpty()) {
+			return wikipediaDescription;
+		}
+		
+		// 2. Try Google Knowledge Graph description (second priority)
 		// This is especially useful for obscure subgenres like "indietronica", "wave", "future garage"
 		String kgDescription = getGoogleKnowledgeGraphDescription(genreName + " music genre");
+		if (kgDescription == null || kgDescription.trim().isEmpty()) {
+			// Try without the suffix
+			kgDescription = getGoogleKnowledgeGraphDescription(genreName);
+		}
 		if (kgDescription != null && !kgDescription.trim().isEmpty()) {
 			return kgDescription;
 		}
 		
-		// Fallback to hardcoded descriptions for well-known genres
+		// 3. Fallback to hardcoded descriptions for well-known genres
 		Map<String, String> genreDescriptions = new HashMap<>();
 		genreDescriptions.put("wave", "Wave is a subgenre of electronic music characterized by its atmospheric, ethereal soundscapes and emotional melodies. Often featuring reverb-drenched synths and haunting vocals, wave music creates a dreamy, introspective listening experience.");
 		genreDescriptions.put("electronic", "Electronic music encompasses a wide range of genres that primarily use electronic instruments and technology. From ambient soundscapes to high-energy dance tracks, electronic music continues to evolve and influence modern music culture.");
