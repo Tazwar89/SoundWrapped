@@ -1,6 +1,6 @@
 # SoundCloud API Configuration
-CLIENT_ID=5pRC171gW1jxprhKPRMUJ5mpsCLRfmaM
-CLIENT_SECRET=yj4gZgfadBZTpKNud1ZSwCrVe4ICYzki
+CLIENT_ID=your_soundcloud_client_id_here
+CLIENT_SECRET=your_soundcloud_client_secret_here
 REDIRECT_URI=http://localhost:8080/callback
 
 # Database Configuration
@@ -12,3 +12,6 @@ POSTGRES_PASSWORD=supersecretpassword
 SPRING_PROFILES_ACTIVE=docker
 SPRING_JPA_HIBERNATE_DDL_AUTO=update
 SPRING_JPA_SHOW_SQL=false
+
+# Google Knowledge Graph API Configuration
+GOOGLE_KNOWLEDGE_GRAPH_API_KEY=your_google_api_key_here

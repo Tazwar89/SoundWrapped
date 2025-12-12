@@ -108,6 +108,51 @@ Chrome extension for system-level playback tracking:
 
 ## 🏗️ Technical Architecture
 
+SoundWrapped follows a **Model-View-Controller (MVC)** architectural pattern, providing clear separation of concerns and maintainable code structure.
+
+### Architecture Pattern: Model-View-Controller (MVC)
+
+#### **Model Layer** (Data & Business Logic)
+- **Entities** (`entity/`): JPA entities representing database tables (e.g., `Token`, `UserActivity`)
+- **Repositories** (`repository/`): Data access layer using Spring Data JPA for database operations
+- **Services** (`service/`): Business logic layer containing core functionality:
+  - `SoundWrappedService`: Main service for SoundCloud API integration
+  - `AnalyticsService`: Music analytics and statistics calculations
+  - `MusicDoppelgangerService`: Music taste matching algorithms
+  - `ArtistAnalyticsService`: Artist performance metrics
+  - `MusicTasteMapService`: Geographic taste visualization
+  - `TokenStore`: OAuth2 token management
+
+#### **View Layer** (Frontend Presentation)
+- **React Components** (`frontend/src/components/`): Reusable UI components
+- **Pages** (`frontend/src/pages/`): Main application pages (Home, Dashboard, Wrapped, etc.)
+- **Contexts** (`frontend/src/contexts/`): React Context API for state management
+- **Services** (`frontend/src/services/`): API client services for backend communication
+
+#### **Controller Layer** (Request Handling)
+- **REST Controllers** (`controller/`): Spring Boot `@RestController` classes handling HTTP requests:
+  - `SoundWrappedController`: Main API endpoints for music data
+  - `OAuthCallbackController`: OAuth2 authentication flow
+  - `ActivityTrackingController`: Browser extension activity tracking
+- **Request Mapping**: RESTful endpoints with proper HTTP methods (GET, POST, etc.)
+- **Response Handling**: JSON responses with appropriate status codes
+
+#### **Data Flow**
+1. **Client Request** → Frontend makes HTTP request to backend API
+2. **Controller** → Receives request, validates input, delegates to service layer
+3. **Service** → Executes business logic, interacts with repositories/APIs
+4. **Repository/API** → Fetches data from database or external APIs (SoundCloud, Wikipedia, Google)
+5. **Service** → Processes and transforms data
+6. **Controller** → Returns JSON response
+7. **View** → Frontend receives data and updates UI
+
+#### **Key Architectural Principles**
+- **Separation of Concerns**: Each layer has distinct responsibilities
+- **Dependency Injection**: Spring's IoC container manages dependencies
+- **RESTful Design**: Stateless API endpoints following REST conventions
+- **Service-Oriented**: Business logic encapsulated in service classes
+- **Repository Pattern**: Data access abstracted through repository interfaces
+
 ### Backend (Spring Boot + Java)
 
 #### API Integration
@@ -194,19 +239,37 @@ docker-compose up --build
 
 ## 🔧 Configuration
 
-### Backend (`application.yml`)
+### Backend Configuration
+
+SoundWrapped supports configuration through both `application.yml` and environment variables. Environment variables take precedence over `application.yml` values.
+
+#### Option 1: Environment Variables (Recommended for Production)
+
+Create a `.env` file in `backend/soundwrapped-backend/`:
+
+```env
+SOUNDCLOUD_CLIENT_ID=your_soundcloud_client_id_here
+SOUNDCLOUD_CLIENT_SECRET=your_soundcloud_client_secret_here
+GOOGLE_KNOWLEDGE_GRAPH_API_KEY=your_google_api_key_here
+```
+
+Then export them or use a tool like `dotenv` to load them.
+
+#### Option 2: `application.yml` (Development)
 
 ```yaml
 soundcloud:
-  client-id: YOUR_SOUNDCLOUD_CLIENT_ID
-  client-secret: YOUR_SOUNDCLOUD_CLIENT_SECRET
+  client-id: ${SOUNDCLOUD_CLIENT_ID:your_default_client_id}
+  client-secret: ${SOUNDCLOUD_CLIENT_SECRET:your_default_client_secret}
   api:
     base-url: https://api.soundcloud.com
 
 google:
   knowledge-graph:
-    api-key: YOUR_GOOGLE_KNOWLEDGE_GRAPH_API_KEY
+    api-key: ${GOOGLE_KNOWLEDGE_GRAPH_API_KEY:}
 ```
+
+**Note**: The `${VARIABLE_NAME:default_value}` syntax means "use environment variable if available, otherwise use default value". For production, always use environment variables to keep secrets secure.
 
 ### Frontend (`.env`)
 
