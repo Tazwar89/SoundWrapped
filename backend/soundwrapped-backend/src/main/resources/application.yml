@@ -42,6 +42,8 @@ soundcloud:
 google:
   knowledge-graph:
     api-key: ${GOOGLE_KNOWLEDGE_GRAPH_API_KEY:}
+  gemini:
+    api-key: ${GOOGLE_GEMINI_API_KEY:AIzaSyA9wi7p-O9oMkl1NlUdASOE7Kfig_74tCY}
 
 # ----------------------------
 # Test profile (Testcontainers)

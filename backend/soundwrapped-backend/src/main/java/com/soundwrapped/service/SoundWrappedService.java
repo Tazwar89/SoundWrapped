@@ -45,6 +45,9 @@ public class SoundWrappedService {
 	@Value("${google.knowledge-graph.api-key}")
 	private String googleKnowledgeGraphApiKey;
 
+	@Value("${google.gemini.api-key}")
+	private String googleGeminiApiKey;
+
 	private final TokenStore tokenStore;
 	private final RestTemplate restTemplate;
 	private final GenreAnalysisService genreAnalysisService;
@@ -2033,38 +2036,30 @@ public class SoundWrappedService {
 	 * @return Description of the genre
 	 */
 	/**
-	 * Gets a description for a music genre.
-	 * First tries to fetch from Google Knowledge Graph API for obscure subgenres.
-	 * Falls back to hardcoded descriptions for well-known genres.
+	 * Gets a description for a music genre using Google Gemini API.
+	 * Uses context-aware prompts to ensure descriptions are about the music genre, not unrelated topics.
+	 * Falls back to hardcoded descriptions if Gemini API fails.
 	 * 
 	 * @param genreName The name of the genre
 	 * @return A description of the genre
 	 */
 	private String getGenreDescription(String genreName) {
-		// PRIORITY ORDER: Wikipedia > Google Knowledge Graph > Hardcoded > Generic
+		// PRIORITY ORDER: Gemini > Hardcoded > Generic
 		
-		// 1. Try Wikipedia description first (highest priority)
-		String wikipediaDescription = getWikipediaDescription(genreName + " (music genre)");
-		if (wikipediaDescription == null || wikipediaDescription.trim().isEmpty()) {
-			// Try without the suffix
-			wikipediaDescription = getWikipediaDescription(genreName);
-		}
-		if (wikipediaDescription != null && !wikipediaDescription.trim().isEmpty()) {
-			return wikipediaDescription;
-		}
+		System.out.println("========================================");
+		System.out.println("Getting genre description for: " + genreName);
+		System.out.println("========================================");
 		
-		// 2. Try Google Knowledge Graph description (second priority)
-		// This is especially useful for obscure subgenres like "indietronica", "wave", "future garage"
-		String kgDescription = getGoogleKnowledgeGraphDescription(genreName + " music genre");
-		if (kgDescription == null || kgDescription.trim().isEmpty()) {
-			// Try without the suffix
-			kgDescription = getGoogleKnowledgeGraphDescription(genreName);
-		}
-		if (kgDescription != null && !kgDescription.trim().isEmpty()) {
-			return kgDescription;
+		// 1. Try Gemini API first (highest priority) - ensures context-aware descriptions
+		String geminiDescription = getGeminiDescription(genreName, "music genre");
+		if (geminiDescription != null && !geminiDescription.trim().isEmpty()) {
+			System.out.println("✓ Successfully got Gemini description for genre: " + genreName);
+			return geminiDescription;
+		} else {
+			System.out.println("✗ Gemini description failed for genre: " + genreName + ", falling back to hardcoded");
 		}
 		
-		// 3. Fallback to hardcoded descriptions for well-known genres
+		// 2. Fallback to hardcoded descriptions for well-known genres
 		Map<String, String> genreDescriptions = new HashMap<>();
 		genreDescriptions.put("wave", "Wave is a subgenre of electronic music characterized by its atmospheric, ethereal soundscapes and emotional melodies. Often featuring reverb-drenched synths and haunting vocals, wave music creates a dreamy, introspective listening experience.");
 		genreDescriptions.put("electronic", "Electronic music encompasses a wide range of genres that primarily use electronic instruments and technology. From ambient soundscapes to high-energy dance tracks, electronic music continues to evolve and influence modern music culture.");
@@ -2150,25 +2145,29 @@ public class SoundWrappedService {
 			return null;
 		}
 		
-		// PRIORITY ORDER: Wikipedia > Google Knowledge Graph > SoundCloud Bio > Generated Description
+		// PRIORITY ORDER: Gemini > SoundCloud Bio > Generated Description
 		
-		// 1. Try Wikipedia description first (highest priority)
-		if (hasWikipediaEntry && searchTerm != null) {
-			String wikipediaDescription = getWikipediaDescription(searchTerm);
-			if (wikipediaDescription != null && !wikipediaDescription.trim().isEmpty()) {
-				return wikipediaDescription;
+		// 1. Try Gemini API first (highest priority) - ensures context-aware descriptions
+		if (searchTerm != null) {
+			System.out.println("Attempting to get Gemini description for artist: " + searchTerm);
+			System.out.println("  - Username: " + username);
+			System.out.println("  - Full name: " + fullName);
+			System.out.println("  - Followers: " + followersCount);
+			System.out.println("  - Has Wikipedia entry: " + hasWikipediaEntry);
+			System.out.println("  - Has Google KG entry: " + hasGoogleAboutSection);
+			
+			String geminiDescription = getGeminiDescription(searchTerm, "music artist");
+			if (geminiDescription != null && !geminiDescription.trim().isEmpty()) {
+				System.out.println("  ✓ Successfully got Gemini description (length: " + geminiDescription.length() + ")");
+				return geminiDescription;
+			} else {
+				System.out.println("  ✗ Gemini description returned null or empty");
 			}
+		} else {
+			System.out.println("  ✗ Search term is null, cannot get Gemini description");
 		}
 		
-		// 2. Try Google Knowledge Graph description (second priority)
-		if (hasGoogleAboutSection && searchTerm != null) {
-			String kgDescription = getGoogleKnowledgeGraphDescription(searchTerm);
-			if (kgDescription != null && !kgDescription.trim().isEmpty()) {
-				return kgDescription;
-			}
-		}
-		
-		// 3. Use the artist's SoundCloud bio if available and it's substantial (not just a link or placeholder)
+		// 2. Use the artist's SoundCloud bio if available and it's substantial (not just a link or placeholder)
 		if (descriptionText != null && !descriptionText.trim().isEmpty()) {
 			// Check if it's a meaningful description (not just a URL or very short)
 			String trimmed = descriptionText.trim();
@@ -2576,6 +2575,344 @@ public class SoundWrappedService {
 			System.out.println("Google Knowledge Graph description fetch failed for '" + searchTerm + "': " + e.getMessage());
 		}
 		
+		return null;
+	}
+	
+	/**
+	 * Gets a description from Google Gemini API using research from Wikipedia and Google Knowledge Graph.
+	 * 
+	 * This method implements a RAG (Retrieval Augmented Generation) approach:
+	 * 1. First conducts internet research by fetching information from Wikipedia and Google Knowledge Graph
+	 * 2. Passes that research as context to Gemini with a prompt asking it to synthesize a comprehensive description
+	 * 3. Gemini generates a well-researched, context-aware description based on the retrieved information
+	 * 
+	 * This ensures descriptions are:
+	 * - Relevant to the music context (e.g., "wave" music genre, not physics)
+	 * - Based on real, up-to-date information from authoritative sources
+	 * - Comprehensive and well-written, synthesized from multiple sources
+	 * 
+	 * @param entityName The name of the entity (artist or genre)
+	 * @param entityType The type of entity: "music genre" or "music artist"
+	 * @return Description from Gemini, or null if not found or API call fails
+	 */
+	private String getGeminiDescription(String entityName, String entityType) {
+		System.err.println("========================================");
+		System.err.println("getGeminiDescription called for: " + entityName + " (" + entityType + ")");
+		System.err.println("========================================");
+		
+		if (googleGeminiApiKey == null || googleGeminiApiKey.trim().isEmpty()) {
+			System.err.println("✗ Google Gemini API key is not configured");
+			return null;
+		}
+		System.out.println("  - Gemini API key configured (length: " + googleGeminiApiKey.length() + ")");
+		
+		// Declare geminiUrl outside try block so it's accessible in catch block
+		String geminiUrl = null;
+		
+		try {
+			// Step 1: Conduct internet research - fetch information from Wikipedia and Google Knowledge Graph
+			System.out.println("Conducting internet research for " + entityType + ": " + entityName);
+			String wikipediaInfo = null;
+			String googleKGInfo = null;
+			
+			// Try multiple search variations for better results
+			java.util.List<String> searchVariations = new java.util.ArrayList<>();
+			if ("music genre".equals(entityType)) {
+				searchVariations.add(entityName + " (music genre)");
+				searchVariations.add(entityName + " music genre");
+				searchVariations.add(entityName);
+			} else {
+				// For artists, try multiple name variations (case variations, etc.)
+				searchVariations.add(entityName);
+				// Try title case (first letter uppercase)
+				if (entityName.length() > 0) {
+					searchVariations.add(entityName.substring(0, 1).toUpperCase() + entityName.substring(1).toLowerCase());
+				}
+				// Try camelCase variations (e.g., "osamason" -> "OsamaSon")
+				String lower = entityName.toLowerCase();
+				if (lower.contains("son")) {
+					int sonIndex = lower.indexOf("son");
+					if (sonIndex > 0) {
+						String beforeSon = lower.substring(0, sonIndex);
+						String sonPart = lower.substring(sonIndex);
+						String camelCase = (beforeSon.length() > 0 ? beforeSon.substring(0, 1).toUpperCase() : "") +
+							(beforeSon.length() > 1 ? beforeSon.substring(1) : "") +
+							(sonPart.length() > 0 ? sonPart.substring(0, 1).toUpperCase() : "") +
+							(sonPart.length() > 1 ? sonPart.substring(1) : "");
+						searchVariations.add(camelCase);
+					}
+				}
+			}
+			
+			// Fetch Wikipedia information
+			System.out.println("  - Fetching Wikipedia information...");
+			for (String searchTerm : searchVariations) {
+				if (wikipediaInfo == null || wikipediaInfo.trim().isEmpty()) {
+					wikipediaInfo = getWikipediaDescription(searchTerm);
+					if (wikipediaInfo != null && !wikipediaInfo.trim().isEmpty()) {
+						System.out.println("    ✓ Found Wikipedia information");
+						break;
+					}
+				}
+			}
+			if (wikipediaInfo == null || wikipediaInfo.trim().isEmpty()) {
+				System.out.println("    ✗ No Wikipedia information found");
+			}
+			
+			// Fetch Google Knowledge Graph information
+			System.out.println("  - Fetching Google Knowledge Graph information...");
+			for (String searchTerm : searchVariations) {
+				if (googleKGInfo == null || googleKGInfo.trim().isEmpty()) {
+					googleKGInfo = getGoogleKnowledgeGraphDescription(searchTerm);
+					if (googleKGInfo != null && !googleKGInfo.trim().isEmpty()) {
+						System.out.println("    ✓ Found Google Knowledge Graph information");
+						break;
+					}
+				}
+			}
+			if (googleKGInfo == null || googleKGInfo.trim().isEmpty()) {
+				System.out.println("    ✗ No Google Knowledge Graph information found");
+			}
+			
+			System.out.println("  - Research complete. Passing to Gemini for synthesis...");
+			
+			// Step 2: Build research context for Gemini
+			StringBuilder researchContext = new StringBuilder();
+			researchContext.append("I have conducted internet research about '").append(entityName).append("'. ");
+			
+			if (wikipediaInfo != null && !wikipediaInfo.trim().isEmpty()) {
+				researchContext.append("\n\nFrom Wikipedia:\n").append(wikipediaInfo);
+			}
+			
+			if (googleKGInfo != null && !googleKGInfo.trim().isEmpty()) {
+				researchContext.append("\n\nFrom Google Knowledge Graph:\n").append(googleKGInfo);
+			}
+			
+			// Step 3: Build context-aware prompt with research
+			String prompt;
+			if ("music genre".equals(entityType)) {
+				if (wikipediaInfo == null && googleKGInfo == null) {
+					// No research found, use direct prompt
+					prompt = String.format(
+						"Write a comprehensive, informative paragraph (2-4 sentences, approximately 200-400 words) about the music genre '%s'. " +
+						"Focus specifically on the MUSIC GENRE, not any other meaning of the word. " +
+						"Include: the genre's origins and history, key characteristics and sound, notable artists or subgenres, " +
+						"and its influence on modern music. Write in an engaging, informative style suitable for a music discovery platform. " +
+						"Ensure the description is specifically about the music genre '%s' and not about unrelated topics.",
+						entityName, entityName
+					);
+				} else {
+					// Use research-based prompt
+					prompt = String.format(
+						"Based on the following internet research about the music genre '%s', write a comprehensive, informative paragraph (2-4 sentences, approximately 200-400 words). " +
+						"Focus specifically on the MUSIC GENRE, not any other meaning of the word. " +
+						"Synthesize the information from the research sources to create an engaging description that includes: " +
+						"the genre's origins and history, key characteristics and sound, notable artists or subgenres, " +
+						"and its influence on modern music. Write in an engaging, informative style suitable for a music discovery platform. " +
+						"If the research is about something other than the music genre '%s', please note that and focus only on the music genre aspect.\n\n" +
+						"%s",
+						entityName, entityName, researchContext.toString()
+					);
+				}
+			} else if ("music artist".equals(entityType)) {
+				if (wikipediaInfo == null && googleKGInfo == null) {
+					// No research found, use direct prompt
+					prompt = String.format(
+						"Write a comprehensive, informative paragraph (2-4 sentences, approximately 200-400 words) about the music artist '%s'. " +
+						"Include: their background and career, musical style and genre, notable works or achievements, " +
+						"and their influence on music. Write in an engaging, informative style suitable for a music discovery platform. " +
+						"If you don't have specific information about this artist, return a brief note that you don't have enough information.",
+						entityName
+					);
+				} else {
+					// Use research-based prompt
+					prompt = String.format(
+						"Based on the following internet research about the music artist '%s', write a comprehensive, informative paragraph (2-4 sentences, approximately 200-400 words). " +
+						"Synthesize the information from the research sources to create an engaging description that includes: " +
+						"their background and career, musical style and genre, notable works or achievements, " +
+						"and their influence on music. Write in an engaging, informative style suitable for a music discovery platform. " +
+						"If the research indicates this is not a music artist or you don't have enough information, please note that.\n\n" +
+						"%s",
+						entityName, researchContext.toString()
+					);
+				}
+			} else {
+				System.err.println("Unknown entity type: " + entityType);
+				return null;
+			}
+			
+			// Build Gemini API request
+			// Using v1beta API with gemini-pro model
+			// Format: https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}
+			geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + 
+				java.net.URLEncoder.encode(googleGeminiApiKey, "UTF-8");
+			
+			System.out.println("  - Gemini API URL (masked): " + geminiUrl.replace(googleGeminiApiKey, "***API_KEY***"));
+			System.out.println("  - API Key (first 10 chars): " + (googleGeminiApiKey != null && googleGeminiApiKey.length() > 10 ? googleGeminiApiKey.substring(0, 10) + "..." : "N/A"));
+			
+			// Build request body
+			Map<String, Object> requestBody = new HashMap<>();
+			Map<String, Object> contents = new HashMap<>();
+			List<Map<String, Object>> parts = new ArrayList<>();
+			Map<String, Object> part = new HashMap<>();
+			part.put("text", prompt);
+			parts.add(part);
+			contents.put("parts", parts);
+			List<Map<String, Object>> contentsList = new ArrayList<>();
+			contentsList.add(contents);
+			requestBody.put("contents", contentsList);
+			
+			// Set up request
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.APPLICATION_JSON);
+			headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+			HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+			
+			// Make API call
+			System.out.println("  - Calling Gemini API...");
+			System.out.println("  - Request body structure: contents=" + contentsList.size() + ", parts=" + parts.size());
+			System.out.println("  - Prompt length: " + prompt.length() + " characters");
+			ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+				geminiUrl,
+				HttpMethod.POST,
+				request,
+				new ParameterizedTypeReference<Map<String, Object>>() {}
+			);
+			
+			System.out.println("  - Gemini API response status: " + response.getStatusCode());
+			
+			// Parse response
+			Map<String, Object> responseBody = response.getBody();
+			if (responseBody != null) {
+				System.out.println("  - Response body keys: " + responseBody.keySet());
+				
+				// Check for errors first
+				if (responseBody.containsKey("error")) {
+					@SuppressWarnings("unchecked")
+					Map<String, Object> error = (Map<String, Object>) responseBody.get("error");
+					System.err.println("  ✗ Gemini API error: " + error);
+					return null;
+				}
+				
+				@SuppressWarnings("unchecked")
+				List<Map<String, Object>> candidates = (List<Map<String, Object>>) responseBody.get("candidates");
+				if (candidates != null && !candidates.isEmpty()) {
+					Map<String, Object> firstCandidate = candidates.get(0);
+					System.out.println("  - First candidate keys: " + firstCandidate.keySet());
+					
+					// Check for finish reason (might indicate blocking)
+					Object finishReason = firstCandidate.get("finishReason");
+					if (finishReason != null) {
+						System.out.println("  - Finish reason: " + finishReason);
+						if ("SAFETY".equals(finishReason) || "RECITATION".equals(finishReason)) {
+							System.err.println("  ✗ Gemini blocked response due to: " + finishReason);
+							return null;
+						}
+					}
+					
+					@SuppressWarnings("unchecked")
+					Map<String, Object> content = (Map<String, Object>) firstCandidate.get("content");
+					if (content != null) {
+						@SuppressWarnings("unchecked")
+						List<Map<String, Object>> partsList = (List<Map<String, Object>>) content.get("parts");
+						if (partsList != null && !partsList.isEmpty()) {
+							String text = (String) partsList.get(0).get("text");
+							if (text != null) {
+								System.out.println("  - Gemini response text length: " + text.trim().length());
+								if (text.trim().length() > 50) {
+									String trimmed = text.trim().toLowerCase();
+									// Check if Gemini indicates it doesn't have information
+									if (trimmed.contains("don't have") || trimmed.contains("don't know") || 
+										trimmed.contains("not enough information") || trimmed.contains("unable to find") ||
+										trimmed.contains("no specific information") || trimmed.contains("limited information")) {
+										System.out.println("  ✗ Gemini indicated no information available for '" + entityName + "'");
+										return null;
+									}
+									// Truncate if too long (over 1000 chars) at sentence boundary
+									String originalText = text.trim();
+									if (originalText.length() > 1000) {
+										int lastPeriod = originalText.lastIndexOf('.', 1000);
+										if (lastPeriod > 500) {
+											return originalText.substring(0, lastPeriod + 1);
+										}
+										return originalText.substring(0, 997) + "...";
+									}
+									System.out.println("  ✓ Successfully got Gemini description");
+									return originalText;
+								} else {
+									System.out.println("  ✗ Gemini response text too short: " + text.trim().length() + " chars");
+								}
+							} else {
+								System.out.println("  ✗ Gemini response text is null");
+							}
+						} else {
+							System.out.println("  ✗ No parts in Gemini response content");
+						}
+					} else {
+						System.out.println("  ✗ No content in Gemini response candidate");
+					}
+				} else {
+					System.out.println("  ✗ No candidates in Gemini response");
+				}
+			} else {
+				System.out.println("  ✗ Gemini response body is null");
+			}
+		} catch (HttpClientErrorException e) {
+			System.err.println("========================================");
+			System.err.println("✗ HTTP ERROR calling Gemini API for '" + entityName + "'");
+			System.err.println("========================================");
+			System.err.println("Status Code: " + e.getStatusCode());
+			System.err.println("Status Text: " + e.getStatusText());
+			System.err.println("Message: " + e.getMessage());
+			if (e.getResponseBodyAsString() != null) {
+				String responseBody = e.getResponseBodyAsString();
+				System.err.println("Response Body: " + responseBody);
+				
+				// Check for common API key errors
+				if (responseBody.contains("API key not valid") || responseBody.contains("invalid API key")) {
+					System.err.println("");
+					System.err.println("⚠️  API KEY ERROR DETECTED!");
+					System.err.println("The Gemini API key appears to be invalid or not properly configured.");
+					System.err.println("Please check:");
+					System.err.println("1. The API key is correct in your .env file");
+					System.err.println("2. The Gemini API is enabled in Google Cloud Console");
+					System.err.println("3. The API key has the necessary permissions");
+					System.err.println("4. Generate a new API key if needed");
+					System.err.println("");
+				}
+			}
+			if (geminiUrl != null) {
+				System.err.println("Request URL (masked): " + geminiUrl.replace(googleGeminiApiKey, "***API_KEY***"));
+			} else {
+				System.err.println("Request URL: (not set - error occurred before URL construction)");
+			}
+			System.err.println("Full Stack Trace:");
+			e.printStackTrace();
+			System.err.println("========================================");
+		} catch (org.springframework.web.client.RestClientException e) {
+			// Catch RestClientException (parent of HttpClientErrorException)
+			System.err.println("========================================");
+			System.err.println("✗ REST CLIENT EXCEPTION calling Gemini API for '" + entityName + "'");
+			System.err.println("========================================");
+			System.err.println("Exception Type: " + e.getClass().getName());
+			System.err.println("Message: " + e.getMessage());
+			System.err.println("Full Stack Trace:");
+			e.printStackTrace();
+			System.err.println("========================================");
+		} catch (Exception e) {
+			System.err.println("========================================");
+			System.err.println("✗ GENERAL EXCEPTION calling Gemini API for '" + entityName + "'");
+			System.err.println("========================================");
+			System.err.println("Exception Type: " + e.getClass().getName());
+			System.err.println("Message: " + e.getMessage());
+			System.err.println("Full Stack Trace:");
+			e.printStackTrace();
+			System.err.println("========================================");
+		}
+		
+		System.err.println("========================================");
+		System.err.println("✗ Returning null - Gemini description generation failed for: " + entityName);
+		System.err.println("========================================");
 		return null;
 	}
 	
