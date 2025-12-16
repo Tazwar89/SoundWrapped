@@ -15,3 +15,6 @@ SPRING_JPA_SHOW_SQL=false
 
 # Google Knowledge Graph API Configuration
 GOOGLE_KNOWLEDGE_GRAPH_API_KEY=your_google_api_key_here
+
+# Google Gemini API Configuration
+GOOGLE_GEMINI_API_KEY=your_google_gemini_api_key_here
