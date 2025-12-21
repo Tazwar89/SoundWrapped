@@ -42,8 +42,16 @@ soundcloud:
 google:
   knowledge-graph:
     api-key: ${GOOGLE_KNOWLEDGE_GRAPH_API_KEY:}
-  gemini:
-    api-key: ${GOOGLE_GEMINI_API_KEY:AIzaSyA9wi7p-O9oMkl1NlUdASOE7Kfig_74tCY}
+
+openai:
+  api-key: ${OPENAI_API_KEY:}
+
+groq:
+  api-key: ${GROQ_API_KEY:}
+  base-url: https://api.groq.com/openai/v1
+
+serpapi:
+  api-key: ${SERPAPI_API_KEY:}
 
 # ----------------------------
 # Test profile (Testcontainers)

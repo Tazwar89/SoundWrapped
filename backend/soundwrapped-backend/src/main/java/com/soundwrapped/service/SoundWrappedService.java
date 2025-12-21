@@ -45,8 +45,17 @@ public class SoundWrappedService {
 	@Value("${google.knowledge-graph.api-key}")
 	private String googleKnowledgeGraphApiKey;
 
-	@Value("${google.gemini.api-key}")
-	private String googleGeminiApiKey;
+	@Value("${openai.api-key:}")
+	private String openaiApiKey;
+
+	@Value("${groq.api-key:}")
+	private String groqApiKey;
+
+	@Value("${groq.base-url:https://api.groq.com/openai/v1}")
+	private String groqBaseUrl;
+
+	@Value("${serpapi.api-key:}")
+	private String serpApiKey;
 
 	private final TokenStore tokenStore;
 	private final RestTemplate restTemplate;
@@ -91,6 +100,23 @@ public class SoundWrappedService {
 		cachedSongDate = null;
 		cachedArtistOfTheDay = null;
 		cachedArtistDate = null;
+	}
+
+	/**
+	 * Clear the daily cache for featured content.
+	 * This can be called via API endpoint to force regeneration of descriptions.
+	 */
+	public void clearFeaturedCache() {
+		System.out.println("========================================");
+		System.out.println("Manually clearing featured content cache...");
+		System.out.println("========================================");
+		cachedGenreOfTheDay = null;
+		cachedGenreDate = null;
+		cachedSongOfTheDay = null;
+		cachedSongDate = null;
+		cachedArtistOfTheDay = null;
+		cachedArtistDate = null;
+		System.out.println("✓ Featured content cache cleared. Next requests will generate fresh descriptions with SerpAPI integration.");
 	}
 
 	public TokenStore getTokenStore() {
@@ -1461,8 +1487,11 @@ public class SoundWrappedService {
 	}
 
 	/**
-	 * Gets a featured track from trending/popular tracks.
-	 * Selects the top trending track (highest trending score) as the featured track.
+	 * Gets a featured track using an alternative algorithm to avoid overlap with Popular Now.
+	 * 
+	 * Strategy: Selects from newly released tracks that are gaining traction (high engagement
+	 * but not necessarily in top charts), or from the Genre of the Day, or from underrated gems.
+	 * This ensures Song of the Day is different from Popular Now (which shows top 50 US chart).
 	 * 
 	 * @return A featured track or empty map if none available
 	 */
@@ -1475,25 +1504,171 @@ public class SoundWrappedService {
 				return cachedSongOfTheDay;
 			}
 			
-			List<Map<String, Object>> popularTracks = getPopularTracks(20);
-			if (!popularTracks.isEmpty()) {
+			// Strategy: Get tracks from Genre of the Day (ensures variety and discovery)
+			// This provides a different selection than Popular Now's top 50 chart
+			Map<String, Object> featuredGenre = getFeaturedGenreWithTracks();
+			if (featuredGenre != null) {
+				@SuppressWarnings("unchecked")
+				List<Map<String, Object>> genreTracks = (List<Map<String, Object>>) featuredGenre.get("tracks");
+				if (genreTracks != null && !genreTracks.isEmpty()) {
+					// Use date-based seed to select a track consistently throughout the day
+					long seed = today.toEpochDay();
+					Random random = new Random(seed);
+					int selectedIndex = random.nextInt(genreTracks.size());
+					Map<String, Object> selectedTrack = genreTracks.get(selectedIndex);
+					
+					// Cache the result for today
+					cachedSongOfTheDay = selectedTrack;
+					cachedSongDate = today;
+					
+					System.out.println("Song of the day (from Genre of the Day): " + selectedTrack.get("title") + 
+						" (Genre: " + featuredGenre.get("genre") + ", cached for " + today + ")");
+					return selectedTrack;
+				}
+			}
+			
+			// Fallback: If Genre of the Day has no tracks, try alternative discovery method
+			System.out.println("Genre of the Day has no tracks, trying alternative discovery method...");
+			List<Map<String, Object>> discoveryTracks = getDiscoveryTracks(20);
+			if (!discoveryTracks.isEmpty()) {
 				// Use date-based seed to select a track consistently throughout the day
 				long seed = today.toEpochDay();
 				Random random = new Random(seed);
-				int selectedIndex = random.nextInt(Math.min(popularTracks.size(), 10)); // Select from top 10
-				Map<String, Object> selectedTrack = popularTracks.get(selectedIndex);
+				int selectedIndex = random.nextInt(Math.min(discoveryTracks.size(), 10));
+				Map<String, Object> selectedTrack = discoveryTracks.get(selectedIndex);
 				
 				// Cache the result for today
 				cachedSongOfTheDay = selectedTrack;
 				cachedSongDate = today;
 				
-				System.out.println("Song of the day: " + selectedTrack.get("title") + " (cached for " + today + ")");
+				System.out.println("Song of the day (from discovery): " + selectedTrack.get("title") + " (cached for " + today + ")");
 				return selectedTrack;
+			}
+			
+			// Final fallback: Use popular tracks (but different selection than Popular Now)
+			System.out.println("Discovery method failed, using popular tracks as final fallback...");
+			List<Map<String, Object>> popularTracks = getPopularTracks(50);
+			if (!popularTracks.isEmpty()) {
+				// Select from tracks 11-30 (avoiding top 10 which might overlap with Popular Now)
+				long seed = today.toEpochDay();
+				Random random = new Random(seed);
+				int startIndex = Math.min(10, popularTracks.size() - 1);
+				int endIndex = Math.min(30, popularTracks.size());
+				if (endIndex > startIndex) {
+					int selectedIndex = startIndex + random.nextInt(endIndex - startIndex);
+					Map<String, Object> selectedTrack = popularTracks.get(selectedIndex);
+					
+					cachedSongOfTheDay = selectedTrack;
+					cachedSongDate = today;
+					
+					System.out.println("Song of the day (from popular tracks 11-30): " + selectedTrack.get("title") + " (cached for " + today + ")");
+					return selectedTrack;
+				}
 			}
 		} catch (Exception e) {
 			System.out.println("Error fetching featured track: " + e.getMessage());
+			e.printStackTrace();
 		}
 		return new HashMap<>();
+	}
+	
+	/**
+	 * Gets discovery tracks - tracks with high engagement that may not be in top charts.
+	 * Fetches tracks and sorts by engagement metrics (likes, reposts, comments) rather than just playback count.
+	 * This helps discover rising tracks that aren't necessarily in the top 50 chart.
+	 * 
+	 * @param limit Maximum number of tracks to return
+	 * @return List of discovery tracks sorted by engagement
+	 */
+	private List<Map<String, Object>> getDiscoveryTracks(int limit) {
+		try {
+			String accessToken = getAccessTokenForRequest();
+			if (accessToken == null) {
+				System.err.println("No access token available for discovery tracks.");
+				return new ArrayList<>();
+			}
+			
+			// Fetch a larger set of tracks to find ones with good engagement
+			// We'll sort by engagement score rather than just playback count
+			String url = soundCloudApiBaseUrl + "/tracks?limit=" + (limit * 5) + 
+				"&linked_partitioning=true";
+			
+			System.out.println("Fetching discovery tracks from: " + url);
+			
+			HttpHeaders headers = new HttpHeaders();
+			headers.setBearerAuth(accessToken);
+			headers.set("User-Agent", "SoundWrapped/1.0 (https://github.com/tazwarsikder/SoundWrapped)");
+			headers.set("Accept", "application/json");
+			HttpEntity<String> request = new HttpEntity<String>(headers);
+			
+			ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+				url,
+				HttpMethod.GET,
+				request,
+				new ParameterizedTypeReference<Map<String, Object>>(){}
+			);
+			
+			if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+				Map<String, Object> responseBody = response.getBody();
+				@SuppressWarnings("unchecked")
+				List<Map<String, Object>> tracks = (List<Map<String, Object>>) responseBody.get("collection");
+				
+				if (tracks != null && !tracks.isEmpty()) {
+					// Filter for tracks with good engagement and sort by engagement score
+					// This helps discover tracks that are rising but not necessarily charting
+					List<Map<String, Object>> filteredTracks = tracks.stream()
+						.filter(track -> {
+							// Only include tracks with some engagement
+							long likes = ((Number) track.getOrDefault("favoritings_count", 0)).longValue();
+							long reposts = ((Number) track.getOrDefault("reposts_count", 0)).longValue();
+							long comments = ((Number) track.getOrDefault("comment_count", 0)).longValue();
+							long plays = ((Number) track.getOrDefault("playback_count", 0)).longValue();
+							
+							// Include tracks with decent engagement (at least 1000 plays and some likes/reposts)
+							// This filters out very new tracks but includes rising ones
+							return plays >= 1000 && (likes > 10 || reposts > 5 || comments > 5);
+						})
+						.sorted((a, b) -> {
+							// Calculate engagement score: likes + reposts*2 + comments*0.5
+							// This prioritizes tracks with high engagement relative to plays
+							long likesA = ((Number) a.getOrDefault("favoritings_count", 0)).longValue();
+							long repostsA = ((Number) a.getOrDefault("reposts_count", 0)).longValue();
+							long commentsA = ((Number) a.getOrDefault("comment_count", 0)).longValue();
+							long playsA = ((Number) a.getOrDefault("playback_count", 0)).longValue();
+							
+							long likesB = ((Number) b.getOrDefault("favoritings_count", 0)).longValue();
+							long repostsB = ((Number) b.getOrDefault("reposts_count", 0)).longValue();
+							long commentsB = ((Number) b.getOrDefault("comment_count", 0)).longValue();
+							long playsB = ((Number) b.getOrDefault("playback_count", 0)).longValue();
+							
+							// Engagement score: weighted sum of interactions
+							long scoreA = likesA + repostsA * 2 + commentsA / 2;
+							long scoreB = likesB + repostsB * 2 + commentsB / 2;
+							
+							// Prefer tracks with higher engagement-to-plays ratio (rising tracks)
+							// But also consider absolute engagement
+							double ratioA = playsA > 0 ? (double) scoreA / playsA : 0;
+							double ratioB = playsB > 0 ? (double) scoreB / playsB : 0;
+							
+							// Sort by engagement ratio first, then by absolute engagement
+							int ratioCompare = Double.compare(ratioB, ratioA);
+							if (ratioCompare != 0) {
+								return ratioCompare;
+							}
+							return Long.compare(scoreB, scoreA);
+						})
+						.limit(limit)
+						.collect(java.util.stream.Collectors.toList());
+					
+					System.out.println("Found " + filteredTracks.size() + " discovery tracks with good engagement");
+					return filteredTracks;
+				}
+			}
+		} catch (Exception e) {
+			System.err.println("Error fetching discovery tracks: " + e.getMessage());
+			e.printStackTrace();
+		}
+		return new ArrayList<>();
 	}
 
 	/**
@@ -1502,14 +1677,29 @@ public class SoundWrappedService {
 	 * 
 	 * @return A featured artist or empty map if none available
 	 */
-	public Map<String, Object> getFeaturedArtist() {
-		System.out.println("getFeaturedArtist() method called");
+	public Map<String, Object> getFeaturedArtist(boolean forceRefresh) {
+		System.out.println("getFeaturedArtist() method called (forceRefresh: " + forceRefresh + ")");
 		try {
+			// If force refresh is requested, clear cache first
+			if (forceRefresh) {
+				System.out.println("Force refresh requested - clearing artist cache");
+				cachedArtistOfTheDay = null;
+				cachedArtistDate = null;
+			}
+			
 			// Check if we have a cached artist for today
 			LocalDate today = LocalDate.now();
 			if (cachedArtistOfTheDay != null && cachedArtistDate != null && cachedArtistDate.equals(today)) {
-				System.out.println("Returning cached artist of the day: " + cachedArtistOfTheDay.get("username") + " (cached on " + cachedArtistDate + ")");
-				return cachedArtistOfTheDay;
+				// Check if cached description is empty - if so, regenerate
+				String cachedDescription = (String) cachedArtistOfTheDay.get("description");
+				if (cachedDescription == null || cachedDescription.trim().isEmpty()) {
+					System.out.println("Cached artist description is empty - forcing regeneration");
+					cachedArtistOfTheDay = null;
+					cachedArtistDate = null;
+				} else {
+					System.out.println("Returning cached artist of the day: " + cachedArtistOfTheDay.get("username") + " (cached on " + cachedArtistDate + ")");
+					return cachedArtistOfTheDay;
+				}
 			}
 			
 			List<Map<String, Object>> popularTracks = getPopularTracks(50);
@@ -1555,7 +1745,11 @@ public class SoundWrappedService {
 					Map<String, Object> selectedArtist = artistMap.get(selectedArtistId);
 					
 					// Get artist description and popular tracks
+					System.out.println("========================================");
+					System.out.println("Getting description for Artist of the Day: " + selectedArtist.get("username"));
+					System.out.println("========================================");
 					String artistDescription = getArtistDescription(selectedArtist);
+					System.out.println("Description result: " + (artistDescription != null ? "SUCCESS (length: " + artistDescription.length() + ")" : "NULL"));
 					
 					// Extract permalink - try multiple fields
 					String artistPermalink = null;
@@ -1633,12 +1827,30 @@ public class SoundWrappedService {
 					
 					// Create result with artist, description, and tracks
 					Map<String, Object> result = new HashMap<>(selectedArtist);
-					result.put("description", artistDescription);
+					// Only cache if we have a valid description - don't cache empty descriptions
+					String finalDescription = artistDescription != null ? artistDescription : "";
+					result.put("description", finalDescription);
 					result.put("tracks", artistTracks);
 					
-					// Cache the result for today
-					cachedArtistOfTheDay = result;
-					cachedArtistDate = today;
+					System.out.println("========================================");
+					System.out.println("Final Artist of the Day result:");
+					System.out.println("  - Username: " + result.get("username"));
+					System.out.println("  - Description: " + (finalDescription.isEmpty() ? "EMPTY" : "PRESENT (length: " + finalDescription.length() + ")"));
+					if (!finalDescription.isEmpty()) {
+						System.out.println("  - Description preview: " + finalDescription.substring(0, Math.min(100, finalDescription.length())) + "...");
+					}
+					System.out.println("  - Tracks: " + (artistTracks != null ? artistTracks.size() : 0));
+					System.out.println("========================================");
+					
+					// Only cache the result if we have a valid description
+					// This prevents caching empty descriptions that would block regeneration
+					if (!finalDescription.isEmpty()) {
+						cachedArtistOfTheDay = result;
+						cachedArtistDate = today;
+						System.out.println("✓ Cached artist of the day with valid description");
+					} else {
+						System.out.println("✗ Not caching artist - description is empty (will regenerate on next request)");
+					}
 					
 					@SuppressWarnings("unchecked")
 					List<Map<String, Object>> cachedTracks = (List<Map<String, Object>>) result.get("tracks");
@@ -1712,7 +1924,9 @@ public class SoundWrappedService {
 			
 			Map<String, Object> result = new HashMap<>();
 			result.put("genre", selectedGenre);
-			result.put("description", genreDescription);
+			// Ensure description is never null - use fallback if generation failed
+			result.put("description", genreDescription != null ? genreDescription : 
+				selectedGenre.substring(0, 1).toUpperCase() + selectedGenre.substring(1) + " is a diverse and evolving music genre with a rich history and dedicated fanbase.");
 			result.put("tracks", genreTracks);
 			
 			// Cache the result for today
@@ -1880,15 +2094,17 @@ public class SoundWrappedService {
 								}
 								String tagList = ((String) tagListObj).toLowerCase();
 								
-								// Check if genre name appears in tags
+								// Check if genre name appears in tags (more flexible matching)
 								String[] tags = tagList.split(",");
 								boolean genreFound = false;
 								for (String tag : tags) {
 									String normalizedTag = tag.trim().toLowerCase();
 									String tagNormalized = normalizedTag.replaceAll("[\\s-]", "");
 									
-									// Use exact match on normalized strings to avoid false positives
-									if (normalizedTag.equals(genreLower) || tagNormalized.equals(genreNormalized)) {
+									// Use exact match on normalized strings OR check if tag contains genre name
+									// This handles cases like "country music", "country pop", etc.
+									if (normalizedTag.equals(genreLower) || tagNormalized.equals(genreNormalized) ||
+										normalizedTag.contains(genreLower) || tagNormalized.contains(genreNormalized)) {
 										genreFound = true;
 										break;
 									}
@@ -1946,15 +2162,17 @@ public class SoundWrappedService {
 					}
 					String tagList = ((String) tagListObj).toLowerCase();
 					
-					// Check if genre name appears in tags
+					// Check if genre name appears in tags (more flexible matching)
 					String[] tags = tagList.split(",");
 					boolean genreFound = false;
 					for (String tag : tags) {
 						String normalizedTag = tag.trim().toLowerCase();
 						String tagNormalized = normalizedTag.replaceAll("[\\s-]", "");
 						
-						// Use exact match on normalized strings to avoid false positives
-						if (normalizedTag.equals(genreLower) || tagNormalized.equals(genreNormalized)) {
+						// Use exact match on normalized strings OR check if tag contains genre name
+						// This handles cases like "country music", "country pop", etc.
+						if (normalizedTag.equals(genreLower) || tagNormalized.equals(genreNormalized) ||
+							normalizedTag.contains(genreLower) || tagNormalized.contains(genreNormalized)) {
 							genreFound = true;
 							break;
 						}
@@ -2036,27 +2254,27 @@ public class SoundWrappedService {
 	 * @return Description of the genre
 	 */
 	/**
-	 * Gets a description for a music genre using Google Gemini API.
+	 * Gets a description for a music genre using Groq API.
 	 * Uses context-aware prompts to ensure descriptions are about the music genre, not unrelated topics.
-	 * Falls back to hardcoded descriptions if Gemini API fails.
+	 * Falls back to hardcoded descriptions if Groq API fails.
 	 * 
 	 * @param genreName The name of the genre
 	 * @return A description of the genre
 	 */
 	private String getGenreDescription(String genreName) {
-		// PRIORITY ORDER: Gemini > Hardcoded > Generic
+		// PRIORITY ORDER: Groq > Hardcoded > Generic
 		
 		System.out.println("========================================");
 		System.out.println("Getting genre description for: " + genreName);
 		System.out.println("========================================");
 		
-		// 1. Try Gemini API first (highest priority) - ensures context-aware descriptions
-		String geminiDescription = getGeminiDescription(genreName, "music genre");
-		if (geminiDescription != null && !geminiDescription.trim().isEmpty()) {
-			System.out.println("✓ Successfully got Gemini description for genre: " + genreName);
-			return geminiDescription;
+		// 1. Try Groq API first (highest priority) - ensures context-aware descriptions
+		String groqDescription = getGroqDescription(genreName, "music genre");
+		if (groqDescription != null && !groqDescription.trim().isEmpty()) {
+			System.out.println("✓ Successfully got Groq description for genre: " + genreName);
+			return groqDescription;
 		} else {
-			System.out.println("✗ Gemini description failed for genre: " + genreName + ", falling back to hardcoded");
+			System.out.println("✗ Groq description failed for genre: " + genreName + ", falling back to hardcoded");
 		}
 		
 		// 2. Fallback to hardcoded descriptions for well-known genres
@@ -2110,6 +2328,10 @@ public class SoundWrappedService {
 	 * @return A description of the artist, or null if no verified information is available
 	 */
 	private String getArtistDescription(Map<String, Object> artist) {
+		System.out.println("========================================");
+		System.out.println("getArtistDescription called");
+		System.out.println("========================================");
+		
 		String username = (String) artist.getOrDefault("username", "");
 		String fullName = (String) artist.getOrDefault("full_name", "");
 		String descriptionText = (String) artist.getOrDefault("description", "");
@@ -2118,114 +2340,83 @@ public class SoundWrappedService {
 		Object trackCountObj = artist.get("track_count");
 		long trackCount = trackCountObj instanceof Number ? ((Number) trackCountObj).longValue() : 0;
 		
+		System.out.println("  - Username: " + username);
+		System.out.println("  - Full name: " + fullName);
+		System.out.println("  - Followers: " + followersCount);
+		System.out.println("  - Track count: " + trackCount);
+		
 		// Determine search terms for Wikipedia check
 		// Try username first, then fullName, as username is more likely to match Wikipedia
 		String searchTerm = username != null && !username.isEmpty() ? username : 
 			(fullName != null && !fullName.isEmpty() ? fullName : null);
 		
-		// Check if artist meets the new criteria:
-		// 1. >= 10000 followers
-		boolean hasEnoughFollowers = followersCount >= 10000;
+		System.out.println("  - Search term: " + searchTerm);
 		
-		// 2. Has Wikipedia entry
+		// With SerpAPI, Wikipedia, and Google Knowledge Graph, we can try OpenAI for ANY artist
+		// SerpAPI can find information about most artists, even if they don't have Wikipedia entries
+		// or high follower counts. We'll let OpenAI decide if it can generate a description.
+		
+		// Optional: Check Wikipedia and Google KG for logging purposes (not required)
 		boolean hasWikipediaEntry = false;
-		if (searchTerm != null) {
-			hasWikipediaEntry = checkWikipediaEntry(searchTerm);
-		}
-		
-		// 3. Has Google Search About section (checked via Google Knowledge Graph API)
 		boolean hasGoogleAboutSection = false;
+		
 		if (searchTerm != null) {
+			System.out.println("  - Checking Wikipedia entry for: " + searchTerm);
+			hasWikipediaEntry = checkWikipediaEntry(searchTerm);
+			System.out.println("  - Has Wikipedia entry: " + hasWikipediaEntry);
+			
+			System.out.println("  - Checking Google Knowledge Graph for: " + searchTerm);
 			hasGoogleAboutSection = checkGoogleKnowledgeGraph(searchTerm);
+			System.out.println("  - Has Google KG entry: " + hasGoogleAboutSection);
+		} else {
+			System.out.println("  - Skipping Wikipedia/Google KG checks (search term is null)");
 		}
 		
-		// Only proceed if at least one condition is met
-		if (!hasEnoughFollowers && !hasWikipediaEntry && !hasGoogleAboutSection) {
-			// Artist doesn't meet any of the criteria for verified public information
-			return null;
-		}
+		// Always try OpenAI - let it decide if it can generate a description
+		// SerpAPI will provide comprehensive web search results even for obscure artists
+		boolean shouldTryOpenAI = true;
 		
-		// PRIORITY ORDER: Gemini > SoundCloud Bio > Generated Description
+		System.out.println("  ✓ Proceeding with OpenAI description generation for artist");
+		System.out.println("  - Followers: " + followersCount);
+		System.out.println("  - Has Wikipedia: " + hasWikipediaEntry);
+		System.out.println("  - Has Google KG: " + hasGoogleAboutSection);
+		System.out.println("  - Will use SerpAPI, Wikipedia, and Google KG for research");
 		
-		// 1. Try Gemini API first (highest priority) - ensures context-aware descriptions
-		if (searchTerm != null) {
-			System.out.println("Attempting to get Gemini description for artist: " + searchTerm);
+		// PRIORITY ORDER: Groq API (free, with Wikipedia/Google KG/SerpAPI research)
+		// We do NOT fall back to SoundCloud bio - Groq must generate the description
+		
+		// Use Groq API with Wikipedia, Google Knowledge Graph, and SerpAPI research
+		if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+			System.out.println("  - Calling getGroqDescription for: " + searchTerm + " (music artist)");
+			try {
+				String groqDescription = getGroqDescription(searchTerm, "music artist");
+				if (groqDescription != null && !groqDescription.trim().isEmpty()) {
+					System.out.println("  ✓ Successfully got Groq description (length: " + groqDescription.length() + " chars)");
+					System.out.println("  - Preview: " + groqDescription.substring(0, Math.min(100, groqDescription.length())) + "...");
+					return groqDescription;
+				} else {
+					System.out.println("  ✗ Groq description returned null or empty");
+					System.out.println("  - This could be due to:");
+					System.out.println("    1. API key issues");
+					System.out.println("    2. Rate limiting");
+					System.out.println("    3. Insufficient information found");
+					System.out.println("    4. API error");
+				}
+			} catch (Exception e) {
+				System.out.println("  ✗ Exception during Groq description generation: " + e.getClass().getSimpleName());
+				System.out.println("  - Message: " + e.getMessage());
+				e.printStackTrace();
+			}
+		} else {
+			System.out.println("  ✗ Search term is null or empty, cannot get Groq description");
 			System.out.println("  - Username: " + username);
 			System.out.println("  - Full name: " + fullName);
-			System.out.println("  - Followers: " + followersCount);
-			System.out.println("  - Has Wikipedia entry: " + hasWikipediaEntry);
-			System.out.println("  - Has Google KG entry: " + hasGoogleAboutSection);
-			
-			String geminiDescription = getGeminiDescription(searchTerm, "music artist");
-			if (geminiDescription != null && !geminiDescription.trim().isEmpty()) {
-				System.out.println("  ✓ Successfully got Gemini description (length: " + geminiDescription.length() + ")");
-				return geminiDescription;
-			} else {
-				System.out.println("  ✗ Gemini description returned null or empty");
-			}
-		} else {
-			System.out.println("  ✗ Search term is null, cannot get Gemini description");
 		}
 		
-		// 2. Use the artist's SoundCloud bio if available and it's substantial (not just a link or placeholder)
-		if (descriptionText != null && !descriptionText.trim().isEmpty()) {
-			// Check if it's a meaningful description (not just a URL or very short)
-			String trimmed = descriptionText.trim();
-			if (trimmed.length() > 50 && !trimmed.toLowerCase().startsWith("http") &&
-				!trimmed.matches(".*https?://[^\\s]+.*")) {
-				// Truncate if too long, but keep it informative
-				if (trimmed.length() > 250) {
-					// Try to truncate at a sentence boundary
-					int lastPeriod = trimmed.lastIndexOf('.', 250);
-					if (lastPeriod > 100) {
-						return trimmed.substring(0, lastPeriod + 1);
-					}
-					return trimmed.substring(0, 247) + "...";
-				}
-				return trimmed;
-			}
-		}
-		
-		// 4. Generate an AI-style description as final fallback (only if we have verified info)
-		StringBuilder description = new StringBuilder();
-		String displayName = username != null && !username.isEmpty() ? 
-			username.substring(0, 1).toUpperCase() + username.substring(1) : 
-			(fullName != null && !fullName.isEmpty() ? fullName : "This artist");
-		
-		description.append(displayName);
-		
-		// Build a comprehensive description based on available stats
-		if (followersCount >= 1000000) {
-			description.append(" is a prominent artist on SoundCloud with over ")
-				.append(followersCount / 1000000).append(" million followers");
-		} else if (followersCount >= 100000) {
-			description.append(" is a well-established artist on SoundCloud with over ")
-				.append(followersCount / 1000).append("k followers");
-		} else if (followersCount >= 10000) {
-			description.append(" is an emerging artist on SoundCloud with over ")
-				.append(followersCount / 1000).append("k followers");
-		} else {
-			// If we're here, they have Wikipedia or Google About section
-			if (hasWikipediaEntry) {
-				description.append(" is a notable artist");
-			} else {
-				description.append(" is a talented artist");
-			}
-		}
-		
-		if (trackCount > 0) {
-			if (trackCount >= 100) {
-				description.append(" and has released over ").append(trackCount).append(" tracks");
-			} else if (trackCount >= 50) {
-				description.append(" with ").append(trackCount).append(" tracks");
-			} else if (trackCount >= 20) {
-				description.append(" and has released ").append(trackCount).append(" tracks");
-			}
-		}
-		
-		description.append(". Explore their popular tracks and discover new sounds.");
-		
-		return description.toString();
+		// Return null if Groq fails - no fallback to SoundCloud bio
+		// This ensures we only show AI-generated descriptions based on verified sources
+		System.out.println("  ✗ Returning null - description generation failed");
+		return null;
 	}
 	
 	/**
@@ -2236,10 +2427,12 @@ public class SoundWrappedService {
 	 * @return true if a Wikipedia entry exists, false otherwise
 	 */
 	private boolean checkWikipediaEntry(String searchTerm) {
+		System.out.println("    [checkWikipediaEntry] Checking for: " + searchTerm);
 		try {
 			// Wikipedia API endpoint for searching
 			String encodedSearch = java.net.URLEncoder.encode(searchTerm, "UTF-8");
 			String wikiUrl = "https://en.wikipedia.org/api/rest_v1/page/summary/" + encodedSearch;
+			System.out.println("    [checkWikipediaEntry] URL: " + wikiUrl);
 			
 			HttpHeaders headers = new HttpHeaders();
 			headers.set("User-Agent", "SoundWrapped/1.0 (https://soundwrapped.com; contact@example.com)");
@@ -2449,6 +2642,7 @@ public class SoundWrappedService {
 	 * @return true if a Knowledge Graph entry exists with detailed description, false otherwise
 	 */
 	private boolean checkGoogleKnowledgeGraph(String searchTerm) {
+		System.out.println("    [checkGoogleKnowledgeGraph] Checking for: " + searchTerm);
 		try {
 			// Google Knowledge Graph Search API endpoint
 			String encodedQuery = java.net.URLEncoder.encode(searchTerm, "UTF-8");
@@ -2457,6 +2651,7 @@ public class SoundWrappedService {
 				"&key=" + googleKnowledgeGraphApiKey +
 				"&limit=1" +
 				"&indent=true";
+			System.out.println("    [checkGoogleKnowledgeGraph] URL: " + kgUrl.replace(googleKnowledgeGraphApiKey, "***"));
 			
 			HttpHeaders headers = new HttpHeaders();
 			headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
@@ -2579,310 +2774,518 @@ public class SoundWrappedService {
 	}
 	
 	/**
-	 * Gets a description from Google Gemini API using research from Wikipedia and Google Knowledge Graph.
+	 * Searches the web using SerpAPI for comprehensive information about an entity.
+	 * Extracts knowledge graph, answer box, organic results, and related questions.
 	 * 
-	 * This method implements a RAG (Retrieval Augmented Generation) approach:
-	 * 1. First conducts internet research by fetching information from Wikipedia and Google Knowledge Graph
-	 * 2. Passes that research as context to Gemini with a prompt asking it to synthesize a comprehensive description
-	 * 3. Gemini generates a well-researched, context-aware description based on the retrieved information
+	 * @param searchTerm The search term (with "music artist" or "music genre" appended)
+	 * @return Formatted search results combining knowledge graph, answer box, and top organic results, or null if not found
+	 */
+	private String getSerpAPIDescription(String searchTerm) {
+		System.out.println("========================================");
+		System.out.println("SerpAPI search called for: " + searchTerm);
+		System.out.println("========================================");
+		
+		// Check if API key is configured
+		if (serpApiKey == null || serpApiKey.trim().isEmpty()) {
+			// Try to get from system property or environment variable
+			String systemPropKey = System.getProperty("SERPAPI_API_KEY");
+			if (systemPropKey != null && !systemPropKey.trim().isEmpty()) {
+				serpApiKey = systemPropKey;
+				System.out.println("  - SerpAPI key loaded from system property");
+			} else {
+				String envKey = System.getenv("SERPAPI_API_KEY");
+				if (envKey != null && !envKey.trim().isEmpty()) {
+					serpApiKey = envKey;
+					System.out.println("  - SerpAPI key loaded from environment variable");
+				}
+			}
+		}
+		
+		if (serpApiKey == null || serpApiKey.trim().isEmpty()) {
+			System.err.println("✗ SerpAPI key is not configured");
+			return null;
+		}
+		
+		try {
+			String encodedQuery = java.net.URLEncoder.encode(searchTerm, "UTF-8");
+			String serpApiUrl = "https://serpapi.com/search.json" +
+				"?q=" + encodedQuery +
+				"&api_key=" + serpApiKey +
+				"&engine=google" +
+				"&num=5"; // Get top 5 organic results
+			
+			System.out.println("  - SerpAPI URL: " + serpApiUrl.replace(serpApiKey, "***"));
+			
+			HttpHeaders headers = new HttpHeaders();
+			headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+			HttpEntity<String> request = new HttpEntity<>(headers);
+			
+			ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+				serpApiUrl,
+				HttpMethod.GET,
+				request,
+				new ParameterizedTypeReference<Map<String, Object>>() {}
+			);
+			
+			System.out.println("  - SerpAPI response status: " + response.getStatusCode());
+			
+			Map<String, Object> responseBody = response.getBody();
+			if (responseBody == null) {
+				System.out.println("  ✗ SerpAPI response body is null");
+				return null;
+			}
+			
+			StringBuilder result = new StringBuilder();
+			
+			// Extract Knowledge Graph (if available)
+			@SuppressWarnings("unchecked")
+			Map<String, Object> knowledgeGraph = (Map<String, Object>) responseBody.get("knowledge_graph");
+			if (knowledgeGraph != null) {
+				String description = (String) knowledgeGraph.get("description");
+				if (description != null && !description.trim().isEmpty()) {
+					result.append("Knowledge Graph: ").append(description).append("\n\n");
+					System.out.println("  ✓ Found Knowledge Graph description");
+				}
+				
+				// Get extended description if available
+				@SuppressWarnings("unchecked")
+				Map<String, Object> descriptionSource = (Map<String, Object>) knowledgeGraph.get("description_source");
+				if (descriptionSource != null) {
+					String link = (String) descriptionSource.get("link");
+					if (link != null) {
+						result.append("Source: ").append(link).append("\n\n");
+					}
+				}
+			}
+			
+			// Extract Answer Box (if available)
+			@SuppressWarnings("unchecked")
+			Map<String, Object> answerBox = (Map<String, Object>) responseBody.get("answer_box");
+			if (answerBox != null) {
+				String answer = (String) answerBox.get("answer");
+				if (answer != null && !answer.trim().isEmpty()) {
+					result.append("Quick Facts: ").append(answer).append("\n\n");
+					System.out.println("  ✓ Found Answer Box");
+				}
+				
+				String snippet = (String) answerBox.get("snippet");
+				if (snippet != null && !snippet.trim().isEmpty()) {
+					result.append("Details: ").append(snippet).append("\n\n");
+				}
+			}
+			
+			// Extract top organic results (snippets)
+			@SuppressWarnings("unchecked")
+			List<Map<String, Object>> organicResults = (List<Map<String, Object>>) responseBody.get("organic_results");
+			if (organicResults != null && !organicResults.isEmpty()) {
+				result.append("Additional Information:\n");
+				int count = Math.min(3, organicResults.size()); // Get top 3 results
+				for (int i = 0; i < count; i++) {
+					Map<String, Object> resultItem = organicResults.get(i);
+					String snippet = (String) resultItem.get("snippet");
+					if (snippet != null && !snippet.trim().isEmpty()) {
+						result.append("- ").append(snippet).append("\n");
+					}
+				}
+				System.out.println("  ✓ Found " + count + " organic results");
+			}
+			
+			// Extract related questions if available
+			@SuppressWarnings("unchecked")
+			List<Map<String, Object>> relatedQuestions = (List<Map<String, Object>>) responseBody.get("related_questions");
+			if (relatedQuestions != null && !relatedQuestions.isEmpty()) {
+				result.append("\nRelated Questions:\n");
+				int count = Math.min(2, relatedQuestions.size()); // Get top 2 questions
+				for (int i = 0; i < count; i++) {
+					Map<String, Object> question = relatedQuestions.get(i);
+					String questionText = (String) question.get("question");
+					String questionSnippet = (String) question.get("snippet");
+					if (questionText != null && !questionText.trim().isEmpty()) {
+						result.append("Q: ").append(questionText);
+						if (questionSnippet != null && !questionSnippet.trim().isEmpty()) {
+							result.append("\nA: ").append(questionSnippet);
+						}
+						result.append("\n");
+					}
+				}
+				System.out.println("  ✓ Found " + count + " related questions");
+			}
+			
+			String finalResult = result.toString().trim();
+			if (finalResult.isEmpty()) {
+				System.out.println("  ✗ No information extracted from SerpAPI response");
+				return null;
+			}
+			
+			System.out.println("  ✓ SerpAPI search successful (result length: " + finalResult.length() + " chars)");
+			return finalResult;
+			
+		} catch (HttpClientErrorException e) {
+			System.err.println("  ✗ HTTP ERROR calling SerpAPI for '" + searchTerm + "'");
+			System.err.println("Status Code: " + e.getStatusCode());
+			System.err.println("Response Body: " + e.getResponseBodyAsString());
+			return null;
+		} catch (Exception e) {
+			System.err.println("  ✗ Exception calling SerpAPI for '" + searchTerm + "': " + e.getMessage());
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	/**
+	 * Gets a description from Groq API (free tier) using research-first approach.
 	 * 
-	 * This ensures descriptions are:
-	 * - Relevant to the music context (e.g., "wave" music genre, not physics)
-	 * - Based on real, up-to-date information from authoritative sources
-	 * - Comprehensive and well-written, synthesized from multiple sources
+	 * This method:
+	 * 1. First conducts research using Wikipedia, Google Knowledge Graph, and SerpAPI
+	 * 2. Collects all research results
+	 * 3. Sends research results to Groq with a prompt to generate a description
+	 * 4. Returns the generated description
+	 * 
+	 * Groq is free to use and provides fast inference. This approach ensures we have
+	 * verified information before asking Groq to generate the description.
 	 * 
 	 * @param entityName The name of the entity (artist or genre)
 	 * @param entityType The type of entity: "music genre" or "music artist"
-	 * @return Description from Gemini, or null if not found or API call fails
+	 * @return Description from Groq, or null if not found or API call fails
 	 */
-	private String getGeminiDescription(String entityName, String entityType) {
-		System.err.println("========================================");
-		System.err.println("getGeminiDescription called for: " + entityName + " (" + entityType + ")");
-		System.err.println("========================================");
+	private String getGroqDescription(String entityName, String entityType) {
+		// Force immediate output
+		System.out.flush();
+		System.err.flush();
 		
-		if (googleGeminiApiKey == null || googleGeminiApiKey.trim().isEmpty()) {
-			System.err.println("✗ Google Gemini API key is not configured");
+		System.out.println("========================================");
+		System.out.println("getGroqDescription called for: " + entityName + " (" + entityType + ")");
+		System.out.flush();
+		System.err.println("========================================");
+		System.err.println("getGroqDescription called for: " + entityName + " (" + entityType + ")");
+		System.err.println("========================================");
+		System.err.flush();
+		
+		// Use Groq API (free and fast)
+		System.out.println("  [GROQ] Using Groq API (free tier, fast inference)");
+		
+		// Diagnostic: Check Groq API key status
+		System.out.println("  [DIAGNOSTIC] Initial Groq API key check:");
+		System.out.println("  - @Value injected groqApiKey: " + (this.groqApiKey == null || this.groqApiKey.trim().isEmpty() ? "NULL/EMPTY" : "PRESENT (length: " + this.groqApiKey.length() + ")"));
+		System.out.println("  - System property GROQ_API_KEY: " + (System.getProperty("GROQ_API_KEY") != null ? "PRESENT" : "NULL"));
+		System.out.println("  - Environment variable GROQ_API_KEY: " + (System.getenv("GROQ_API_KEY") != null ? "PRESENT" : "NULL"));
+		System.out.flush();
+		
+		// Check if Groq API key is loaded - try multiple sources
+		String apiKey = groqApiKey;
+		if (apiKey == null || apiKey.trim().isEmpty()) {
+			// Try to get from system property as fallback (set by Dotenv)
+			String systemPropKey = System.getProperty("GROQ_API_KEY");
+			if (systemPropKey != null && !systemPropKey.trim().isEmpty()) {
+				apiKey = systemPropKey;
+				System.out.println("  - Groq API key loaded from system property");
+			} else {
+				// Try environment variable as last resort
+				String envKey = System.getenv("GROQ_API_KEY");
+				if (envKey != null && !envKey.trim().isEmpty()) {
+					apiKey = envKey;
+					System.out.println("  - Groq API key loaded from environment variable");
+				}
+			}
+		}
+		
+		if (apiKey == null || apiKey.trim().isEmpty()) {
+			System.out.println("✗ Groq API key is not configured");
+			System.out.println("  - Checked @Value injection: " + (this.groqApiKey == null || this.groqApiKey.trim().isEmpty() ? "not found" : "found"));
+			System.out.println("  - Checked system property GROQ_API_KEY: " + (System.getProperty("GROQ_API_KEY") != null ? "found" : "not found"));
+			System.out.println("  - Checked environment variable GROQ_API_KEY: " + (System.getenv("GROQ_API_KEY") != null ? "found" : "not found"));
+			System.out.println("  - Please ensure GROQ_API_KEY is set in .env file or as environment variable");
+			System.err.println("✗ Groq API key is not configured");
+			System.err.println("  - Checked @Value injection: " + (this.groqApiKey == null || this.groqApiKey.trim().isEmpty() ? "not found" : "found"));
+			System.err.println("  - Checked system property GROQ_API_KEY: " + (System.getProperty("GROQ_API_KEY") != null ? "found" : "not found"));
+			System.err.println("  - Checked environment variable GROQ_API_KEY: " + (System.getenv("GROQ_API_KEY") != null ? "found" : "not found"));
+			System.err.println("  - Please ensure GROQ_API_KEY is set in .env file or as environment variable");
 			return null;
 		}
-		System.out.println("  - Gemini API key configured (length: " + googleGeminiApiKey.length() + ")");
+		System.out.println("  - Groq API key configured (length: " + apiKey.length() + ", starts with: " + apiKey.substring(0, Math.min(7, apiKey.length())) + "...)");
+		System.err.println("  - Groq API key configured (length: " + apiKey.length() + ", starts with: " + apiKey.substring(0, Math.min(7, apiKey.length())) + "...)");
 		
-		// Declare geminiUrl outside try block so it's accessible in catch block
-		String geminiUrl = null;
+		// Get Groq base URL (defaults to OpenAI-compatible endpoint)
+		String baseUrl = groqBaseUrl != null && !groqBaseUrl.trim().isEmpty() ? groqBaseUrl : "https://api.groq.com/openai/v1";
+		System.out.println("  - Groq base URL: " + baseUrl);
+		
+		// Declare apiUrl outside try block so it's accessible in catch block
+		String apiUrl = null;
 		
 		try {
-			// Step 1: Conduct internet research - fetch information from Wikipedia and Google Knowledge Graph
-			System.out.println("Conducting internet research for " + entityType + ": " + entityName);
-			String wikipediaInfo = null;
-			String googleKGInfo = null;
+			// Step 1: Conduct research first (Wikipedia, Google KG, SerpAPI)
+			System.out.println("  [STEP 1] Conducting research for " + entityType + ": " + entityName);
 			
-			// Try multiple search variations for better results
-			java.util.List<String> searchVariations = new java.util.ArrayList<>();
-			if ("music genre".equals(entityType)) {
-				searchVariations.add(entityName + " (music genre)");
-				searchVariations.add(entityName + " music genre");
-				searchVariations.add(entityName);
-			} else {
-				// For artists, try multiple name variations (case variations, etc.)
-				searchVariations.add(entityName);
-				// Try title case (first letter uppercase)
-				if (entityName.length() > 0) {
-					searchVariations.add(entityName.substring(0, 1).toUpperCase() + entityName.substring(1).toLowerCase());
-				}
-				// Try camelCase variations (e.g., "osamason" -> "OsamaSon")
-				String lower = entityName.toLowerCase();
-				if (lower.contains("son")) {
-					int sonIndex = lower.indexOf("son");
-					if (sonIndex > 0) {
-						String beforeSon = lower.substring(0, sonIndex);
-						String sonPart = lower.substring(sonIndex);
-						String camelCase = (beforeSon.length() > 0 ? beforeSon.substring(0, 1).toUpperCase() : "") +
-							(beforeSon.length() > 1 ? beforeSon.substring(1) : "") +
-							(sonPart.length() > 0 ? sonPart.substring(0, 1).toUpperCase() : "") +
-							(sonPart.length() > 1 ? sonPart.substring(1) : "");
-						searchVariations.add(camelCase);
-					}
-				}
-			}
-			
-			// Fetch Wikipedia information
-			System.out.println("  - Fetching Wikipedia information...");
-			for (String searchTerm : searchVariations) {
-				if (wikipediaInfo == null || wikipediaInfo.trim().isEmpty()) {
-					wikipediaInfo = getWikipediaDescription(searchTerm);
-					if (wikipediaInfo != null && !wikipediaInfo.trim().isEmpty()) {
-						System.out.println("    ✓ Found Wikipedia information");
-						break;
-					}
-				}
-			}
-			if (wikipediaInfo == null || wikipediaInfo.trim().isEmpty()) {
-				System.out.println("    ✗ No Wikipedia information found");
-			}
-			
-			// Fetch Google Knowledge Graph information
-			System.out.println("  - Fetching Google Knowledge Graph information...");
-			for (String searchTerm : searchVariations) {
-				if (googleKGInfo == null || googleKGInfo.trim().isEmpty()) {
-					googleKGInfo = getGoogleKnowledgeGraphDescription(searchTerm);
-					if (googleKGInfo != null && !googleKGInfo.trim().isEmpty()) {
-						System.out.println("    ✓ Found Google Knowledge Graph information");
-						break;
-					}
-				}
-			}
-			if (googleKGInfo == null || googleKGInfo.trim().isEmpty()) {
-				System.out.println("    ✗ No Google Knowledge Graph information found");
-			}
-			
-			System.out.println("  - Research complete. Passing to Gemini for synthesis...");
-			
-			// Step 2: Build research context for Gemini
+			String searchTerm = entityName + " " + entityType;
 			StringBuilder researchContext = new StringBuilder();
-			researchContext.append("I have conducted internet research about '").append(entityName).append("'. ");
 			
-			if (wikipediaInfo != null && !wikipediaInfo.trim().isEmpty()) {
-				researchContext.append("\n\nFrom Wikipedia:\n").append(wikipediaInfo);
+			// Get Wikipedia information
+			System.out.println("  - Searching Wikipedia...");
+			String wikiInfo = getWikipediaDescription(searchTerm);
+			if (wikiInfo != null && !wikiInfo.trim().isEmpty()) {
+				researchContext.append("Wikipedia Information:\n").append(wikiInfo).append("\n\n");
+				System.out.println("  ✓ Found Wikipedia information (length: " + wikiInfo.length() + " chars)");
+			} else {
+				System.out.println("  ✗ No Wikipedia information found");
 			}
 			
+			// Get Google Knowledge Graph information
+			System.out.println("  - Searching Google Knowledge Graph...");
+			String googleKGInfo = getGoogleKnowledgeGraphDescription(searchTerm);
 			if (googleKGInfo != null && !googleKGInfo.trim().isEmpty()) {
-				researchContext.append("\n\nFrom Google Knowledge Graph:\n").append(googleKGInfo);
+				researchContext.append("Google Knowledge Graph Information:\n").append(googleKGInfo).append("\n\n");
+				System.out.println("  ✓ Found Google KG information (length: " + googleKGInfo.length() + " chars)");
+			} else {
+				System.out.println("  ✗ No Google Knowledge Graph information found");
 			}
 			
-			// Step 3: Build context-aware prompt with research
+			// Get SerpAPI web search information
+			System.out.println("  - Searching web via SerpAPI...");
+			String serpApiInfo = getSerpAPIDescription(searchTerm);
+			if (serpApiInfo != null && !serpApiInfo.trim().isEmpty()) {
+				researchContext.append("Web Search Information:\n").append(serpApiInfo).append("\n\n");
+				System.out.println("  ✓ Found SerpAPI information (length: " + serpApiInfo.length() + " chars)");
+			} else {
+				System.out.println("  ✗ No SerpAPI information found");
+			}
+			
+			// Check if we have any research data
+			if (researchContext.length() == 0) {
+				System.out.println("  ✗ No research data found from any source");
+				return null;
+			}
+			
+			// Step 2: Build prompt with research context
+			System.out.println("  [STEP 2] Building prompt with research context (total length: " + researchContext.length() + " chars)");
 			String prompt;
 			if ("music genre".equals(entityType)) {
-				if (wikipediaInfo == null && googleKGInfo == null) {
-					// No research found, use direct prompt
-					prompt = String.format(
-						"Write a comprehensive, informative paragraph (2-4 sentences, approximately 200-400 words) about the music genre '%s'. " +
-						"Focus specifically on the MUSIC GENRE, not any other meaning of the word. " +
-						"Include: the genre's origins and history, key characteristics and sound, notable artists or subgenres, " +
-						"and its influence on modern music. Write in an engaging, informative style suitable for a music discovery platform. " +
-						"Ensure the description is specifically about the music genre '%s' and not about unrelated topics.",
-						entityName, entityName
-					);
-				} else {
-					// Use research-based prompt
-					prompt = String.format(
-						"Based on the following internet research about the music genre '%s', write a comprehensive, informative paragraph (2-4 sentences, approximately 200-400 words). " +
-						"Focus specifically on the MUSIC GENRE, not any other meaning of the word. " +
-						"Synthesize the information from the research sources to create an engaging description that includes: " +
-						"the genre's origins and history, key characteristics and sound, notable artists or subgenres, " +
-						"and its influence on modern music. Write in an engaging, informative style suitable for a music discovery platform. " +
-						"If the research is about something other than the music genre '%s', please note that and focus only on the music genre aspect.\n\n" +
-						"%s",
-						entityName, entityName, researchContext.toString()
-					);
-				}
+				prompt = String.format(
+					"Based on the following research information, write a concise, informative paragraph (approximately 2-3 sentences, 50-100 words) about the music genre '%s'. " +
+					"Focus specifically on the MUSIC GENRE, not any other meaning of the word. " +
+					"Include: the genre's origins and history, key characteristics and sound, notable artists or subgenres, " +
+					"and its influence on modern music. Write in an engaging, informative style suitable for a music discovery platform. " +
+					"Write exactly one paragraph - do not use multiple paragraphs. Keep it concise and to the point.\n\n" +
+					"Research Information:\n%s",
+					entityName, researchContext.toString()
+				);
 			} else if ("music artist".equals(entityType)) {
-				if (wikipediaInfo == null && googleKGInfo == null) {
-					// No research found, use direct prompt
-					prompt = String.format(
-						"Write a comprehensive, informative paragraph (2-4 sentences, approximately 200-400 words) about the music artist '%s'. " +
-						"Include: their background and career, musical style and genre, notable works or achievements, " +
-						"and their influence on music. Write in an engaging, informative style suitable for a music discovery platform. " +
-						"If you don't have specific information about this artist, return a brief note that you don't have enough information.",
-						entityName
-					);
-				} else {
-					// Use research-based prompt
-					prompt = String.format(
-						"Based on the following internet research about the music artist '%s', write a comprehensive, informative paragraph (2-4 sentences, approximately 200-400 words). " +
-						"Synthesize the information from the research sources to create an engaging description that includes: " +
-						"their background and career, musical style and genre, notable works or achievements, " +
-						"and their influence on music. Write in an engaging, informative style suitable for a music discovery platform. " +
-						"If the research indicates this is not a music artist or you don't have enough information, please note that.\n\n" +
-						"%s",
-						entityName, researchContext.toString()
-					);
-				}
+				prompt = String.format(
+					"Based on the following research information, write a concise, informative paragraph (approximately 2-3 sentences, 50-100 words) about the music artist '%s'. " +
+					"Include: their background and career, musical style and genre, notable works or achievements, " +
+					"and their influence on music. Write in an engaging, informative style suitable for a music discovery platform. " +
+					"Write exactly one paragraph - do not use multiple paragraphs. Keep it concise and to the point.\n\n" +
+					"Research Information:\n%s",
+					entityName, researchContext.toString()
+				);
 			} else {
 				System.err.println("Unknown entity type: " + entityType);
 				return null;
 			}
 			
-			// Build Gemini API request
-			// Using v1beta API with gemini-pro model
-			// Format: https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}
-			geminiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + 
-				java.net.URLEncoder.encode(googleGeminiApiKey, "UTF-8");
+			// Step 3: Call Groq API with research context
+			apiUrl = baseUrl + "/chat/completions";
 			
-			System.out.println("  - Gemini API URL (masked): " + geminiUrl.replace(googleGeminiApiKey, "***API_KEY***"));
-			System.out.println("  - API Key (first 10 chars): " + (googleGeminiApiKey != null && googleGeminiApiKey.length() > 10 ? googleGeminiApiKey.substring(0, 10) + "..." : "N/A"));
+			System.out.println("  [STEP 3] Calling Groq API to generate description");
+			System.out.println("  - Groq API URL: " + apiUrl);
+			System.out.println("  - API Key (first 10 chars): " + (apiKey != null && apiKey.length() > 10 ? apiKey.substring(0, 10) + "..." : "N/A"));
 			
-			// Build request body
+			// Build request body for Groq Chat API (simple chat completion, no function calling)
+			// Using llama-3.3-70b-versatile (llama-3.1-70b-versatile was decommissioned)
 			Map<String, Object> requestBody = new HashMap<>();
-			Map<String, Object> contents = new HashMap<>();
-			List<Map<String, Object>> parts = new ArrayList<>();
-			Map<String, Object> part = new HashMap<>();
-			part.put("text", prompt);
-			parts.add(part);
-			contents.put("parts", parts);
-			List<Map<String, Object>> contentsList = new ArrayList<>();
-			contentsList.add(contents);
-			requestBody.put("contents", contentsList);
+			requestBody.put("model", "llama-3.3-70b-versatile");
+			List<Map<String, Object>> messages = new ArrayList<>();
+			Map<String, Object> userMessage = new HashMap<>();
+			userMessage.put("role", "user");
+			userMessage.put("content", prompt);
+			messages.add(userMessage);
+			requestBody.put("messages", messages);
+			requestBody.put("temperature", 0.7);
+			requestBody.put("max_tokens", 150); // Reduced for shorter descriptions (50-100 words)
 			
-			// Set up request
 			HttpHeaders headers = new HttpHeaders();
 			headers.setContentType(MediaType.APPLICATION_JSON);
-			headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+			headers.setBearerAuth(apiKey);
 			HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
 			
-			// Make API call
-			System.out.println("  - Calling Gemini API...");
-			System.out.println("  - Request body structure: contents=" + contentsList.size() + ", parts=" + parts.size());
-			System.out.println("  - Prompt length: " + prompt.length() + " characters");
-			ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-				geminiUrl,
-				HttpMethod.POST,
-				request,
-				new ParameterizedTypeReference<Map<String, Object>>() {}
-			);
+			System.out.println("  - Making HTTP POST request to Groq...");
+			System.out.flush();
 			
-			System.out.println("  - Gemini API response status: " + response.getStatusCode());
-			
-			// Parse response
-			Map<String, Object> responseBody = response.getBody();
-			if (responseBody != null) {
-				System.out.println("  - Response body keys: " + responseBody.keySet());
+			ResponseEntity<Map<String, Object>> response;
+			try {
+				response = restTemplate.exchange(
+					apiUrl,
+					HttpMethod.POST,
+					request,
+					new ParameterizedTypeReference<Map<String, Object>>() {}
+				);
+				System.out.println("  - Groq API call completed successfully");
+				System.out.flush();
+				} catch (Exception apiException) {
+					System.out.flush();
+					System.err.flush();
+					System.out.println("  ✗ EXCEPTION DURING API CALL:");
+					System.out.println("  - Exception type: " + apiException.getClass().getName());
+					System.out.println("  - Exception message: " + apiException.getMessage());
+					if (apiException instanceof org.springframework.web.client.HttpClientErrorException) {
+						org.springframework.web.client.HttpClientErrorException httpEx = (org.springframework.web.client.HttpClientErrorException) apiException;
+						System.out.println("  - HTTP Status: " + httpEx.getStatusCode());
+						String responseBody = httpEx.getResponseBodyAsString();
+						System.out.println("  - Response Body: " + responseBody);
+						System.err.println("  ✗ HTTP ERROR: " + httpEx.getStatusCode() + " - " + responseBody);
+					}
+					apiException.printStackTrace();
+					System.out.flush();
+					System.err.flush();
+					throw apiException; // Re-throw to be caught by outer catch blocks
+				}
 				
-				// Check for errors first
+				System.out.println("  - Groq API response status: " + response.getStatusCode());
+				
+				Map<String, Object> responseBody = response.getBody();
+				if (responseBody == null) {
+					System.out.println("  ✗ Groq response body is null");
+					return null;
+				}
+				
+				// Check for errors
 				if (responseBody.containsKey("error")) {
 					@SuppressWarnings("unchecked")
 					Map<String, Object> error = (Map<String, Object>) responseBody.get("error");
-					System.err.println("  ✗ Gemini API error: " + error);
+					System.err.println("  ✗ Groq API error: " + error);
 					return null;
 				}
 				
 				@SuppressWarnings("unchecked")
-				List<Map<String, Object>> candidates = (List<Map<String, Object>>) responseBody.get("candidates");
-				if (candidates != null && !candidates.isEmpty()) {
-					Map<String, Object> firstCandidate = candidates.get(0);
-					System.out.println("  - First candidate keys: " + firstCandidate.keySet());
-					
-					// Check for finish reason (might indicate blocking)
-					Object finishReason = firstCandidate.get("finishReason");
-					if (finishReason != null) {
-						System.out.println("  - Finish reason: " + finishReason);
-						if ("SAFETY".equals(finishReason) || "RECITATION".equals(finishReason)) {
-							System.err.println("  ✗ Gemini blocked response due to: " + finishReason);
-							return null;
-						}
+				List<Map<String, Object>> choices = (List<Map<String, Object>>) responseBody.get("choices");
+				if (choices == null || choices.isEmpty()) {
+					System.out.println("  ✗ No choices in Groq response");
+					return null;
+				}
+				
+				Map<String, Object> firstChoice = choices.get(0);
+				
+				// Check finish_reason
+				Object finishReason = firstChoice.get("finish_reason");
+				if (finishReason != null) {
+					System.out.println("  - Finish reason: " + finishReason);
+					if ("content_filter".equals(finishReason)) {
+						System.err.println("  ✗ Response was filtered by content filter");
+						return null;
 					}
-					
-					@SuppressWarnings("unchecked")
-					Map<String, Object> content = (Map<String, Object>) firstCandidate.get("content");
-					if (content != null) {
-						@SuppressWarnings("unchecked")
-						List<Map<String, Object>> partsList = (List<Map<String, Object>>) content.get("parts");
-						if (partsList != null && !partsList.isEmpty()) {
-							String text = (String) partsList.get(0).get("text");
-							if (text != null) {
-								System.out.println("  - Gemini response text length: " + text.trim().length());
-								if (text.trim().length() > 50) {
-									String trimmed = text.trim().toLowerCase();
-									// Check if Gemini indicates it doesn't have information
-									if (trimmed.contains("don't have") || trimmed.contains("don't know") || 
-										trimmed.contains("not enough information") || trimmed.contains("unable to find") ||
-										trimmed.contains("no specific information") || trimmed.contains("limited information")) {
-										System.out.println("  ✗ Gemini indicated no information available for '" + entityName + "'");
-										return null;
-									}
-									// Truncate if too long (over 1000 chars) at sentence boundary
-									String originalText = text.trim();
-									if (originalText.length() > 1000) {
-										int lastPeriod = originalText.lastIndexOf('.', 1000);
-										if (lastPeriod > 500) {
-											return originalText.substring(0, lastPeriod + 1);
-										}
-										return originalText.substring(0, 997) + "...";
-									}
-									System.out.println("  ✓ Successfully got Gemini description");
-									return originalText;
-								} else {
-									System.out.println("  ✗ Gemini response text too short: " + text.trim().length() + " chars");
-								}
-							} else {
-								System.out.println("  ✗ Gemini response text is null");
-							}
-						} else {
-							System.out.println("  ✗ No parts in Gemini response content");
+				}
+				
+				@SuppressWarnings("unchecked")
+				Map<String, Object> message = (Map<String, Object>) firstChoice.get("message");
+				if (message == null) {
+					System.out.println("  ✗ No message in Groq response choice");
+					return null;
+				}
+				
+				// Get the content from the message
+				Object contentObj = message.get("content");
+				String text = null;
+				
+				System.out.println("  - Checking response content from Groq...");
+				System.out.println("  - Content object type: " + (contentObj != null ? contentObj.getClass().getName() : "null"));
+				
+				// Handle content
+				if (contentObj != null) {
+					if (contentObj instanceof String) {
+						text = (String) contentObj;
+						System.out.println("  - Content is string, length: " + (text != null ? text.length() : 0));
+						if (text != null && text.length() > 0) {
+							System.out.println("  - Content preview: " + text.substring(0, Math.min(200, text.length())) + "...");
 						}
 					} else {
-						System.out.println("  ✗ No content in Gemini response candidate");
+						System.out.println("  - Content is not a string, converting...");
+						text = contentObj.toString();
 					}
 				} else {
-					System.out.println("  ✗ No candidates in Gemini response");
+					System.out.println("  - Content object is null");
 				}
-			} else {
-				System.out.println("  ✗ Gemini response body is null");
-			}
+				
+				if (text != null && text.trim().length() > 20) {
+					String trimmed = text.trim().toLowerCase();
+					// Check if Groq indicates it doesn't have information
+					if (trimmed.contains("i don't have") || trimmed.contains("i don't know") || 
+						trimmed.contains("not enough information") || trimmed.contains("unable to find") ||
+						trimmed.contains("no specific information") || trimmed.contains("limited information") ||
+						trimmed.contains("i cannot provide") || trimmed.contains("i'm unable to")) {
+						System.out.println("  ✗ Groq indicated no information available for '" + entityName + "'");
+						return null;
+					}
+					
+					String originalText = text.trim();
+					if (originalText.length() > 1000) {
+						int lastPeriod = originalText.lastIndexOf('.', 1000);
+						if (lastPeriod > 500) {
+							return originalText.substring(0, lastPeriod + 1);
+						}
+						return originalText.substring(0, 997) + "...";
+					}
+					
+					System.out.println("  ✓ Successfully got Groq description (length: " + originalText.length() + " chars)");
+					System.out.println("  - Preview: " + originalText.substring(0, Math.min(150, originalText.length())) + "...");
+					return originalText;
+				} else {
+					if (text == null) {
+						System.out.println("  ✗ Groq response text is null");
+					} else {
+						System.out.println("  ✗ Groq response text is too short (length: " + text.trim().length() + ", minimum: 20)");
+						System.out.println("  - Text content: '" + text + "'");
+					}
+					return null;
+				}
 		} catch (HttpClientErrorException e) {
+			// Force flush to ensure error messages are visible
+			System.out.flush();
+			System.err.flush();
+			
+			System.out.println("========================================");
+			System.out.println("✗ HTTP ERROR calling Groq API for '" + entityName + "'");
+			System.out.println("========================================");
+			System.out.println("Status Code: " + e.getStatusCode());
+			System.out.println("Status Text: " + e.getStatusText());
+			System.out.println("Message: " + e.getMessage());
+			System.out.flush();
+			
 			System.err.println("========================================");
-			System.err.println("✗ HTTP ERROR calling Gemini API for '" + entityName + "'");
+			System.err.println("✗ HTTP ERROR calling Groq API for '" + entityName + "'");
 			System.err.println("========================================");
 			System.err.println("Status Code: " + e.getStatusCode());
 			System.err.println("Status Text: " + e.getStatusText());
 			System.err.println("Message: " + e.getMessage());
+			System.err.flush();
 			if (e.getResponseBodyAsString() != null) {
 				String responseBody = e.getResponseBodyAsString();
+				System.out.println("Response Body: " + responseBody);
 				System.err.println("Response Body: " + responseBody);
 				
 				// Check for common API key errors
-				if (responseBody.contains("API key not valid") || responseBody.contains("invalid API key")) {
+				if (responseBody.contains("API key not valid") || responseBody.contains("invalid API key") || 
+					responseBody.contains("Incorrect API key") || responseBody.contains("Invalid API key")) {
+					System.out.println("");
+					System.out.println("⚠️  API KEY ERROR DETECTED!");
+					System.out.println("The Groq API key appears to be invalid or not properly configured.");
+					System.out.println("Please check:");
+					System.out.println("1. The API key is correct in your .env file");
+					System.out.println("2. The Groq API key is valid (get one at https://console.groq.com/api-keys)");
+					System.out.println("3. The API key has the necessary permissions");
+					System.out.println("4. Generate a new API key if needed");
+					System.out.println("");
 					System.err.println("");
 					System.err.println("⚠️  API KEY ERROR DETECTED!");
-					System.err.println("The Gemini API key appears to be invalid or not properly configured.");
+					System.err.println("The Groq API key appears to be invalid or not properly configured.");
 					System.err.println("Please check:");
 					System.err.println("1. The API key is correct in your .env file");
-					System.err.println("2. The Gemini API is enabled in Google Cloud Console");
+					System.err.println("2. The Groq API key is valid (get one at https://console.groq.com/api-keys)");
 					System.err.println("3. The API key has the necessary permissions");
 					System.err.println("4. Generate a new API key if needed");
 					System.err.println("");
 				}
 			}
-			if (geminiUrl != null) {
-				System.err.println("Request URL (masked): " + geminiUrl.replace(googleGeminiApiKey, "***API_KEY***"));
+			if (apiUrl != null) {
+				System.err.println("Request URL: " + apiUrl);
 			} else {
 				System.err.println("Request URL: (not set - error occurred before URL construction)");
 			}
@@ -2891,8 +3294,16 @@ public class SoundWrappedService {
 			System.err.println("========================================");
 		} catch (org.springframework.web.client.RestClientException e) {
 			// Catch RestClientException (parent of HttpClientErrorException)
+			System.out.println("========================================");
+			System.out.println("✗ REST CLIENT EXCEPTION calling Groq API for '" + entityName + "'");
+			System.out.println("========================================");
+			System.out.println("Exception Type: " + e.getClass().getName());
+			System.out.println("Message: " + e.getMessage());
+			System.out.println("Full Stack Trace:");
+			e.printStackTrace();
+			System.out.println("========================================");
 			System.err.println("========================================");
-			System.err.println("✗ REST CLIENT EXCEPTION calling Gemini API for '" + entityName + "'");
+			System.err.println("✗ REST CLIENT EXCEPTION calling Groq API for '" + entityName + "'");
 			System.err.println("========================================");
 			System.err.println("Exception Type: " + e.getClass().getName());
 			System.err.println("Message: " + e.getMessage());
@@ -2900,8 +3311,16 @@ public class SoundWrappedService {
 			e.printStackTrace();
 			System.err.println("========================================");
 		} catch (Exception e) {
+			System.out.println("========================================");
+			System.out.println("✗ GENERAL EXCEPTION calling Groq API for '" + entityName + "'");
+			System.out.println("========================================");
+			System.out.println("Exception Type: " + e.getClass().getName());
+			System.out.println("Message: " + e.getMessage());
+			System.out.println("Full Stack Trace:");
+			e.printStackTrace();
+			System.out.println("========================================");
 			System.err.println("========================================");
-			System.err.println("✗ GENERAL EXCEPTION calling Gemini API for '" + entityName + "'");
+			System.err.println("✗ GENERAL EXCEPTION calling Groq API for '" + entityName + "'");
 			System.err.println("========================================");
 			System.err.println("Exception Type: " + e.getClass().getName());
 			System.err.println("Message: " + e.getMessage());
@@ -2911,7 +3330,7 @@ public class SoundWrappedService {
 		}
 		
 		System.err.println("========================================");
-		System.err.println("✗ Returning null - Gemini description generation failed for: " + entityName);
+		System.err.println("✗ Returning null - Groq description generation failed for: " + entityName);
 		System.err.println("========================================");
 		return null;
 	}
