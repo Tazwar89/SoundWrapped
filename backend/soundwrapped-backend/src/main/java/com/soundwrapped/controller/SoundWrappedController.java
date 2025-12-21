@@ -125,12 +125,14 @@ public class SoundWrappedController {
 	}
 
 	@GetMapping("/featured/artist")
-	public Map<String, Object> getFeaturedArtist() {
+	public Map<String, Object> getFeaturedArtist(@RequestParam(required = false) Boolean forceRefresh) {
 		System.out.println("========================================");
-		System.out.println("Controller: /featured/artist endpoint called");
+		System.out.println("Controller: /featured/artist endpoint called" + (forceRefresh != null && forceRefresh ? " (force refresh)" : ""));
 		System.out.println("========================================");
 		try {
-			Map<String, Object> result = soundWrappedService.getFeaturedArtist();
+			// Pass forceRefresh to service method
+			boolean shouldForceRefresh = forceRefresh != null && forceRefresh;
+			Map<String, Object> result = soundWrappedService.getFeaturedArtist(shouldForceRefresh);
 			System.out.println("Controller: Service returned result with keys: " + result.keySet());
 			@SuppressWarnings("unchecked")
 			List<Map<String, Object>> tracks = (List<Map<String, Object>>) result.get("tracks");
@@ -170,6 +172,27 @@ public class SoundWrappedController {
 			result.put("genre", "electronic");
 			result.put("description", "Electronic music encompasses a wide range of genres that primarily use electronic instruments and technology.");
 			result.put("tracks", new ArrayList<>());
+			return result;
+		}
+	}
+
+	/**
+	 * Clear the daily cache for featured content (artist, genre, song).
+	 * This forces regeneration of descriptions with the latest API integrations.
+	 */
+	@PostMapping("/featured/clear-cache")
+	public Map<String, Object> clearFeaturedCache() {
+		Map<String, Object> result = new HashMap<>();
+		try {
+			soundWrappedService.clearFeaturedCache();
+			result.put("success", true);
+			result.put("message", "Featured content cache cleared. New descriptions will be generated with latest API integrations.");
+			return result;
+		} catch (Exception e) {
+			System.err.println("Error clearing featured cache: " + e.getMessage());
+			e.printStackTrace();
+			result.put("success", false);
+			result.put("message", "Failed to clear cache: " + e.getMessage());
 			return result;
 		}
 	}
