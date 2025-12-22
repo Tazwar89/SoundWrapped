@@ -1489,9 +1489,9 @@ public class SoundWrappedService {
 	/**
 	 * Gets a featured track using an alternative algorithm to avoid overlap with Popular Now.
 	 * 
-	 * Strategy: Selects from newly released tracks that are gaining traction (high engagement
-	 * but not necessarily in top charts), or from the Genre of the Day, or from underrated gems.
-	 * This ensures Song of the Day is different from Popular Now (which shows top 50 US chart).
+	 * Strategy: Selects from discovery tracks (high engagement, rising tracks) or from
+	 * popular tracks positions 11-30 (avoiding top 10 which might overlap with Popular Now).
+	 * Does NOT use Genre of the Day tracks to avoid redundancy.
 	 * 
 	 * @return A featured track or empty map if none available
 	 */
@@ -1504,31 +1504,9 @@ public class SoundWrappedService {
 				return cachedSongOfTheDay;
 			}
 			
-			// Strategy: Get tracks from Genre of the Day (ensures variety and discovery)
-			// This provides a different selection than Popular Now's top 50 chart
-			Map<String, Object> featuredGenre = getFeaturedGenreWithTracks();
-			if (featuredGenre != null) {
-				@SuppressWarnings("unchecked")
-				List<Map<String, Object>> genreTracks = (List<Map<String, Object>>) featuredGenre.get("tracks");
-				if (genreTracks != null && !genreTracks.isEmpty()) {
-					// Use date-based seed to select a track consistently throughout the day
-					long seed = today.toEpochDay();
-					Random random = new Random(seed);
-					int selectedIndex = random.nextInt(genreTracks.size());
-					Map<String, Object> selectedTrack = genreTracks.get(selectedIndex);
-					
-					// Cache the result for today
-					cachedSongOfTheDay = selectedTrack;
-					cachedSongDate = today;
-					
-					System.out.println("Song of the day (from Genre of the Day): " + selectedTrack.get("title") + 
-						" (Genre: " + featuredGenre.get("genre") + ", cached for " + today + ")");
-					return selectedTrack;
-				}
-			}
-			
-			// Fallback: If Genre of the Day has no tracks, try alternative discovery method
-			System.out.println("Genre of the Day has no tracks, trying alternative discovery method...");
+			// Primary Strategy: Discovery tracks (high engagement, rising tracks)
+			// These are tracks with good engagement metrics but not necessarily in top charts
+			System.out.println("Fetching Song of the Day from discovery tracks...");
 			List<Map<String, Object>> discoveryTracks = getDiscoveryTracks(20);
 			if (!discoveryTracks.isEmpty()) {
 				// Use date-based seed to select a track consistently throughout the day
@@ -1545,8 +1523,8 @@ public class SoundWrappedService {
 				return selectedTrack;
 			}
 			
-			// Final fallback: Use popular tracks (but different selection than Popular Now)
-			System.out.println("Discovery method failed, using popular tracks as final fallback...");
+			// Fallback: Use popular tracks positions 11-30 (avoiding top 10 which might overlap with Popular Now)
+			System.out.println("Discovery method returned no tracks, using popular tracks 11-30 as fallback...");
 			List<Map<String, Object>> popularTracks = getPopularTracks(50);
 			if (!popularTracks.isEmpty()) {
 				// Select from tracks 11-30 (avoiding top 10 which might overlap with Popular Now)
@@ -1562,6 +1540,16 @@ public class SoundWrappedService {
 					cachedSongDate = today;
 					
 					System.out.println("Song of the day (from popular tracks 11-30): " + selectedTrack.get("title") + " (cached for " + today + ")");
+					return selectedTrack;
+				} else if (popularTracks.size() > 0) {
+					// If we don't have enough tracks for 11-30 range, use any available track
+					int selectedIndex = random.nextInt(popularTracks.size());
+					Map<String, Object> selectedTrack = popularTracks.get(selectedIndex);
+					
+					cachedSongOfTheDay = selectedTrack;
+					cachedSongDate = today;
+					
+					System.out.println("Song of the day (from popular tracks, limited selection): " + selectedTrack.get("title") + " (cached for " + today + ")");
 					return selectedTrack;
 				}
 			}
