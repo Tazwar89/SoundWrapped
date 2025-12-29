@@ -887,6 +887,8 @@ const WrappedPage: React.FC = () => {
       {isStoryCardOpen && wrappedData && (
         <ShareableStoryCard
           wrappedData={wrappedData}
+          currentSlide={currentSlide}
+          slides={slides}
           onClose={() => setIsStoryCardOpen(false)}
         />
       )}

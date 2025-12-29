@@ -4693,7 +4693,21 @@ public class SoundWrappedService {
 		Object hours = stats.get("totalListeningHours");
 
 		if (hours != null) {
-			stories.add("⌛ You spent " + hours + " hours listening — enough to binge whole seasons of your favorite shows!");
+			// Format hours to 2 decimal places max for readability
+			double hoursValue = 0.0;
+			if (hours instanceof Number) {
+				hoursValue = ((Number) hours).doubleValue();
+			} else {
+				try {
+					hoursValue = Double.parseDouble(hours.toString());
+				} catch (NumberFormatException e) {
+					hoursValue = 0.0;
+				}
+			}
+			// Format to 2 decimal places and remove trailing zeros
+			String formattedHours = String.format("%.2f", hoursValue);
+			formattedHours = formattedHours.replaceAll("\\.?0+$", "");
+			stories.add("⌛ You spent " + formattedHours + " hours listening — enough to binge whole seasons of your favorite shows!");
 		}
 
 		Object funFact = raw.get("funFact");
