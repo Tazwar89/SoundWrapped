@@ -38,9 +38,13 @@ class SoundWrappedServiceTests {
 	@BeforeEach
 	void setUp() {
 		MockitoAnnotations.openMocks(this);
+		// Reset mocks to ensure clean state between tests
+		reset(tokenStore, restTemplate, genreAnalysisService, userActivityRepository, activityTrackingService);
 		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate, genreAnalysisService, userActivityRepository, activityTrackingService);
 		// Inject a non-null base URL to avoid "null/me"
 		ReflectionTestUtils.setField(soundWrappedService, "soundCloudApiBaseUrl", "https://api.soundcloud.com");
+		ReflectionTestUtils.setField(soundWrappedService, "clientId", "testClientId");
+		ReflectionTestUtils.setField(soundWrappedService, "clientSecret", "testClientSecret");
 	}
 
 	@Test
@@ -69,7 +73,8 @@ class SoundWrappedServiceTests {
 		Map<String, Object> result = soundWrappedService.getUserProfile();
 
 		assertEquals("testuser", result.get("username"));
-		verify(tokenStore).saveTokens(eq(newAccessToken), eq(refreshToken));
+		// saveTokens is called with 3 parameters: accessToken, refreshToken, expiresInSeconds (can be null)
+		verify(tokenStore).saveTokens(eq(newAccessToken), eq(refreshToken), any());
 
 		// Optional: capture the GET request to check Authorization header
 		ArgumentCaptor<HttpEntity> captor = ArgumentCaptor.forClass(HttpEntity.class);
@@ -107,7 +112,8 @@ class SoundWrappedServiceTests {
 		Map<String, Object> result = soundWrappedService.exchangeAuthorizationCode(authCode);
 
 		assertEquals("access123", result.get("access_token"));
-		verify(tokenStore).saveTokens("access123", "refresh123");
+		// saveTokens is called with 3 parameters: accessToken, refreshToken, expiresInSeconds (can be null)
+		verify(tokenStore).saveTokens(eq("access123"), eq("refresh123"), any());
 	}
 
 	@Test
@@ -120,18 +126,20 @@ class SoundWrappedServiceTests {
 		when(tokenStore.getAccessToken()).thenReturn(expiredToken);
 		when(tokenStore.getRefreshToken()).thenReturn(refreshToken);
 
-		// GET throws 401
+		// GET throws 401 (unauthorized)
 		when(restTemplate.exchange(eq(profileUrl), eq(HttpMethod.GET), any(HttpEntity.class),
 				any(ParameterizedTypeReference.class)))
 				.thenThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED));
 
-		// POST refresh token fails (empty response or error)
+		// POST refresh token fails (returns 400 Bad Request)
 		when(restTemplate.exchange(eq(tokenUrl), eq(HttpMethod.POST), any(HttpEntity.class),
 				any(ParameterizedTypeReference.class))).thenThrow(new HttpClientErrorException(HttpStatus.BAD_REQUEST));
 
+		// The exception should be wrapped in ApiRequestException
 		ApiRequestException exception = assertThrows(ApiRequestException.class,
 				() -> soundWrappedService.getUserProfile());
 
+		// The message should contain "Failed to refresh access token" (it may also contain "during GET request")
 		assertTrue(exception.getMessage().contains("Failed to refresh access token"));
 	}
 
