@@ -520,6 +520,41 @@ const WrappedPage: React.FC = () => {
         </div>
       )
     },
+    // Music Age (Old Soul / Young at Heart)
+    {
+      id: 'music-age',
+      component: (
+        <div className="text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="mb-8"
+          >
+            <h2 className="text-4xl md:text-6xl font-bold gradient-text mb-6">
+              Your Music Age
+            </h2>
+            <p className="text-xl text-slate-300">
+              Are you an old soul or young at heart?
+            </p>
+          </motion.div>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="max-w-3xl mx-auto"
+          >
+            <div className="stat-card text-center p-8">
+              <Clock className="h-12 w-12 text-amber-400 mx-auto mb-6" />
+              <div className="text-lg md:text-xl text-slate-200 leading-relaxed whitespace-pre-line">
+                {wrappedData.musicAge || "The Timeless Listener - Your music taste spans generations, finding beauty in both classic melodies and modern beats."}
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )
+    },
     // Fun Facts
     {
       id: 'fun-facts',

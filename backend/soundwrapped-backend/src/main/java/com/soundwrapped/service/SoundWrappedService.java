@@ -4042,6 +4042,12 @@ public class SoundWrappedService {
 		String sonicArchetype = generateSonicArchetype(tracks, likes, topArtistsByHours, genreAnalysis);
 		wrapped.put("sonicArchetype", sonicArchetype);
 
+		// Generate "Music Age" (Old Soul / Young at Heart)
+		@SuppressWarnings("unchecked")
+		List<String> topGenresList = (List<String>) genreAnalysis.getOrDefault("topGenres", List.of());
+		String musicAge = generateMusicAge(tracks, likes, topGenresList);
+		wrapped.put("musicAge", musicAge);
+
 		return wrapped;
     }
 
@@ -4540,6 +4546,131 @@ public class SoundWrappedService {
 		return "The Musical Explorer - You're on a journey through sound, discovering new artists and genres with an open heart and curious ears.";
 	}
 
+	/**
+	 * Generates a "Music Age" persona (e.g., "Old Soul", "Young at Heart") based on the user's music taste.
+	 * Analyzes genres, track creation dates, and artist eras to determine if the user has classic or modern taste.
+	 * 
+	 * @param tracks List of user's tracks
+	 * @param likes List of user's liked tracks
+	 * @param topGenres List of top genre names
+	 * @return A creative persona describing the user's "music age" (e.g., "Old Soul", "Young at Heart", "Timeless")
+	 */
+	private String generateMusicAge(List<Map<String, Object>> tracks, List<Map<String, Object>> likes, List<String> topGenres) {
+		try {
+			// Build context from user's music data
+			StringBuilder context = new StringBuilder();
+			
+			// Analyze genres for classic vs modern indicators
+			List<String> classicGenres = Arrays.asList("jazz", "blues", "classical", "soul", "funk", "disco", "rock", "country", "folk", "gospel");
+			List<String> modernGenres = Arrays.asList("edm", "electronic", "dubstep", "trap", "hip hop", "rap", "pop", "indie", "alternative", "r&b");
+			
+			int classicGenreCount = 0;
+			int modernGenreCount = 0;
+			
+			if (topGenres != null && !topGenres.isEmpty()) {
+				for (String genre : topGenres) {
+					String genreLower = genre.toLowerCase();
+					if (classicGenres.stream().anyMatch(g -> genreLower.contains(g))) {
+						classicGenreCount++;
+					}
+					if (modernGenres.stream().anyMatch(g -> genreLower.contains(g))) {
+						modernGenreCount++;
+					}
+				}
+			}
+			
+			// Analyze track creation dates (if available)
+			int oldTracks = 0; // Tracks older than 10 years
+			int newTracks = 0; // Tracks newer than 2 years
+			int totalTracksAnalyzed = 0;
+			
+			// Combine tracks and likes for analysis
+			List<Map<String, Object>> allTracks = new ArrayList<>();
+			if (tracks != null) allTracks.addAll(tracks);
+			if (likes != null) allTracks.addAll(likes);
+			
+			java.time.LocalDate tenYearsAgo = java.time.LocalDate.now().minusYears(10);
+			java.time.LocalDate twoYearsAgo = java.time.LocalDate.now().minusYears(2);
+			
+			for (Map<String, Object> track : allTracks) {
+				Object createdAtObj = track.get("created_at");
+				if (createdAtObj instanceof String createdAt) {
+					try {
+						// Parse SoundCloud date format: "2024/01/15 12:00:00 +0000"
+						java.time.LocalDate trackDate = parseSoundCloudDate(createdAt);
+						totalTracksAnalyzed++;
+						
+						if (trackDate.isBefore(tenYearsAgo)) {
+							oldTracks++;
+						} else if (trackDate.isAfter(twoYearsAgo)) {
+							newTracks++;
+						}
+					} catch (Exception e) {
+						// Skip tracks with unparseable dates
+					}
+				}
+			}
+			
+			// Build context for AI
+			context.append("Music Taste Analysis:\n");
+			context.append("- Classic Genre Indicators: ").append(classicGenreCount).append("\n");
+			context.append("- Modern Genre Indicators: ").append(modernGenreCount).append("\n");
+			if (totalTracksAnalyzed > 0) {
+				context.append("- Old Tracks (10+ years): ").append(oldTracks).append("\n");
+				context.append("- New Tracks (<2 years): ").append(newTracks).append("\n");
+			}
+			if (topGenres != null && !topGenres.isEmpty()) {
+				context.append("- Top Genres: ").append(String.join(", ", topGenres.subList(0, Math.min(5, topGenres.size())))).append("\n");
+			}
+			
+			// Create prompt for music age generation
+			String prompt = String.format(
+				"Based on this music listener's taste analysis, determine their 'music age' persona. " +
+				"Are they an 'Old Soul' (preferring classic genres, older tracks, timeless music)? " +
+				"Or are they 'Young at Heart' (preferring modern genres, new releases, cutting-edge sounds)? " +
+				"Or perhaps they're 'Timeless' (balanced mix of old and new)? " +
+				"Give them a creative title like 'The Old Soul', 'The Young at Heart', 'The Timeless Listener', etc. " +
+				"and write 2-3 sentences describing their musical age personality. " +
+				"Make it fun, personal, and celebrate their unique taste. " +
+				"Use the genre and track data naturally in the description.\n\n" +
+				"%s",
+				context.toString()
+			);
+
+			// Use Groq to generate the music age persona
+			String musicAge = getGroqDescription("Music Age", "persona", prompt);
+			
+			if (musicAge != null && !musicAge.trim().isEmpty()) {
+				return musicAge.trim();
+			}
+		} catch (Exception e) {
+			System.out.println("Error generating music age: " + e.getMessage());
+		}
+
+		// Fallback persona
+		return "The Timeless Listener - Your music taste spans generations, finding beauty in both classic melodies and modern beats.";
+	}
+	
+	/**
+	 * Helper method to parse SoundCloud date format: "2024/01/15 12:00:00 +0000"
+	 */
+	private java.time.LocalDate parseSoundCloudDate(String dateStr) {
+		try {
+			// SoundCloud format: "2024/01/15 12:00:00 +0000"
+			String datePart = dateStr.split(" ")[0]; // Get "2024/01/15"
+			String[] parts = datePart.split("/");
+			if (parts.length == 3) {
+				int year = Integer.parseInt(parts[0]);
+				int month = Integer.parseInt(parts[1]);
+				int day = Integer.parseInt(parts[2]);
+				return java.time.LocalDate.of(year, month, day);
+			}
+		} catch (Exception e) {
+			// Fallback: try ISO format or other formats
+		}
+		return java.time.LocalDate.now(); // Default to today if parsing fails
+	}
+
 	//Helper methods for safe casting
 	@SuppressWarnings("unchecked")
 	private List<Map<String, Object>> castToMapList(Object obj) {
@@ -4675,6 +4806,10 @@ public class SoundWrappedService {
 		// Phase 2: Add Sonic Archetype
 		String sonicArchetype = (String) raw.getOrDefault("sonicArchetype", "");
 		wrapped.put("sonicArchetype", sonicArchetype);
+
+		// Add Music Age
+		String musicAge = (String) raw.getOrDefault("musicAge", "");
+		wrapped.put("musicAge", musicAge);
 
 		List<String> stories = new ArrayList<String>();
 

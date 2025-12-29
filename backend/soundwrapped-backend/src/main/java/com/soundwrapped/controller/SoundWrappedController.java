@@ -5,8 +5,10 @@ import com.soundwrapped.service.AnalyticsService;
 import com.soundwrapped.service.MusicDoppelgangerService;
 import com.soundwrapped.service.ArtistAnalyticsService;
 import com.soundwrapped.service.MusicTasteMapService;
+import com.soundwrapped.repository.UserActivityRepository;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
+import java.time.LocalDateTime;
 
 /**
  * REST controller for handling SoundCloud API endpoints.
@@ -26,18 +28,21 @@ public class SoundWrappedController {
 	private final MusicDoppelgangerService musicDoppelgangerService;
 	private final ArtistAnalyticsService artistAnalyticsService;
 	private final MusicTasteMapService musicTasteMapService;
+	private final UserActivityRepository userActivityRepository;
 
 	public SoundWrappedController(
 			SoundWrappedService soundCloudService,
 			AnalyticsService analyticsService,
 			MusicDoppelgangerService musicDoppelgangerService,
 			ArtistAnalyticsService artistAnalyticsService,
-			MusicTasteMapService musicTasteMapService) {
+			MusicTasteMapService musicTasteMapService,
+			UserActivityRepository userActivityRepository) {
 		this.soundWrappedService = soundCloudService;
 		this.analyticsService = analyticsService;
 		this.musicDoppelgangerService = musicDoppelgangerService;
 		this.artistAnalyticsService = artistAnalyticsService;
 		this.musicTasteMapService = musicTasteMapService;
+		this.userActivityRepository = userActivityRepository;
 	}
 
 	// =========================
@@ -364,6 +369,27 @@ public class SoundWrappedController {
 			System.err.println("Error fetching recent activity: " + e.getMessage());
 			e.printStackTrace();
 			return new ArrayList<>();
+		}
+	}
+
+	/**
+	 * Get count of users currently online (active within last 5 minutes)
+	 */
+	@GetMapping("/online-users")
+	public Map<String, Object> getCurrentlyOnlineUsers() {
+		Map<String, Object> result = new HashMap<>();
+		try {
+			LocalDateTime fiveMinutesAgo = LocalDateTime.now().minusMinutes(5);
+			long onlineCount = userActivityRepository.countDistinctActiveUsersSince(fiveMinutesAgo);
+			result.put("onlineCount", onlineCount);
+			result.put("timestamp", LocalDateTime.now().toString());
+			return result;
+		} catch (Exception e) {
+			System.err.println("Error fetching online users count: " + e.getMessage());
+			e.printStackTrace();
+			result.put("onlineCount", 0);
+			result.put("error", e.getMessage());
+			return result;
 		}
 	}
 

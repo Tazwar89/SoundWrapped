@@ -81,6 +81,7 @@ export interface WrappedData {
     description: string
   }
   sonicArchetype?: string
+  musicAge?: string
 }
 
 export interface MusicTasteLocation {

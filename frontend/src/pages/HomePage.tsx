@@ -8,7 +8,8 @@ import {
   MapPin, 
   Headphones, 
   Users,
-  ArrowRight
+  ArrowRight,
+  Radio
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../services/api'
@@ -20,6 +21,7 @@ const HomePage: React.FC = () => {
   const [featuredArtist, setFeaturedArtist] = useState<any>(null)
   const [trendingTracks, setTrendingTracks] = useState<any[]>([])
   const [featuredGenre, setFeaturedGenre] = useState<any>(null)
+  const [onlineUsers, setOnlineUsers] = useState<number>(0)
 
   useEffect(() => {
     const authStatus = searchParams.get('auth')
@@ -102,6 +104,27 @@ const HomePage: React.FC = () => {
     }
 
     fetchFeaturedContent()
+
+    // Fetch currently online users count
+    const fetchOnlineUsers = async () => {
+      try {
+        const response = await api.get('/soundcloud/online-users')
+        if (response?.data?.onlineCount !== undefined) {
+          setOnlineUsers(response.data.onlineCount)
+        }
+      } catch (e) {
+        console.error('[HomePage] Error fetching online users:', e)
+        // Silently fail
+      }
+    }
+
+    fetchOnlineUsers()
+    // Refresh every 30 seconds
+    const interval = setInterval(() => {
+      fetchOnlineUsers()
+    }, 30000)
+
+    return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -142,6 +165,19 @@ const HomePage: React.FC = () => {
               Discover your music journey with personalized insights from SoundCloud. 
               Your taste, beautifully visualized.
             </p>
+            
+            {/* Currently Online Indicator */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="flex items-center justify-center gap-2 text-white/70 text-sm mb-4"
+            >
+              <Radio className="h-4 w-4 text-green-400" />
+              <span>
+                <span className="text-green-400 font-semibold">{onlineUsers}</span> {onlineUsers === 1 ? 'user' : 'users'} currently online
+              </span>
+            </motion.div>
           </motion.div>
 
           <motion.div

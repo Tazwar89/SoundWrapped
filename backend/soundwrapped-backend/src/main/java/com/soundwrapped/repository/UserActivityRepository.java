@@ -70,4 +70,11 @@ public interface UserActivityRepository extends JpaRepository<UserActivity, Long
         LocalDateTime startDate,
         LocalDateTime endDate
     );
+
+    /**
+     * Count distinct users who have been active (any activity) within the last N minutes
+     */
+    @Query("SELECT COUNT(DISTINCT u.soundcloudUserId) FROM UserActivity u " +
+           "WHERE u.createdAt >= :since")
+    long countDistinctActiveUsersSince(@Param("since") LocalDateTime since);
 }
