@@ -1,6 +1,5 @@
 package com.soundwrapped.service;
 
-import com.soundwrapped.entity.UserLocation;
 import com.soundwrapped.repository.UserLocationRepository;
 import org.springframework.stereotype.Service;
 import java.util.*;
@@ -72,9 +71,20 @@ public class MusicTasteMapService {
                 // Get user IDs in this city
                 List<String> userIdsInCity = locationRepository.getUserIdsByCity(city, country);
                 
+                // PERFORMANCE FIX: Limit users analyzed per city to prevent excessive API calls
+                // Analyze max 10 users per city to balance accuracy vs. performance
+                int maxUsersPerCity = 10;
+                if (userIdsInCity.size() > maxUsersPerCity) {
+                    // Randomly sample users to get a representative sample
+                    Collections.shuffle(userIdsInCity);
+                    userIdsInCity = userIdsInCity.subList(0, maxUsersPerCity);
+                }
+                
                 // Calculate average similarity with users in this city
                 List<Double> similarities = new ArrayList<>();
                 Map<String, Long> genreCounts = new HashMap<>();
+                int apiCallCount = 0;
+                int maxApiCallsPerCity = 10; // Safety limit
                 
                 for (String userId : userIdsInCity) {
                     // Skip current user
@@ -82,9 +92,16 @@ public class MusicTasteMapService {
                         continue;
                     }
                     
+                    // Safety check: limit API calls per city to prevent rate limiting
+                    if (apiCallCount >= maxApiCallsPerCity) {
+                        break;
+                    }
+                    
                     try {
-                        // Get this user's tracks
+                        // Get this user's tracks (API call)
                         List<Map<String, Object>> userTracksInCity = getUserTracksById(userId);
+                        apiCallCount++;
+                        
                         if (userTracksInCity.isEmpty()) {
                             continue;
                         }
@@ -102,7 +119,8 @@ public class MusicTasteMapService {
                             }
                         }
                     } catch (Exception e) {
-                        // Skip users we can't analyze
+                        // Skip users we can't analyze (may hit rate limits or private profiles)
+                        System.out.println("Skipping user " + userId + " in " + city + ": " + e.getMessage());
                         continue;
                     }
                 }

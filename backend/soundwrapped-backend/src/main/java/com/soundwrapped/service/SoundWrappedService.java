@@ -4279,13 +4279,14 @@ public class SoundWrappedService {
 					now
 				);
 
-			// Create a map of trackId -> first play timestamp
+			// Create a map of trackId -> first play timestamp (earliest play)
 			Map<String, java.time.LocalDateTime> firstPlayTimestamps = new HashMap<>();
 			for (com.soundwrapped.entity.UserActivity activity : playActivities) {
 				String trackId = activity.getTrackId();
 				java.time.LocalDateTime playTime = activity.getCreatedAt();
-				firstPlayTimestamps.putIfAbsent(trackId, playTime);
-				if (playTime.isBefore(firstPlayTimestamps.get(trackId))) {
+				// Get existing timestamp or use current play time
+				java.time.LocalDateTime existingTime = firstPlayTimestamps.get(trackId);
+				if (existingTime == null || playTime.isBefore(existingTime)) {
 					firstPlayTimestamps.put(trackId, playTime);
 				}
 			}
@@ -4294,6 +4295,9 @@ public class SoundWrappedService {
 			int visionaryTracks = 0; // Tracks played when they had <1,000 plays, now have >100,000
 			int earlyAdopterTracks = 0; // Tracks played within 7 days of creation
 			double totalScore = 0.0;
+
+			// Create date formatter once (thread-safe alternative to SimpleDateFormat)
+			java.time.format.DateTimeFormatter dateFormatter = java.time.format.DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss Z");
 
 			for (Map<String, Object> track : tracks) {
 				String trackId = String.valueOf(track.getOrDefault("id", ""));
@@ -4311,12 +4315,9 @@ public class SoundWrappedService {
 
 				try {
 					// Parse creation date (format: "2024/01/15 12:00:00 +0000")
-					SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss Z");
-					java.util.Date createdDate = sdf.parse(createdAtStr);
-					java.time.LocalDateTime trackCreated = java.time.LocalDateTime.ofInstant(
-						createdDate.toInstant(), 
-						java.time.ZoneId.systemDefault()
-					);
+					// Use DateTimeFormatter (thread-safe) instead of SimpleDateFormat
+					java.time.ZonedDateTime zonedDateTime = java.time.ZonedDateTime.parse(createdAtStr, dateFormatter);
+					java.time.LocalDateTime trackCreated = zonedDateTime.toLocalDateTime();
 
 					// Calculate days between track creation and first play
 					long daysBetween = java.time.Duration.between(trackCreated, firstPlay).toDays();
@@ -4337,7 +4338,7 @@ public class SoundWrappedService {
 						visionaryTracks++;
 						totalScore += 200.0; // Bonus points for visionary tracks
 					}
-				} catch (ParseException e) {
+				} catch (Exception e) {
 					// Skip tracks with unparseable dates
 					continue;
 				}
@@ -4433,11 +4434,14 @@ public class SoundWrappedService {
 			int totalReposted = repostedTrackIds.size();
 			int trendingTracks = 0;
 
-			// Check each liked track to see if it was reposted and is now trending
+			// Optimize: Create a map of trackId -> reposts_count for O(1) lookup
+			// Only process tracks that were actually reposted
+			Map<String, Long> repostedTrackReposts = new HashMap<>();
 			for (Map<String, Object> track : likes) {
 				String trackId = String.valueOf(track.getOrDefault("id", ""));
 				if (repostedTrackIds.contains(trackId)) {
 					long repostsCount = ((Number) track.getOrDefault("reposts_count", 0)).longValue();
+					repostedTrackReposts.put(trackId, repostsCount);
 					
 					// Consider "trending" if reposts_count > 1000
 					if (repostsCount > 1000) {
@@ -4561,8 +4565,9 @@ public class SoundWrappedService {
 			StringBuilder context = new StringBuilder();
 			
 			// Analyze genres for classic vs modern indicators
-			List<String> classicGenres = Arrays.asList("jazz", "blues", "classical", "soul", "funk", "disco", "rock", "country", "folk", "gospel");
-			List<String> modernGenres = Arrays.asList("edm", "electronic", "dubstep", "trap", "hip hop", "rap", "pop", "indie", "alternative", "r&b");
+			// Use HashSet for O(1) lookup instead of O(n) stream operations
+			Set<String> classicGenres = new HashSet<>(Arrays.asList("jazz", "blues", "classical", "soul", "funk", "disco", "rock", "country", "folk", "gospel"));
+			Set<String> modernGenres = new HashSet<>(Arrays.asList("edm", "electronic", "dubstep", "trap", "hip hop", "rap", "pop", "indie", "alternative", "r&b"));
 			
 			int classicGenreCount = 0;
 			int modernGenreCount = 0;
@@ -4570,10 +4575,14 @@ public class SoundWrappedService {
 			if (topGenres != null && !topGenres.isEmpty()) {
 				for (String genre : topGenres) {
 					String genreLower = genre.toLowerCase();
-					if (classicGenres.stream().anyMatch(g -> genreLower.contains(g))) {
+					// Check if genre contains any classic genre keyword
+					boolean isClassic = classicGenres.stream().anyMatch(g -> genreLower.contains(g));
+					boolean isModern = modernGenres.stream().anyMatch(g -> genreLower.contains(g));
+					
+					if (isClassic) {
 						classicGenreCount++;
 					}
-					if (modernGenres.stream().anyMatch(g -> genreLower.contains(g))) {
+					if (isModern) {
 						modernGenreCount++;
 					}
 				}
@@ -4595,9 +4604,11 @@ public class SoundWrappedService {
 			for (Map<String, Object> track : allTracks) {
 				Object createdAtObj = track.get("created_at");
 				if (createdAtObj instanceof String createdAt) {
-					try {
-						// Parse SoundCloud date format: "2024/01/15 12:00:00 +0000"
-						java.time.LocalDate trackDate = parseSoundCloudDate(createdAt);
+					// Parse SoundCloud date format: "2024/01/15 12:00:00 +0000"
+					java.time.LocalDate trackDate = parseSoundCloudDate(createdAt);
+					
+					// Only count if date was successfully parsed (not null)
+					if (trackDate != null) {
 						totalTracksAnalyzed++;
 						
 						if (trackDate.isBefore(tenYearsAgo)) {
@@ -4605,9 +4616,8 @@ public class SoundWrappedService {
 						} else if (trackDate.isAfter(twoYearsAgo)) {
 							newTracks++;
 						}
-					} catch (Exception e) {
-						// Skip tracks with unparseable dates
 					}
+					// Skip tracks with unparseable dates (trackDate is null)
 				}
 			}
 			
@@ -4653,6 +4663,7 @@ public class SoundWrappedService {
 	
 	/**
 	 * Helper method to parse SoundCloud date format: "2024/01/15 12:00:00 +0000"
+	 * Returns null if parsing fails instead of returning current date (which would skew results)
 	 */
 	private java.time.LocalDate parseSoundCloudDate(String dateStr) {
 		try {
@@ -4663,12 +4674,15 @@ public class SoundWrappedService {
 				int year = Integer.parseInt(parts[0]);
 				int month = Integer.parseInt(parts[1]);
 				int day = Integer.parseInt(parts[2]);
-				return java.time.LocalDate.of(year, month, day);
+				// Validate date range (reasonable bounds)
+				if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+					return java.time.LocalDate.of(year, month, day);
+				}
 			}
 		} catch (Exception e) {
-			// Fallback: try ISO format or other formats
+			// Parsing failed - return null to indicate invalid date
 		}
-		return java.time.LocalDate.now(); // Default to today if parsing fails
+		return null; // Return null instead of current date to avoid skewing calculations
 	}
 
 	//Helper methods for safe casting

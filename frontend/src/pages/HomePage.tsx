@@ -119,12 +119,25 @@ const HomePage: React.FC = () => {
     }
 
     fetchOnlineUsers()
-    // Refresh every 30 seconds
+    // Refresh every 30 seconds, but only if tab is visible (performance optimization)
     const interval = setInterval(() => {
-      fetchOnlineUsers()
+      if (!document.hidden) {
+        fetchOnlineUsers()
+      }
     }, 30000)
 
-    return () => clearInterval(interval)
+    // Also fetch when tab becomes visible
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchOnlineUsers()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
