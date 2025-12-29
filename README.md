@@ -11,8 +11,11 @@ The homepage showcases three daily rotating features that persist throughout the
 #### 🎵 Song of the Day
 - **Feature**: Displays a featured track selected from popular SoundCloud tracks
 - **Technical Implementation**: 
+  - **Selection Algorithm** (prioritized order):
+    1. **Discovery Tracks**: High engagement-to-plays ratio tracks (1000+ plays, sorted by engagement)
+    2. **Popular Tracks (Positions 11-30)**: Avoids overlap with "Popular Now" section
+    3. **Genre of the Day Tracks**: Fallback to tracks from featured genre
   - Uses date-based seed (`LocalDate.now().toEpochDay()`) for deterministic daily selection
-  - Selects from top 10 popular tracks using the seed
   - Cached for 24 hours to ensure consistency
   - Embeds SoundCloud player for direct playback
 
@@ -20,15 +23,14 @@ The homepage showcases three daily rotating features that persist throughout the
 - **Feature**: Highlights a featured artist with their popular tracks and biography
 - **Technical Implementation**:
   - **Artist Selection**: Extracts unique artists from popular tracks, calculates trending scores, and uses time-seed to select from top 10 artists
-  - **Description Generation**: Prioritizes external sources for verified information:
-    1. **Wikipedia API** (`/api/rest_v1/page/summary/`): Fetches full extract paragraph from Wikipedia articles
-    2. **Google Knowledge Graph API**: Retrieves detailed descriptions from Google's Knowledge Graph
-    3. **SoundCloud Bio**: Falls back to artist's SoundCloud description if substantial
-    4. **Generated Description**: Creates AI-style description as final fallback
-  - **Verification Criteria**: Only generates descriptions for artists with:
-    - ≥10,000 followers, OR
-    - Wikipedia entry, OR
-    - Google Knowledge Graph entry
+  - **Description Generation**: Research-first approach with AI synthesis:
+    1. **Research Phase**: Aggregates data from multiple sources:
+       - **Wikipedia API** (`/api/rest_v1/page/summary/`): Fetches full extract paragraph from Wikipedia articles
+       - **Google Knowledge Graph API**: Retrieves detailed descriptions from Google's Knowledge Graph
+       - **SerpAPI**: Comprehensive web search for additional context (optional)
+    2. **AI Generation**: Uses Groq API (`llama-3.3-70b-versatile`) to synthesize research into 2-3 sentence description (50-100 words)
+    3. **Fallback**: SoundCloud bio or generic description if AI generation fails
+  - **Verification Criteria**: More lenient - attempts description generation for all artists, with quality checks
   - **Track Fetching**: Uses multiple fallback strategies:
     - Attempts `popular-tracks` URL resolution
     - Falls back to direct user URN track fetching
@@ -41,12 +43,15 @@ The homepage showcases three daily rotating features that persist throughout the
 - **Technical Implementation**:
   - **Genre Selection**: Randomly selects from 18 popular genres using time-seed
   - **Description Generation**:
-    1. **Google Knowledge Graph API**: First attempts to fetch genre description (supports obscure subgenres like "indietronica", "wave", "future garage")
-    2. **Hardcoded Descriptions**: Falls back to curated descriptions for well-known genres
-    3. **Generic Fallback**: Provides default description if genre not found
-  - **Track Filtering**: Fetches tracks using `/tracks?tags={genre}` endpoint, filters for:
-    - English titles only
-    - Genre tag must be present in track tags
+    1. **Research Phase**: Aggregates data from multiple sources:
+       - **Google Knowledge Graph API**: Fetches genre description (supports obscure subgenres)
+       - **Wikipedia API**: Attempts to find genre information
+       - **SerpAPI**: Web search for additional context (optional)
+    2. **AI Generation**: Uses Groq API to synthesize research into 2-3 sentence description (50-100 words)
+    3. **Fallback**: Hardcoded descriptions for well-known genres or generic description
+  - **Track Filtering**: Fetches tracks using `/tracks?tags={genre}` endpoint with flexible matching:
+    - Partial tag matching (e.g., "country music" matches "country")
+    - English titles preferred
   - Cached for 24 hours using date-based seed
 
 #### 🔥 Popular Now
@@ -74,6 +79,16 @@ A Spotify Wrapped-style summary featuring:
 - **Fun Facts**: Interesting insights about listening habits
 - **Peak Year Analysis**: Identifies the year with most activity
 - **Global Taste Comparison**: Compares user's taste to global trends
+
+#### Phase 1 Features ✨
+- **Shareable Story Cards**: Download high-quality 9:16 aspect ratio cards for Instagram/TikTok stories with multiple card types (Summary, Listening, Top Track, Top Artist, Underground, Trendsetter, Repost, Archetype)
+- **Support the Underground**: Calculates and displays the percentage of listening time spent on artists with fewer than 5,000 followers
+- **Year in Review Poetry**: AI-generated personalized poems celebrating the user's musical journey using their top tracks and genres
+
+#### Phase 2 Features 🚀
+- **The Trendsetter (Early Adopter) Score**: Measures how early users discovered tracks compared to when they were created, with badges (Visionary, Trendsetter, Early Adopter, Explorer, Listener)
+- **The Repost King/Queen**: Tracks how many reposted tracks became trending, with success rate and badges (Repost Royalty, Repost King/Queen, Repost Enthusiast, Repost Supporter)
+- **The Sonic Archetype**: AI-generated musical persona (e.g., "The 3 AM Lo-Fi Scholar", "The High-Octane Bass Hunter") based on listening patterns, genres, and artists
 
 ### 🗺️ Music Taste Map
 
@@ -159,6 +174,8 @@ SoundWrapped follows a **Model-View-Controller (MVC)** architectural pattern, pr
 - **SoundCloud API**: Full OAuth2 integration with automatic token refresh
 - **Wikipedia API**: REST API (`/api/rest_v1/page/summary/`) for artist biographies
 - **Google Knowledge Graph API**: Entity search API for descriptions and genre information
+- **Groq API**: AI-powered description and poetry generation using `llama-3.3-70b-versatile` model (free tier, OpenAI-compatible)
+- **SerpAPI**: Comprehensive web search for additional context (optional)
 - **Token Management**: Automatic refresh, secure storage in H2/PostgreSQL database
 
 #### Caching Strategy
@@ -187,6 +204,7 @@ SoundWrapped follows a **Model-View-Controller (MVC)** architectural pattern, pr
 - **StatCard**: Reusable card component for displaying statistics
 - **Charts**: Interactive charts using Chart.js
 - **Animated Background**: WebGL and particle-based backgrounds
+- **ShareableStoryCard**: Downloadable story cards for social media (9:16 aspect ratio, multiple card types)
 - **Responsive Design**: Mobile-first approach with breakpoints
 
 ## 🚀 Getting Started
@@ -234,8 +252,21 @@ npm run dev
 
 ```bash
 # From project root
+# Ensure backend JAR is built first (for integration tests)
+cd backend/soundwrapped-backend
+./mvnw clean package -DskipTests
+cd ../..
+
+# Start all services
 docker-compose up --build
+
+# Services will be available at:
+# - Frontend: http://localhost:3000
+# - Backend: http://localhost:8081
+# - Database: localhost:5432
 ```
+
+**Note**: The Dockerfile uses `eclipse-temurin:17-jre` as the base image. Environment variables should be provided via `docker-compose.yml` or `.env` file, not baked into the image.
 
 ## 🔧 Configuration
 
@@ -251,6 +282,8 @@ Create a `.env` file in `backend/soundwrapped-backend/`:
 SOUNDCLOUD_CLIENT_ID=your_soundcloud_client_id_here
 SOUNDCLOUD_CLIENT_SECRET=your_soundcloud_client_secret_here
 GOOGLE_KNOWLEDGE_GRAPH_API_KEY=your_google_api_key_here
+GROQ_API_KEY=your_groq_api_key_here
+SERPAPI_API_KEY=your_serpapi_key_here  # Optional
 ```
 
 Then export them or use a tool like `dotenv` to load them.
@@ -267,6 +300,13 @@ soundcloud:
 google:
   knowledge-graph:
     api-key: ${GOOGLE_KNOWLEDGE_GRAPH_API_KEY:}
+
+groq:
+  api-key: ${GROQ_API_KEY:}
+  base-url: https://api.groq.com/openai/v1
+
+serpapi:
+  api-key: ${SERPAPI_API_KEY:}
 ```
 
 **Note**: The `${VARIABLE_NAME:default_value}` syntax means "use environment variable if available, otherwise use default value". For production, always use environment variables to keep secrets secure.
@@ -361,9 +401,10 @@ SoundWrapped/
 ### Backend
 - **Spring Boot 3.5.5**: Application framework
 - **Spring Data JPA**: Database abstraction
-- **H2/PostgreSQL**: Database
+- **H2/PostgreSQL**: Database (H2 for local dev, PostgreSQL for production/CI)
 - **RestTemplate**: HTTP client for API calls
 - **Maven**: Build tool
+- **Docker**: Containerization with multi-stage builds
 
 ### Frontend
 - **React 18**: UI library
@@ -378,6 +419,8 @@ SoundWrapped/
 - **SoundCloud API**: Music data and authentication
 - **Wikipedia REST API**: Artist biographies
 - **Google Knowledge Graph API**: Entity descriptions
+- **Groq API**: AI-powered descriptions and poetry generation (free tier)
+- **SerpAPI**: Web search for additional context (optional)
 
 ## 📝 License
 
@@ -389,7 +432,16 @@ See [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-- Inspired by Spotify Wrapped and volt.fm
+- Inspired by Spotify Wrapped, SoundCloud Playback 2025, and volt.fm
 - SoundCloud API for music data
 - Wikipedia and Google Knowledge Graph for rich descriptions
+- Groq API for AI-powered content generation (free tier)
+- SerpAPI for comprehensive web search
+
+## 📚 Additional Documentation
+
+- [Phase 1 & 2 Features](docs/PHASE_1_2_FEATURES.md) - Detailed documentation of Phase 1 & 2 implementations
+- [Groq API Implementation](docs/GROQ_IMPLEMENTATION.md) - AI-powered features using Groq
+- [Phase 1 & 2 Implementation](docs/PHASE_1_2_IMPLEMENTATION.md) - Original Phase 1 & 2 implementation notes
+- [OpenAI Implementation](docs/OPENAI_IMPLEMENTATION.md) - Legacy OpenAI documentation (migrated to Groq)
 
