@@ -4114,7 +4114,16 @@ public class SoundWrappedService {
 
 		Map<String, Object> stats = new LinkedHashMap<String, Object>();
 		stats.put("totalListeningHours", raw.getOrDefault("totalListeningHours", 0));
-		stats.put("likesGiven", ((List<?>) raw.getOrDefault("likesGiven", List.of())).size());
+		// likesGiven is stored as a long in getFullWrappedSummary (line 3942), not a List
+		// Handle both cases: if it's a Number (long) use it directly, if it's a List get its size
+		Object likesGivenObj = raw.getOrDefault("likesGiven", 0L);
+		long likesGiven = 0L;
+		if (likesGivenObj instanceof Number) {
+			likesGiven = ((Number) likesGivenObj).longValue();
+		} else if (likesGivenObj instanceof List<?>) {
+			likesGiven = ((List<?>) likesGivenObj).size();
+		}
+		stats.put("likesGiven", likesGiven);
 		stats.put("tracksUploaded", raw.getOrDefault("tracksUploaded", 0));
 		stats.put("commentsPosted", raw.getOrDefault("commentsPosted", 0));
 		stats.put("booksYouCouldHaveRead", raw.getOrDefault("booksYouCouldHaveRead", 0));

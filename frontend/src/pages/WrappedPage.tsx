@@ -12,7 +12,14 @@ import {
   BookOpen,
   Sparkles,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  X,
+  Twitter,
+  Facebook,
+  Linkedin,
+  Link as LinkIcon,
+  Copy,
+  Check
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useMusicData } from '../contexts/MusicDataContext'
@@ -24,6 +31,8 @@ const WrappedPage: React.FC = () => {
   const { wrappedData, isLoadingWrapped, fetchWrappedData } = useMusicData()
   const [currentSlide, setCurrentSlide] = useState(0)
   const [isAutoPlaying, setIsAutoPlaying] = useState(true)
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [copiedToClipboard, setCopiedToClipboard] = useState(false)
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -440,6 +449,44 @@ const WrappedPage: React.FC = () => {
     setIsAutoPlaying(false)
   }
 
+  const getShareUrl = () => {
+    return window.location.href
+  }
+
+  const getShareText = () => {
+    return `Check out my 2024 SoundWrapped! 🎵`
+  }
+
+  const handleShare = (platform: string) => {
+    const url = encodeURIComponent(getShareUrl())
+    const text = encodeURIComponent(getShareText())
+    
+    let shareUrl = ''
+    
+    switch (platform) {
+      case 'twitter':
+        shareUrl = `https://twitter.com/intent/tweet?text=${text}&url=${url}`
+        break
+      case 'facebook':
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`
+        break
+      case 'linkedin':
+        shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${url}`
+        break
+      case 'copy':
+        navigator.clipboard.writeText(getShareUrl())
+        setCopiedToClipboard(true)
+        setTimeout(() => setCopiedToClipboard(false), 2000)
+        return
+      default:
+        return
+    }
+    
+    if (shareUrl) {
+      window.open(shareUrl, '_blank', 'width=600,height=400')
+    }
+  }
+
   console.log('WrappedPage rendering, wrappedData:', wrappedData, 'isLoadingWrapped:', isLoadingWrapped, 'isAuthenticated:', isAuthenticated)
   
   return (
@@ -465,7 +512,7 @@ const WrappedPage: React.FC = () => {
                     setIsAutoPlaying(false)
                   }}
                   className={`w-3 h-3 rounded-full transition-colors ${
-                    index === currentSlide ? 'bg-orange-500' : 'bg-slate-600'
+                    index === currentSlide ? 'bg-orange-500' : 'bg-black'
                   }`}
                 />
               ))}
@@ -502,12 +549,121 @@ const WrappedPage: React.FC = () => {
 
         {/* Share Button */}
         <div className="text-center mt-8">
-          <button className="btn-primary text-lg px-8 py-4 inline-flex items-center space-x-2">
+          <button 
+            onClick={() => setIsShareModalOpen(true)}
+            className="btn-primary text-lg px-8 py-4 inline-flex items-center space-x-2"
+          >
             <Share2 className="h-5 w-5" />
             <span>Share Your Wrapped</span>
           </button>
         </div>
       </div>
+
+      {/* Share Modal */}
+      <AnimatePresence>
+        {isShareModalOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsShareModalOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            />
+            
+            {/* Modal */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-700">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-2xl font-bold gradient-text">Share Your Wrapped</h3>
+                  <button
+                    onClick={() => setIsShareModalOpen(false)}
+                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                  >
+                    <X className="h-5 w-5 text-slate-400" />
+                  </button>
+                </div>
+
+                {/* Share Options */}
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Twitter */}
+                  <button
+                    onClick={() => handleShare('twitter')}
+                    className="flex flex-col items-center justify-center p-6 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-slate-700 hover:border-blue-500/50 group"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center mb-3 group-hover:bg-blue-500/30 transition-colors">
+                      <Twitter className="h-6 w-6 text-blue-400" />
+                    </div>
+                    <span className="text-slate-200 font-medium">Twitter</span>
+                  </button>
+
+                  {/* Facebook */}
+                  <button
+                    onClick={() => handleShare('facebook')}
+                    className="flex flex-col items-center justify-center p-6 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-slate-700 hover:border-blue-600/50 group"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center mb-3 group-hover:bg-blue-600/30 transition-colors">
+                      <Facebook className="h-6 w-6 text-blue-500" />
+                    </div>
+                    <span className="text-slate-200 font-medium">Facebook</span>
+                  </button>
+
+                  {/* LinkedIn */}
+                  <button
+                    onClick={() => handleShare('linkedin')}
+                    className="flex flex-col items-center justify-center p-6 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-slate-700 hover:border-blue-700/50 group"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-blue-700/20 flex items-center justify-center mb-3 group-hover:bg-blue-700/30 transition-colors">
+                      <Linkedin className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <span className="text-slate-200 font-medium">LinkedIn</span>
+                  </button>
+
+                  {/* Copy Link */}
+                  <button
+                    onClick={() => handleShare('copy')}
+                    className="flex flex-col items-center justify-center p-6 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-slate-700 hover:border-orange-500/50 group"
+                  >
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 transition-colors ${
+                      copiedToClipboard 
+                        ? 'bg-green-500/30' 
+                        : 'bg-orange-500/20 group-hover:bg-orange-500/30'
+                    }`}>
+                      {copiedToClipboard ? (
+                        <Check className="h-6 w-6 text-green-400" />
+                      ) : (
+                        <Copy className="h-6 w-6 text-orange-400" />
+                      )}
+                    </div>
+                    <span className="text-slate-200 font-medium">
+                      {copiedToClipboard ? 'Copied!' : 'Copy Link'}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Share URL Display */}
+                <div className="mt-6 p-4 bg-black/30 rounded-lg border border-slate-700">
+                  <div className="flex items-center space-x-2 text-sm text-slate-400 mb-2">
+                    <LinkIcon className="h-4 w-4" />
+                    <span>Share URL</span>
+                  </div>
+                  <div className="text-slate-200 text-sm break-all font-mono">
+                    {getShareUrl()}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
