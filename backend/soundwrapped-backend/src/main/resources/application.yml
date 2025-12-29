@@ -1,0 +1,78 @@
+# application.yml
+
+# ----------------------------
+# Default profile (development/production)
+# ----------------------------
+spring:
+  application:
+    name: SoundWrapped
+  server:
+    port: 8080
+  datasource:
+    # Use file-based H2 database for persistence across restarts
+    # Change to jdbc:h2:mem:testdb for in-memory (data lost on restart)
+    url: jdbc:h2:file:./data/soundwrapped;AUTO_SERVER=TRUE
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      # Use 'update' instead of 'create-drop' to preserve data across restarts
+      # 'create-drop' drops all tables on shutdown, losing all tokens
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate.format_sql: true
+  h2:
+    console:
+      enabled: true
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+soundcloud:
+  client-id: ${SOUNDCLOUD_CLIENT_ID:5pRC171gW1jxprhKPRMUJ5mpsCLRfmaM}
+  client-secret: ${SOUNDCLOUD_CLIENT_SECRET:yj4gZgfadBZTpKNud1ZSwCrVe4ICYzki}
+  api:
+    base-url: https://api.soundcloud.com
+
+google:
+  knowledge-graph:
+    api-key: ${GOOGLE_KNOWLEDGE_GRAPH_API_KEY:}
+
+openai:
+  api-key: ${OPENAI_API_KEY:}
+
+groq:
+  api-key: ${GROQ_API_KEY:}
+  base-url: https://api.groq.com/openai/v1
+
+serpapi:
+  api-key: ${SERPAPI_API_KEY:}
+
+# ----------------------------
+# Test profile (Testcontainers)
+# ----------------------------
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: jdbc:tc:postgresql:15:///soundwrapped
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate.format_sql: true
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
