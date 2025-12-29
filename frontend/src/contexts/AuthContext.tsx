@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const isAuthenticated = !!user
 
-  const login = async (platform: 'soundcloud') => {
+  const login = async (_platform: 'soundcloud') => {
     try {
       setIsLoading(true)
       

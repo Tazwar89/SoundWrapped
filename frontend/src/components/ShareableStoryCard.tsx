@@ -1,17 +1,15 @@
 import React, { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Download, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Download, X } from 'lucide-react'
 import { WrappedData } from '../contexts/MusicDataContext'
-import { formatNumber, formatHours } from '../utils/formatters'
+import { formatNumber } from '../utils/formatters'
 
 interface ShareableStoryCardProps {
   wrappedData: WrappedData
-  currentSlide: number
-  slides: { id: string; component: React.ReactNode }[]
   onClose: () => void
 }
 
-const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, currentSlide, slides, onClose }) => {
+const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, onClose }) => {
   const cardRef = useRef<HTMLDivElement>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [cardType, setCardType] = useState<'summary' | 'listening' | 'top-track' | 'top-artist' | 'underground' | 'trendsetter' | 'repost' | 'archetype'>('summary')

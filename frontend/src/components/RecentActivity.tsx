@@ -119,7 +119,6 @@ const RecentActivity: React.FC<RecentActivityProps> = ({ activities }) => {
     <div className="space-y-4">
       {transformedActivities.map((activity, index) => {
         const ActivityIcon = getActivityIcon(activity.type)
-        const activityText = getActivityText(activity)
         const description = getActivityDescription(activity)
         
         // Get track/user info

@@ -6,13 +6,9 @@ import {
   Music, 
   BarChart3, 
   MapPin, 
-  Sparkles, 
   Headphones, 
   Users,
-  Clock,
-  ArrowRight,
-  Star,
-  TrendingUp
+  ArrowRight
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../services/api'
@@ -219,7 +215,7 @@ const HomePage: React.FC = () => {
                             // Capitalize first letter of each word for better display
                             return featuredArtist.username
                               .split(' ')
-                              .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                              .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
                               .join(' ');
                           }
                           // Fallback to full_name if username is not available

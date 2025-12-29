@@ -29,7 +29,6 @@ const DashboardPage: React.FC = () => {
   const { 
     tracks, 
     artists, 
-    wrappedData,
     isLoadingTracks,
     isLoadingArtists,
     refreshAllData

@@ -427,7 +427,7 @@ const WrappedPage: React.FC = () => {
               <div className="text-lg text-slate-300 mb-6 leading-relaxed">
                 {wrappedData.trendsetterScore?.description || "Keep exploring to discover your trendsetter potential!"}
               </div>
-              {(wrappedData.trendsetterScore?.visionaryTracks || 0) > 0 && (
+              {wrappedData.trendsetterScore && (wrappedData.trendsetterScore.visionaryTracks || 0) > 0 && (
                 <div className="text-slate-400 text-sm">
                   🎯 {wrappedData.trendsetterScore.visionaryTracks} visionary tracks • {wrappedData.trendsetterScore.earlyAdopterTracks || 0} early discoveries
                 </div>
@@ -887,8 +887,6 @@ const WrappedPage: React.FC = () => {
       {isStoryCardOpen && wrappedData && (
         <ShareableStoryCard
           wrappedData={wrappedData}
-          currentSlide={currentSlide}
-          slides={slides}
           onClose={() => setIsStoryCardOpen(false)}
         />
       )}
