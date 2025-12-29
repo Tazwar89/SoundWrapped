@@ -48,6 +48,9 @@ class SoundWrappedE2ETest {
 
 	@BeforeEach
 	void setUp() {
+		// Clean up database before each test to avoid duplicate key errors
+		tokenRepository.deleteAll();
+		
 		tokenStore = new TokenStore(tokenRepository);
 		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate, genreAnalysisService, userActivityRepository, activityTrackingService);
 
@@ -58,8 +61,10 @@ class SoundWrappedE2ETest {
 
 	@Test
 	void testTokenPersistenceAfterExchange() {
-		Map<String, Object> fakeTokenResponse = Map.of("access_token", "accessFromCode", "refresh_token",
-				"refreshFromCode");
+		String uniqueAccessToken = "accessFromCode_" + UUID.randomUUID();
+		String uniqueRefreshToken = "refreshFromCode_" + UUID.randomUUID();
+		Map<String, Object> fakeTokenResponse = Map.of("access_token", uniqueAccessToken, "refresh_token",
+				uniqueRefreshToken);
 
 		when(restTemplate.exchange(eq("https://api.soundcloud.com/oauth2/token"), eq(HttpMethod.POST),
 				any(HttpEntity.class), any(ParameterizedTypeReference.class)))
@@ -67,16 +72,18 @@ class SoundWrappedE2ETest {
 
 		Map<String, Object> response = soundWrappedService.exchangeAuthorizationCode("dummyCode");
 
-		assertEquals("accessFromCode", response.get("access_token"));
+		assertEquals(uniqueAccessToken, response.get("access_token"));
 
-		Optional<Token> savedOpt = tokenRepository.findByAccessToken("accessFromCode");
+		Optional<Token> savedOpt = tokenRepository.findByAccessToken(uniqueAccessToken);
 		assertTrue(savedOpt.isPresent());
-		assertEquals("refreshFromCode", savedOpt.get().getRefreshToken());
+		assertEquals(uniqueRefreshToken, savedOpt.get().getRefreshToken());
 	}
 
 	@Test
 	void testGetUserProfileWithValidToken() {
-		Token token = new Token("validAccess", "refresh123");
+		String uniqueAccessToken = "validAccess_" + UUID.randomUUID();
+		String uniqueRefreshToken = "refresh123_" + UUID.randomUUID();
+		Token token = new Token(uniqueAccessToken, uniqueRefreshToken);
 		tokenStore.saveTokens(token.getAccessToken(), token.getRefreshToken());
 
 		Map<String, Object> fakeProfile = Map.of("username", "testuser");
@@ -91,13 +98,16 @@ class SoundWrappedE2ETest {
 
 	@Test
 	void testGetUserProfileWithExpiredToken_refreshesToken() {
-		Token token = new Token("expiredAccess", "refreshToken");
+		String uniqueExpiredToken = "expiredAccess_" + UUID.randomUUID();
+		String uniqueRefreshToken = "refreshToken_" + UUID.randomUUID();
+		Token token = new Token(uniqueExpiredToken, uniqueRefreshToken);
 		tokenStore.saveTokens(token.getAccessToken(), token.getRefreshToken());
 
 		Map<String, Object> fakeProfile = Map.of("username", "refreshedUser");
 		ResponseEntity<Map<String, Object>> profileResponse = new ResponseEntity<>(fakeProfile, HttpStatus.OK);
 
-		Map<String, Object> newTokenResponse = Map.of("access_token", "newAccess", "refresh_token", "refreshToken");
+		String uniqueNewAccessToken = "newAccess_" + UUID.randomUUID();
+		Map<String, Object> newTokenResponse = Map.of("access_token", uniqueNewAccessToken, "refresh_token", uniqueRefreshToken);
 
 		// GET returns 401 first, then succeeds after refresh
 		when(restTemplate.exchange(contains("/me"), eq(HttpMethod.GET), any(HttpEntity.class),
@@ -112,13 +122,15 @@ class SoundWrappedE2ETest {
 		Map<String, Object> result = soundWrappedService.getUserProfile();
 		assertEquals("refreshedUser", result.get("username"));
 
-		Optional<Token> savedOpt = tokenRepository.findByAccessToken("newAccess");
+		Optional<Token> savedOpt = tokenRepository.findByAccessToken(uniqueNewAccessToken);
 		assertTrue(savedOpt.isPresent());
 	}
 
 	@Test
 	void testGetFullWrappedSummary() {
-		Token token = new Token("fullSummaryAccess", "refreshToken");
+		String uniqueAccessToken = "fullSummaryAccess_" + UUID.randomUUID();
+		String uniqueRefreshToken = "refreshToken_" + UUID.randomUUID();
+		Token token = new Token(uniqueAccessToken, uniqueRefreshToken);
 		tokenStore.saveTokens(token.getAccessToken(), token.getRefreshToken());
 
 		Map<String, Object> profile = Map.ofEntries(entry("username", "user1"), entry("full_name", "User One"),
@@ -157,13 +169,18 @@ class SoundWrappedE2ETest {
 
 	@Test
 	void testTokenCleanupAfterSavingNewTokens() {
-		tokenStore.saveTokens("oldAccess", "oldRefresh");
-		tokenStore.saveTokens("newAccess", "newRefresh");
+		String oldAccessToken = "oldAccess_" + UUID.randomUUID();
+		String oldRefreshToken = "oldRefresh_" + UUID.randomUUID();
+		String newAccessToken = "newAccess_" + UUID.randomUUID();
+		String newRefreshToken = "newRefresh_" + UUID.randomUUID();
+		
+		tokenStore.saveTokens(oldAccessToken, oldRefreshToken);
+		tokenStore.saveTokens(newAccessToken, newRefreshToken);
 
 		List<Token> tokens = tokenRepository.findAll();
 		assertEquals(1, tokens.size());
 		Token remaining = tokens.get(0);
-		assertEquals("newAccess", remaining.getAccessToken());
-		assertEquals("newRefresh", remaining.getRefreshToken());
+		assertEquals(newAccessToken, remaining.getAccessToken());
+		assertEquals(newRefreshToken, remaining.getRefreshToken());
 	}
 }

@@ -51,6 +51,9 @@ class SoundWrappedServiceIntegrationTest {
 
 	@BeforeEach
 	void setUp() {
+		// Clean up database before each test to avoid duplicate key errors
+		tokenRepository.deleteAll();
+		
 		MockitoAnnotations.openMocks(this);
 		tokenStore = new TokenStore(tokenRepository);
 		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate, genreAnalysisService, userActivityRepository, activityTrackingService);
@@ -79,8 +82,10 @@ class SoundWrappedServiceIntegrationTest {
 
 	@Test
 	void testMakeGetRequestWithExpiredToken_refreshesToken() {
-		// Initial expired token
-		Token token = new Token("expiredAccess", "refreshToken");
+		// Initial expired token - use unique values
+		String uniqueExpiredToken = "expiredAccess_" + UUID.randomUUID();
+		String uniqueRefreshToken = "refreshToken_" + UUID.randomUUID();
+		Token token = new Token(uniqueExpiredToken, uniqueRefreshToken);
 		tokenRepository.save(token);
 		tokenStore.saveTokens(token.getAccessToken(), token.getRefreshToken());
 
@@ -88,8 +93,9 @@ class SoundWrappedServiceIntegrationTest {
 		Map<String, Object> fakeProfile = Map.of("username", "refreshedUser");
 
 		// Mock new token response from OAuth refresh
+		String uniqueNewAccessToken = "newAccess_" + UUID.randomUUID();
 		ResponseEntity<Map<String, Object>> newTokenResponse = new ResponseEntity<>(
-				Map.of("access_token", "newAccess", "refresh_token", "refreshToken"), // same refresh token
+				Map.of("access_token", uniqueNewAccessToken, "refresh_token", uniqueRefreshToken), // same refresh token
 				HttpStatus.OK);
 
 		// GET returns 401 first, then succeeds after refresh
@@ -108,9 +114,9 @@ class SoundWrappedServiceIntegrationTest {
 		assertEquals("refreshedUser", result.get("username"));
 
 		// Verify token updated in DB
-		Optional<Token> savedOpt = tokenRepository.findByAccessToken("newAccess");
+		Optional<Token> savedOpt = tokenRepository.findByAccessToken(uniqueNewAccessToken);
 		assertTrue(savedOpt.isPresent());
-		assertEquals("refreshToken", savedOpt.get().getRefreshToken());
+		assertEquals(uniqueRefreshToken, savedOpt.get().getRefreshToken());
 	}
 
 	@Test
