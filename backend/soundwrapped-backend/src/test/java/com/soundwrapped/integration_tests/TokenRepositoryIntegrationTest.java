@@ -29,30 +29,34 @@ class TokenRepositoryIntegrationTest {
 
 	@Test
 	void testSaveAndFindByAccessToken() {
-		Token token = new Token("abc123", "refresh123");
+		String accessToken = "test-access_" + UUID.randomUUID();
+		String refreshToken = "test-refresh_" + UUID.randomUUID();
+		Token token = new Token(accessToken, refreshToken);
 		tokenRepository.save(token);
 
-		Optional<Token> foundOpt = tokenRepository.findByAccessToken("abc123");
+		Optional<Token> foundOpt = tokenRepository.findByAccessToken(accessToken);
 		assertTrue(foundOpt.isPresent());
 		Token found = foundOpt.get();
-		assertEquals("refresh123", found.getRefreshToken());
+		assertEquals(refreshToken, found.getRefreshToken());
 	}
 
 	@Test
 	void testSaveAndFindByRefreshToken() {
-		Token token = new Token("access123", "refresh123");
+		String accessToken = "test-access_" + UUID.randomUUID();
+		String refreshToken = "test-refresh_" + UUID.randomUUID();
+		Token token = new Token(accessToken, refreshToken);
 		tokenRepository.save(token);
 
-		Optional<Token> foundOpt = tokenRepository.findByRefreshToken("refresh123");
+		Optional<Token> foundOpt = tokenRepository.findByRefreshToken(refreshToken);
 		assertTrue(foundOpt.isPresent());
 		Token found = foundOpt.get();
-		assertEquals("access123", found.getAccessToken());
+		assertEquals(accessToken, found.getAccessToken());
 	}
 
 	@Test
 	void testFindAllTokens() {
-		Token token1 = new Token("access1", "refresh1");
-		Token token2 = new Token("access2", "refresh2");
+		Token token1 = new Token("access1_" + UUID.randomUUID(), "refresh1_" + UUID.randomUUID());
+		Token token2 = new Token("access2_" + UUID.randomUUID(), "refresh2_" + UUID.randomUUID());
 
 		tokenRepository.save(token1);
 		tokenRepository.save(token2);
@@ -63,30 +67,36 @@ class TokenRepositoryIntegrationTest {
 
 	@Test
 	void testUpdateToken() {
-		Token token = new Token("oldAccess", "oldRefresh");
+		String oldAccess = "oldAccess_" + UUID.randomUUID();
+		String oldRefresh = "oldRefresh_" + UUID.randomUUID();
+		String newAccess = "newAccess_" + UUID.randomUUID();
+		
+		Token token = new Token(oldAccess, oldRefresh);
 		tokenRepository.save(token);
 
-		Optional<Token> savedOpt = tokenRepository.findByAccessToken("oldAccess");
+		Optional<Token> savedOpt = tokenRepository.findByAccessToken(oldAccess);
 		assertTrue(savedOpt.isPresent());
 
 		Token saved = savedOpt.get();
-		saved.setAccessToken("newAccess");
+		saved.setAccessToken(newAccess);
 		tokenRepository.save(saved);
 
-		Optional<Token> updatedOpt = tokenRepository.findByAccessToken("newAccess");
+		Optional<Token> updatedOpt = tokenRepository.findByAccessToken(newAccess);
 		assertTrue(updatedOpt.isPresent());
 
 		Token updated = updatedOpt.get();
 		assertNotNull(updated);
-		assertEquals("oldRefresh", updated.getRefreshToken());
+		assertEquals(oldRefresh, updated.getRefreshToken());
 	}
 
 	@Test
 	void testDeleteToken() {
-		Token token = new Token("toDelete", "refreshX");
+		String accessToken = "toDelete_" + UUID.randomUUID();
+		String refreshToken = "refreshX_" + UUID.randomUUID();
+		Token token = new Token(accessToken, refreshToken);
 		tokenRepository.save(token);
 
-		Optional<Token> savedOpt = tokenRepository.findByAccessToken("toDelete");
+		Optional<Token> savedOpt = tokenRepository.findByAccessToken(accessToken);
 		assertTrue(savedOpt.isPresent());
 
 		Token saved = savedOpt.get();
@@ -98,19 +108,23 @@ class TokenRepositoryIntegrationTest {
 
 	@Test
 	void testUniqueAccessTokenConstraint() {
-		Token token1 = new Token("uniqueAccess", "refresh1");
+		// Use unique values per test run to avoid conflicts with other tests
+		String duplicateAccess = "uniqueAccess_" + UUID.randomUUID();
+		Token token1 = new Token(duplicateAccess, "refresh1_" + UUID.randomUUID());
 		tokenRepository.save(token1);
 
-		Token token2 = new Token("uniqueAccess", "refresh2");
+		Token token2 = new Token(duplicateAccess, "refresh2_" + UUID.randomUUID());
 		assertThrows(DataIntegrityViolationException.class, () -> tokenRepository.saveAndFlush(token2));
 	}
 
 	@Test
 	void testUniqueRefreshTokenConstraint() {
-		Token token1 = new Token("access1", "refreshUnique");
+		// Use unique values per test run to avoid conflicts with other tests
+		String duplicateRefresh = "refreshUnique_" + UUID.randomUUID();
+		Token token1 = new Token("access1_" + UUID.randomUUID(), duplicateRefresh);
 		tokenRepository.save(token1);
 
-		Token token2 = new Token("access2", "refreshUnique");
+		Token token2 = new Token("access2_" + UUID.randomUUID(), duplicateRefresh);
 		assertThrows(DataIntegrityViolationException.class, () -> tokenRepository.saveAndFlush(token2));
 	}
 }
