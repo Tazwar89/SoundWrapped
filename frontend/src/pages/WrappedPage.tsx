@@ -19,11 +19,13 @@ import {
   Linkedin,
   Link as LinkIcon,
   Copy,
-  Check
+  Check,
+  Download
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useMusicData } from '../contexts/MusicDataContext'
 import LoadingSpinner from '../components/LoadingSpinner'
+import ShareableStoryCard from '../components/ShareableStoryCard'
 import { formatNumber, formatHours } from '../utils/formatters'
 
 const WrappedPage: React.FC = () => {
@@ -32,6 +34,7 @@ const WrappedPage: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [isAutoPlaying, setIsAutoPlaying] = useState(true)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [isStoryCardOpen, setIsStoryCardOpen] = useState(false)
   const [copiedToClipboard, setCopiedToClipboard] = useState(false)
 
   useEffect(() => {
@@ -45,47 +48,8 @@ const WrappedPage: React.FC = () => {
     console.log('Wrapped data updated:', wrappedData)
   }, [wrappedData])
 
-  useEffect(() => {
-    if (!wrappedData || !isAutoPlaying) return
-
-    const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length)
-    }, 5000)
-
-    return () => clearInterval(interval)
-  }, [wrappedData, isAutoPlaying])
-
-  if (!isAuthenticated) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold gradient-text mb-4">Please Log In</h1>
-          <p className="text-slate-300 mb-8">Connect your account to view your wrapped</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (isLoadingWrapped) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <LoadingSpinner />
-      </div>
-    )
-  }
-
-  if (!wrappedData) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold gradient-text mb-4">No Data Available</h1>
-          <p className="text-slate-300 mb-8">We couldn't find any wrapped data for your account</p>
-        </div>
-      </div>
-    )
-  }
-
-  const slides = [
+  // Define slides array - needs to be accessible for useEffect
+  const slides = wrappedData ? [
     // Welcome Slide
     {
       id: 'welcome',
@@ -349,6 +313,85 @@ const WrappedPage: React.FC = () => {
         </div>
       )
     },
+    // Support the Underground
+    {
+      id: 'underground-support',
+      component: (
+        <div className="text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="mb-8"
+          >
+            <h2 className="text-4xl md:text-6xl font-bold gradient-text mb-6">
+              Support the Underground
+            </h2>
+            <p className="text-xl text-slate-300">
+              Your dedication to independent artists
+            </p>
+          </motion.div>
+          
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="max-w-2xl mx-auto"
+          >
+            <div className="stat-card text-center">
+              <div className="text-7xl font-bold gradient-text mb-4">
+                {wrappedData.undergroundSupportPercentage?.toFixed(1) || '0.0'}%
+              </div>
+              <div className="text-slate-300 text-xl mb-4">
+                of your listening time went to artists with fewer than 5,000 followers
+              </div>
+              <div className="text-slate-400 text-lg">
+                {wrappedData.undergroundSupportPercentage && wrappedData.undergroundSupportPercentage >= 50 
+                  ? "🎵 You're a true champion of the underground scene!"
+                  : wrappedData.undergroundSupportPercentage && wrappedData.undergroundSupportPercentage >= 25
+                  ? "🎸 You have great taste in discovering new artists!"
+                  : "🎶 Every artist starts somewhere—thanks for supporting them!"}
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )
+    },
+    // Year in Review Poetry
+    {
+      id: 'year-in-review',
+      component: (
+        <div className="text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="mb-8"
+          >
+            <h2 className="text-4xl md:text-6xl font-bold gradient-text mb-6">
+              Your Year in Music
+            </h2>
+            <p className="text-xl text-slate-300">
+              A poetic reflection of your musical journey
+            </p>
+          </motion.div>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="max-w-3xl mx-auto"
+          >
+            <div className="stat-card text-center p-8">
+              <Sparkles className="h-12 w-12 text-yellow-400 mx-auto mb-6" />
+              <div className="text-lg md:text-xl text-slate-200 leading-relaxed whitespace-pre-line">
+                {wrappedData.yearInReviewPoetry || "Your musical year was a symphony of discovery, each track a note in the melody of your year."}
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )
+    },
     // Fun Facts
     {
       id: 'fun-facts',
@@ -437,7 +480,47 @@ const WrappedPage: React.FC = () => {
         </div>
       )
     }
-  ]
+  ] : []
+
+  useEffect(() => {
+    if (!wrappedData || !isAutoPlaying) return
+
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % slides.length)
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [wrappedData, isAutoPlaying, slides.length])
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold gradient-text mb-4">Please Log In</h1>
+          <p className="text-slate-300 mb-8">Connect your account to view your wrapped</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (isLoadingWrapped) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <LoadingSpinner />
+      </div>
+    )
+  }
+
+  if (!wrappedData) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold gradient-text mb-4">No Data Available</h1>
+          <p className="text-slate-300 mb-8">We couldn't find any wrapped data for your account</p>
+        </div>
+      </div>
+    )
+  }
 
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % slides.length)
@@ -547,14 +630,21 @@ const WrappedPage: React.FC = () => {
           </AnimatePresence>
         </div>
 
-        {/* Share Button */}
-        <div className="text-center mt-8">
+        {/* Share Buttons */}
+        <div className="text-center mt-8 space-x-4">
           <button 
-            onClick={() => setIsShareModalOpen(true)}
+            onClick={() => setIsStoryCardOpen(true)}
             className="btn-primary text-lg px-8 py-4 inline-flex items-center space-x-2"
           >
+            <Download className="h-5 w-5" />
+            <span>Download Story Card</span>
+          </button>
+          <button 
+            onClick={() => setIsShareModalOpen(true)}
+            className="btn-secondary text-lg px-8 py-4 inline-flex items-center space-x-2"
+          >
             <Share2 className="h-5 w-5" />
-            <span>Share Your Wrapped</span>
+            <span>Share Link</span>
           </button>
         </div>
       </div>
@@ -664,6 +754,14 @@ const WrappedPage: React.FC = () => {
           </>
         )}
       </AnimatePresence>
+
+      {/* Story Card Modal */}
+      {isStoryCardOpen && wrappedData && (
+        <ShareableStoryCard
+          wrappedData={wrappedData}
+          onClose={() => setIsStoryCardOpen(false)}
+        />
+      )}
     </div>
   )
 }

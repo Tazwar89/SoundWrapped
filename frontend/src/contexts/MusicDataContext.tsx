@@ -64,6 +64,8 @@ export interface WrappedData {
   peakYear: string
   globalTasteComparison: string
   stories: string[]
+  undergroundSupportPercentage?: number
+  yearInReviewPoetry?: string
 }
 
 export interface MusicTasteLocation {

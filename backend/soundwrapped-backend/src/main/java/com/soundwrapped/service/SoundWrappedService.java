@@ -4025,8 +4025,208 @@ public class SoundWrappedService {
 		//Global music taste placeholder
 		wrapped.put("globalTasteComparison", "Listeners in New York, Berlin and Tokyo share your musical taste! 🎧");
 
+		// Calculate "Support the Underground" metric
+		// Percentage of listening time to artists with <5,000 followers
+		double undergroundSupportPercentage = calculateUndergroundSupportPercentage(likes, tracks);
+		wrapped.put("undergroundSupportPercentage", undergroundSupportPercentage);
+
 		return wrapped;
     }
+
+	/**
+	 * Calculates the percentage of listening time dedicated to "underground" artists
+	 * (artists with fewer than 5,000 followers).
+	 * 
+	 * @param likes List of liked tracks (to get artist follower counts)
+	 * @param tracks List of user's tracks (to calculate listening time)
+	 * @return Percentage (0-100) of listening time to underground artists
+	 */
+	private double calculateUndergroundSupportPercentage(List<Map<String, Object>> likes, List<Map<String, Object>> tracks) {
+		if (likes == null || likes.isEmpty() || tracks == null || tracks.isEmpty()) {
+			return 0.0;
+		}
+
+		// Create a map of artist username to follower count from likes
+		Map<String, Integer> artistFollowers = new HashMap<>();
+		for (Map<String, Object> like : likes) {
+			Object userObj = like.get("user");
+			if (userObj instanceof Map<?, ?> userMap) {
+				Object usernameObj = userMap.get("username");
+				Object followersObj = userMap.get("followers_count");
+				
+				if (usernameObj instanceof String username && followersObj instanceof Number) {
+					int followers = ((Number) followersObj).intValue();
+					// Only store if not already present (first occurrence wins)
+					artistFollowers.putIfAbsent(username, followers);
+				}
+			}
+		}
+
+		// Calculate total listening time and underground listening time
+		long totalListeningMs = 0;
+		long undergroundListeningMs = 0;
+		int undergroundThreshold = 5000; // Artists with <5,000 followers are "underground"
+
+		for (Map<String, Object> track : tracks) {
+			long duration = ((Number) track.getOrDefault("duration", 0)).longValue();
+			totalListeningMs += duration;
+
+			Object userObj = track.get("user");
+			if (userObj instanceof Map<?, ?> userMap) {
+				Object usernameObj = userMap.get("username");
+				if (usernameObj instanceof String username) {
+					Integer followers = artistFollowers.get(username);
+					// If we don't have follower data, check directly from track's user object
+					if (followers == null) {
+						Object followersObj = userMap.get("followers_count");
+						if (followersObj instanceof Number) {
+							followers = ((Number) followersObj).intValue();
+						}
+					}
+					
+					// Count as underground if followers < threshold or unknown (assume small)
+					if (followers == null || followers < undergroundThreshold) {
+						undergroundListeningMs += duration;
+					}
+				}
+			}
+		}
+
+		if (totalListeningMs == 0) {
+			return 0.0;
+		}
+
+		return (double) undergroundListeningMs / totalListeningMs * 100.0;
+	}
+
+	/**
+	 * Generates a "Year in Review" poem using Groq AI based on the user's top tracks and genres.
+	 * 
+	 * @param topTracks List of top tracks with title and artist
+	 * @param topGenres List of top genre names
+	 * @param username User's username
+	 * @return A creative poem summarizing the user's musical year
+	 */
+	private String generateYearInReviewPoetry(List<Map<String, Object>> topTracks, List<String> topGenres, String username) {
+		if (topTracks == null || topTracks.isEmpty()) {
+			return "Your musical journey this year was quiet, but every silence holds a song waiting to be discovered.";
+		}
+
+		try {
+			// Build context from top tracks and genres
+			StringBuilder context = new StringBuilder();
+			context.append("User: ").append(username).append("\n\n");
+			
+			context.append("Top Tracks:\n");
+			for (int i = 0; i < Math.min(5, topTracks.size()); i++) {
+				Map<String, Object> track = topTracks.get(i);
+				String title = (String) track.getOrDefault("title", "Unknown Track");
+				String artist = (String) track.getOrDefault("artist", "Unknown Artist");
+				context.append((i + 1)).append(". \"").append(title).append("\" by ").append(artist).append("\n");
+			}
+			
+			if (topGenres != null && !topGenres.isEmpty()) {
+				context.append("\nTop Genres: ").append(String.join(", ", topGenres.subList(0, Math.min(5, topGenres.size()))));
+			}
+
+			// Create prompt for poetry generation
+			String prompt = String.format(
+				"Write a short, creative poem (4-6 lines) celebrating a music listener's year based on their listening data. " +
+				"The poem should be inspiring, personal, and capture the essence of their musical journey. " +
+				"Use the track titles and genres naturally in the poem. Make it feel like a personalized 'Year in Review' card. " +
+				"Keep it concise and poetic.\n\n" +
+				"User Data:\n%s",
+				context.toString()
+			);
+
+			// Use Groq to generate the poem
+			String poetry = getGroqDescription("Year in Review", "poetry", prompt);
+			
+			if (poetry != null && !poetry.trim().isEmpty()) {
+				return poetry.trim();
+			}
+		} catch (Exception e) {
+			System.out.println("Error generating year in review poetry: " + e.getMessage());
+		}
+
+		// Fallback poem
+		return String.format(
+			"In the rhythm of %s, you found your sound,\n" +
+			"Each track a memory, each beat a moment found.\n" +
+			"Your musical year, a symphony of discovery,\n" +
+			"Here's to the songs that became your story.",
+			username
+		);
+	}
+
+	/**
+	 * Overloaded getGroqDescription that accepts a custom prompt.
+	 */
+	private String getGroqDescription(String entityName, String entityType, String customPrompt) {
+		if (groqApiKey == null || groqApiKey.trim().isEmpty()) {
+			String systemPropKey = System.getProperty("GROQ_API_KEY");
+			if (systemPropKey != null && !systemPropKey.trim().isEmpty()) {
+				groqApiKey = systemPropKey;
+			} else {
+				String envKey = System.getenv("GROQ_API_KEY");
+				if (envKey != null && !envKey.trim().isEmpty()) {
+					groqApiKey = envKey;
+				}
+			}
+		}
+
+		if (groqApiKey == null || groqApiKey.trim().isEmpty()) {
+			return null;
+		}
+
+		try {
+			String url = groqBaseUrl + "/chat/completions";
+			
+			Map<String, Object> requestBody = new HashMap<>();
+			List<Map<String, Object>> messages = new ArrayList<>();
+			Map<String, Object> userMessage = new HashMap<>();
+			userMessage.put("role", "user");
+			userMessage.put("content", customPrompt);
+			messages.add(userMessage);
+			
+			requestBody.put("model", "llama-3.3-70b-versatile");
+			requestBody.put("messages", messages);
+			requestBody.put("temperature", 0.8); // Higher temperature for more creative output
+			requestBody.put("max_tokens", 200);
+
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.APPLICATION_JSON);
+			headers.setBearerAuth(groqApiKey);
+			
+			HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+			
+			ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+				url,
+				HttpMethod.POST,
+				request,
+				new ParameterizedTypeReference<Map<String, Object>>() {}
+			);
+
+			Map<String, Object> responseBody = response.getBody();
+			if (responseBody != null) {
+				@SuppressWarnings("unchecked")
+				List<Map<String, Object>> choices = (List<Map<String, Object>>) responseBody.get("choices");
+				if (choices != null && !choices.isEmpty()) {
+					Map<String, Object> firstChoice = choices.get(0);
+					@SuppressWarnings("unchecked")
+					Map<String, Object> message = (Map<String, Object>) firstChoice.get("message");
+					if (message != null) {
+						String content = (String) message.get("content");
+						return content != null ? content.trim() : null;
+					}
+				}
+			}
+		} catch (Exception e) {
+			System.out.println("Error calling Groq API for poetry: " + e.getMessage());
+		}
+
+		return null;
+	}
 
 	//Helper methods for safe casting
 	@SuppressWarnings("unchecked")
@@ -4134,6 +4334,21 @@ public class SoundWrappedService {
 		wrapped.put("funFact", raw.getOrDefault("funFact", "Unable to load data"));
 		wrapped.put("peakYear", raw.getOrDefault("peakYear", ""));
 		wrapped.put("globalTasteComparison", raw.getOrDefault("globalTasteComparison", ""));
+
+		// Add "Support the Underground" metric
+		Object undergroundSupportObj = raw.getOrDefault("undergroundSupportPercentage", 0.0);
+		double undergroundSupport = 0.0;
+		if (undergroundSupportObj instanceof Number) {
+			undergroundSupport = ((Number) undergroundSupportObj).doubleValue();
+		}
+		wrapped.put("undergroundSupportPercentage", Math.round(undergroundSupport * 10.0) / 10.0); // Round to 1 decimal
+
+		// Generate "Year in Review" poetry
+		String username = (String) raw.getOrDefault("username", "Music Lover");
+		@SuppressWarnings("unchecked")
+		List<String> topGenres = (List<String>) raw.getOrDefault("topGenres", List.of());
+		String yearInReviewPoetry = generateYearInReviewPoetry(rankedTracks, topGenres, username);
+		wrapped.put("yearInReviewPoetry", yearInReviewPoetry);
 
 		List<String> stories = new ArrayList<String>();
 
