@@ -531,9 +531,12 @@ public class SoundWrappedService {
 		try {
 		String url = soundCloudApiBaseUrl + "/me";
 		return makeGetRequestWithRefresh(url);
+		} catch (ApiRequestException e) {
+			// Re-throw ApiRequestException as-is (expected by tests and callers)
+			throw e;
 		} catch (Exception e) {
 			System.out.println("Error fetching user profile: " + e.getMessage());
-			// Return empty profile on error
+			// Return empty profile on unexpected errors only
 			Map<String, Object> errorProfile = new HashMap<>();
 			errorProfile.put("error", "Unable to fetch profile data");
 			errorProfile.put("message", e.getMessage());
