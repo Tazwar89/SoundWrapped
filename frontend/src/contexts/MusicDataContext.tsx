@@ -66,6 +66,21 @@ export interface WrappedData {
   stories: string[]
   undergroundSupportPercentage?: number
   yearInReviewPoetry?: string
+  trendsetterScore?: {
+    score: number
+    badge: string
+    description: string
+    visionaryTracks: number
+    earlyAdopterTracks: number
+  }
+  repostKingScore?: {
+    repostedTracks: number
+    trendingTracks: number
+    percentage: number
+    badge: string
+    description: string
+  }
+  sonicArchetype?: string
 }
 
 export interface MusicTasteLocation {

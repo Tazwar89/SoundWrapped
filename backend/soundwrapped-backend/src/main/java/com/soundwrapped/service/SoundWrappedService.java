@@ -4030,6 +4030,18 @@ public class SoundWrappedService {
 		double undergroundSupportPercentage = calculateUndergroundSupportPercentage(likes, tracks);
 		wrapped.put("undergroundSupportPercentage", undergroundSupportPercentage);
 
+		// Calculate "The Trendsetter" (Early Adopter) Score
+		Map<String, Object> trendsetterData = calculateTrendsetterScore(soundcloudUserId, tracks);
+		wrapped.put("trendsetterScore", trendsetterData);
+
+		// Calculate "The Repost King/Queen" metric
+		Map<String, Object> repostKingData = calculateRepostKingScore(soundcloudUserId, likes);
+		wrapped.put("repostKingScore", repostKingData);
+
+		// Generate "The Sonic Archetype" (Musical Persona)
+		String sonicArchetype = generateSonicArchetype(tracks, likes, topArtistsByHours, genreAnalysis);
+		wrapped.put("sonicArchetype", sonicArchetype);
+
 		return wrapped;
     }
 
@@ -4228,6 +4240,306 @@ public class SoundWrappedService {
 		return null;
 	}
 
+	/**
+	 * Calculates "The Trendsetter" (Early Adopter) Score.
+	 * Measures how early a user discovered tracks compared to when they were created,
+	 * weighted by the track's current popularity.
+	 * 
+	 * @param userId SoundCloud user ID
+	 * @param tracks List of tracks the user has played
+	 * @return Map containing score, badge, and description
+	 */
+	private Map<String, Object> calculateTrendsetterScore(String userId, List<Map<String, Object>> tracks) {
+		Map<String, Object> result = new HashMap<>();
+		
+		if (userId == null || userId.isEmpty() || tracks == null || tracks.isEmpty()) {
+			result.put("score", 0);
+			result.put("badge", "Listener");
+			result.put("description", "Keep exploring to discover your trendsetter potential!");
+			result.put("visionaryTracks", 0);
+			return result;
+		}
+
+		try {
+			// Get first play timestamps for each track from UserActivity
+			java.time.LocalDateTime oneYearAgo = java.time.LocalDateTime.now().minusYears(1);
+			java.time.LocalDateTime now = java.time.LocalDateTime.now();
+			
+			List<com.soundwrapped.entity.UserActivity> playActivities = 
+				userActivityRepository.findBySoundcloudUserIdAndActivityTypeAndCreatedAtBetween(
+					userId, 
+					com.soundwrapped.entity.UserActivity.ActivityType.PLAY,
+					oneYearAgo,
+					now
+				);
+
+			// Create a map of trackId -> first play timestamp
+			Map<String, java.time.LocalDateTime> firstPlayTimestamps = new HashMap<>();
+			for (com.soundwrapped.entity.UserActivity activity : playActivities) {
+				String trackId = activity.getTrackId();
+				java.time.LocalDateTime playTime = activity.getCreatedAt();
+				firstPlayTimestamps.putIfAbsent(trackId, playTime);
+				if (playTime.isBefore(firstPlayTimestamps.get(trackId))) {
+					firstPlayTimestamps.put(trackId, playTime);
+				}
+			}
+
+			// Calculate trendsetter score
+			int visionaryTracks = 0; // Tracks played when they had <1,000 plays, now have >100,000
+			int earlyAdopterTracks = 0; // Tracks played within 7 days of creation
+			double totalScore = 0.0;
+
+			for (Map<String, Object> track : tracks) {
+				String trackId = String.valueOf(track.getOrDefault("id", ""));
+				java.time.LocalDateTime firstPlay = firstPlayTimestamps.get(trackId);
+				
+				if (firstPlay == null) {
+					continue; // Skip tracks without play history
+				}
+
+				// Get track creation date
+				String createdAtStr = (String) track.getOrDefault("created_at", "");
+				if (createdAtStr.isEmpty()) {
+					continue;
+				}
+
+				try {
+					// Parse creation date (format: "2024/01/15 12:00:00 +0000")
+					SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss Z");
+					java.util.Date createdDate = sdf.parse(createdAtStr);
+					java.time.LocalDateTime trackCreated = java.time.LocalDateTime.ofInstant(
+						createdDate.toInstant(), 
+						java.time.ZoneId.systemDefault()
+					);
+
+					// Calculate days between track creation and first play
+					long daysBetween = java.time.Duration.between(trackCreated, firstPlay).toDays();
+					
+					// Get current playback count
+					long currentPlays = ((Number) track.getOrDefault("playback_count", 0)).longValue();
+
+					// Early adopter: played within 7 days of creation
+					if (daysBetween >= 0 && daysBetween <= 7) {
+						earlyAdopterTracks++;
+						// Weight by current popularity
+						totalScore += Math.min(currentPlays / 1000.0, 100.0); // Cap at 100 points per track
+					}
+
+					// Visionary: played when track likely had <1,000 plays, now has >100,000
+					// Estimate: if played within 30 days of creation and now has >100k plays
+					if (daysBetween >= 0 && daysBetween <= 30 && currentPlays > 100000) {
+						visionaryTracks++;
+						totalScore += 200.0; // Bonus points for visionary tracks
+					}
+				} catch (ParseException e) {
+					// Skip tracks with unparseable dates
+					continue;
+				}
+			}
+
+			// Determine badge and description
+			String badge;
+			String description;
+			
+			if (visionaryTracks >= 5 || totalScore >= 1000) {
+				badge = "Visionary";
+				description = String.format("You discovered %d tracks before they blew up! You're a true music visionary.", visionaryTracks);
+			} else if (visionaryTracks >= 2 || totalScore >= 500) {
+				badge = "Trendsetter";
+				description = String.format("You have an ear for what's next! %d of your early discoveries became hits.", visionaryTracks);
+			} else if (earlyAdopterTracks >= 5 || totalScore >= 200) {
+				badge = "Early Adopter";
+				description = String.format("You're always ahead of the curve! You discovered %d tracks within a week of release.", earlyAdopterTracks);
+			} else if (earlyAdopterTracks >= 1 || totalScore >= 50) {
+				badge = "Explorer";
+				description = "You love discovering new music! Keep exploring to unlock your trendsetter potential.";
+			} else {
+				badge = "Listener";
+				description = "Every music journey starts with listening. Keep exploring to discover your trendsetter side!";
+			}
+
+			result.put("score", (int) totalScore);
+			result.put("badge", badge);
+			result.put("description", description);
+			result.put("visionaryTracks", visionaryTracks);
+			result.put("earlyAdopterTracks", earlyAdopterTracks);
+		} catch (Exception e) {
+			System.out.println("Error calculating trendsetter score: " + e.getMessage());
+			result.put("score", 0);
+			result.put("badge", "Listener");
+			result.put("description", "Keep exploring to discover your trendsetter potential!");
+			result.put("visionaryTracks", 0);
+			result.put("earlyAdopterTracks", 0);
+		}
+
+		return result;
+	}
+
+	/**
+	 * Calculates "The Repost King/Queen" metric.
+	 * Tracks how many reposted tracks went on to become popular/trending.
+	 * 
+	 * @param userId SoundCloud user ID
+	 * @param likes List of liked tracks (to check repost status and popularity)
+	 * @return Map containing count, percentage, and description
+	 */
+	private Map<String, Object> calculateRepostKingScore(String userId, List<Map<String, Object>> likes) {
+		Map<String, Object> result = new HashMap<>();
+		
+		if (userId == null || userId.isEmpty() || likes == null || likes.isEmpty()) {
+			result.put("repostedTracks", 0);
+			result.put("trendingTracks", 0);
+			result.put("percentage", 0.0);
+			result.put("badge", "Listener");
+			result.put("description", "Start reposting to become a Repost King/Queen!");
+			return result;
+		}
+
+		try {
+			// Get all reposted tracks from UserActivity
+			java.time.LocalDateTime oneYearAgo = java.time.LocalDateTime.now().minusYears(1);
+			java.time.LocalDateTime now = java.time.LocalDateTime.now();
+			
+			List<com.soundwrapped.entity.UserActivity> repostActivities = 
+				userActivityRepository.findBySoundcloudUserIdAndActivityTypeAndCreatedAtBetween(
+					userId, 
+					com.soundwrapped.entity.UserActivity.ActivityType.REPOST,
+					oneYearAgo,
+					now
+				);
+
+			// Create a set of reposted track IDs
+			Set<String> repostedTrackIds = new HashSet<>();
+			for (com.soundwrapped.entity.UserActivity activity : repostActivities) {
+				repostedTrackIds.add(activity.getTrackId());
+			}
+
+			if (repostedTrackIds.isEmpty()) {
+				result.put("repostedTracks", 0);
+				result.put("trendingTracks", 0);
+				result.put("percentage", 0.0);
+				result.put("badge", "Listener");
+				result.put("description", "Start reposting tracks you love to become a Repost King/Queen!");
+				return result;
+			}
+
+			// Count how many reposted tracks became "trending" (high reposts_count)
+			int totalReposted = repostedTrackIds.size();
+			int trendingTracks = 0;
+
+			// Check each liked track to see if it was reposted and is now trending
+			for (Map<String, Object> track : likes) {
+				String trackId = String.valueOf(track.getOrDefault("id", ""));
+				if (repostedTrackIds.contains(trackId)) {
+					long repostsCount = ((Number) track.getOrDefault("reposts_count", 0)).longValue();
+					
+					// Consider "trending" if reposts_count > 1000
+					if (repostsCount > 1000) {
+						trendingTracks++;
+					}
+				}
+			}
+
+			double percentage = totalReposted > 0 ? (double) trendingTracks / totalReposted * 100.0 : 0.0;
+
+			// Determine badge and description
+			String badge;
+			String description;
+			
+			if (trendingTracks >= 10 || percentage >= 50.0) {
+				badge = "Repost Royalty";
+				description = String.format("You reposted %d tracks that went viral! You're the ultimate Repost Royalty.", trendingTracks);
+			} else if (trendingTracks >= 5 || percentage >= 30.0) {
+				badge = "Repost King/Queen";
+				description = String.format("You have impeccable taste! %d of your reposts became trending hits.", trendingTracks);
+			} else if (trendingTracks >= 2 || percentage >= 15.0) {
+				badge = "Repost Enthusiast";
+				description = String.format("You're building your reputation! %d of your reposts caught fire.", trendingTracks);
+			} else if (totalReposted >= 5) {
+				badge = "Repost Supporter";
+				description = String.format("You reposted %d tracks this year! Keep sharing the music you love.", totalReposted);
+			} else {
+				badge = "Listener";
+				description = "Start reposting tracks you love to become a Repost King/Queen!";
+			}
+
+			result.put("repostedTracks", totalReposted);
+			result.put("trendingTracks", trendingTracks);
+			result.put("percentage", percentage);
+			result.put("badge", badge);
+			result.put("description", description);
+		} catch (Exception e) {
+			System.out.println("Error calculating repost king score: " + e.getMessage());
+			result.put("repostedTracks", 0);
+			result.put("trendingTracks", 0);
+			result.put("percentage", 0.0);
+			result.put("badge", "Listener");
+			result.put("description", "Start reposting to become a Repost King/Queen!");
+		}
+
+		return result;
+	}
+
+	/**
+	 * Generates "The Sonic Archetype" - an AI-generated musical persona based on listening data.
+	 * 
+	 * @param tracks List of user's tracks
+	 * @param likes List of liked tracks
+	 * @param topArtists List of top artist names
+	 * @param genreAnalysis Genre analysis data
+	 * @return A creative persona description
+	 */
+	private String generateSonicArchetype(List<Map<String, Object>> tracks, List<Map<String, Object>> likes, 
+		List<String> topArtists, Map<String, Object> genreAnalysis) {
+		
+		try {
+			// Build context from user's music data
+			StringBuilder context = new StringBuilder();
+			context.append("Musical Profile:\n\n");
+			
+			// Top genres
+			@SuppressWarnings("unchecked")
+			List<String> topGenres = (List<String>) genreAnalysis.getOrDefault("topGenres", List.of());
+			if (!topGenres.isEmpty()) {
+				context.append("Top Genres: ").append(String.join(", ", topGenres.subList(0, Math.min(5, topGenres.size())))).append("\n");
+			}
+			
+			// Top artists
+			if (topArtists != null && !topArtists.isEmpty()) {
+				context.append("Top Artists: ").append(String.join(", ", topArtists.subList(0, Math.min(5, topArtists.size())))).append("\n");
+			}
+			
+			// Listening patterns
+			long totalPlays = tracks.stream()
+				.mapToLong(t -> ((Number) t.getOrDefault("playback_count", 0)).longValue())
+				.sum();
+			context.append("Total Plays: ").append(totalPlays).append("\n");
+			
+			// Create prompt for persona generation
+			String prompt = String.format(
+				"Based on this music listener's profile, create a creative and fun musical persona (archetype) for them. " +
+				"Give them a catchy title like 'The 3 AM Lo-Fi Scholar' or 'The High-Octane Bass Hunter' and write 2-3 sentences " +
+				"describing their musical personality, listening style, and what makes them unique. " +
+				"Make it inspiring, personal, and capture the essence of their musical journey. " +
+				"Be creative and use the genres and artists naturally in the description.\n\n" +
+				"%s",
+				context.toString()
+			);
+
+			// Use Groq to generate the persona
+			String archetype = getGroqDescription("Sonic Archetype", "persona", prompt);
+			
+			if (archetype != null && !archetype.trim().isEmpty()) {
+				return archetype.trim();
+			}
+		} catch (Exception e) {
+			System.out.println("Error generating sonic archetype: " + e.getMessage());
+		}
+
+		// Fallback persona
+		return "The Musical Explorer - You're on a journey through sound, discovering new artists and genres with an open heart and curious ears.";
+	}
+
 	//Helper methods for safe casting
 	@SuppressWarnings("unchecked")
 	private List<Map<String, Object>> castToMapList(Object obj) {
@@ -4349,6 +4661,20 @@ public class SoundWrappedService {
 		List<String> topGenres = (List<String>) raw.getOrDefault("topGenres", List.of());
 		String yearInReviewPoetry = generateYearInReviewPoetry(rankedTracks, topGenres, username);
 		wrapped.put("yearInReviewPoetry", yearInReviewPoetry);
+
+		// Phase 2: Add Trendsetter Score
+		@SuppressWarnings("unchecked")
+		Map<String, Object> trendsetterScore = (Map<String, Object>) raw.getOrDefault("trendsetterScore", new HashMap<>());
+		wrapped.put("trendsetterScore", trendsetterScore);
+
+		// Phase 2: Add Repost King/Queen Score
+		@SuppressWarnings("unchecked")
+		Map<String, Object> repostKingScore = (Map<String, Object>) raw.getOrDefault("repostKingScore", new HashMap<>());
+		wrapped.put("repostKingScore", repostKingScore);
+
+		// Phase 2: Add Sonic Archetype
+		String sonicArchetype = (String) raw.getOrDefault("sonicArchetype", "");
+		wrapped.put("sonicArchetype", sonicArchetype);
 
 		List<String> stories = new ArrayList<String>();
 

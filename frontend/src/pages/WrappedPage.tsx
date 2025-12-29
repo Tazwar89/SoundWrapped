@@ -392,6 +392,134 @@ const WrappedPage: React.FC = () => {
         </div>
       )
     },
+    // Phase 2: The Trendsetter (Early Adopter) Score
+    {
+      id: 'trendsetter',
+      component: (
+        <div className="text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="mb-8"
+          >
+            <h2 className="text-4xl md:text-6xl font-bold gradient-text mb-6">
+              The Trendsetter
+            </h2>
+            <p className="text-xl text-slate-300">
+              Your early adopter score
+            </p>
+          </motion.div>
+          
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="max-w-3xl mx-auto"
+          >
+            <div className="stat-card text-center p-8">
+              <div className="text-6xl font-bold gradient-text mb-4">
+                {wrappedData.trendsetterScore?.badge || 'Listener'}
+              </div>
+              <div className="text-3xl font-semibold text-slate-200 mb-4">
+                Score: {wrappedData.trendsetterScore?.score || 0}
+              </div>
+              <div className="text-lg text-slate-300 mb-6 leading-relaxed">
+                {wrappedData.trendsetterScore?.description || "Keep exploring to discover your trendsetter potential!"}
+              </div>
+              {(wrappedData.trendsetterScore?.visionaryTracks || 0) > 0 && (
+                <div className="text-slate-400 text-sm">
+                  🎯 {wrappedData.trendsetterScore.visionaryTracks} visionary tracks • {wrappedData.trendsetterScore.earlyAdopterTracks || 0} early discoveries
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )
+    },
+    // Phase 2: The Repost King/Queen
+    {
+      id: 'repost-king',
+      component: (
+        <div className="text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="mb-8"
+          >
+            <h2 className="text-4xl md:text-6xl font-bold gradient-text mb-6">
+              The Repost King/Queen
+            </h2>
+            <p className="text-xl text-slate-300">
+              Your repost influence
+            </p>
+          </motion.div>
+          
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="max-w-3xl mx-auto"
+          >
+            <div className="stat-card text-center p-8">
+              <div className="text-6xl font-bold gradient-text mb-4">
+                {wrappedData.repostKingScore?.badge || 'Listener'}
+              </div>
+              <div className="text-4xl font-semibold text-slate-200 mb-2">
+                {wrappedData.repostKingScore?.trendingTracks || 0}
+              </div>
+              <div className="text-lg text-slate-300 mb-2">
+                of {wrappedData.repostKingScore?.repostedTracks || 0} reposts became trending
+              </div>
+              {wrappedData.repostKingScore && wrappedData.repostKingScore.repostedTracks > 0 && (
+                <div className="text-2xl font-bold text-orange-400 mb-6">
+                  {wrappedData.repostKingScore.percentage.toFixed(1)}% success rate
+                </div>
+              )}
+              <div className="text-lg text-slate-300 leading-relaxed">
+                {wrappedData.repostKingScore?.description || "Start reposting tracks you love to become a Repost King/Queen!"}
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )
+    },
+    // Phase 2: The Sonic Archetype
+    {
+      id: 'sonic-archetype',
+      component: (
+        <div className="text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="mb-8"
+          >
+            <h2 className="text-4xl md:text-6xl font-bold gradient-text mb-6">
+              Your Sonic Archetype
+            </h2>
+            <p className="text-xl text-slate-300">
+              Your musical persona
+            </p>
+          </motion.div>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="max-w-3xl mx-auto"
+          >
+            <div className="stat-card text-center p-8">
+              <Sparkles className="h-12 w-12 text-purple-400 mx-auto mb-6" />
+              <div className="text-lg md:text-xl text-slate-200 leading-relaxed whitespace-pre-line">
+                {wrappedData.sonicArchetype || "The Musical Explorer - You're on a journey through sound, discovering new artists and genres with an open heart and curious ears."}
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )
+    },
     // Fun Facts
     {
       id: 'fun-facts',
