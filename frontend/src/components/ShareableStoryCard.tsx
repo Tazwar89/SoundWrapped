@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Download, X } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { WrappedData } from '../contexts/MusicDataContext'
 import { formatNumber } from '../utils/formatters'
 
@@ -9,10 +10,24 @@ interface ShareableStoryCardProps {
   onClose: () => void
 }
 
+type CardType = 'summary' | 'listening' | 'top-track' | 'top-artist' | 'underground' | 'trendsetter' | 'repost' | 'archetype'
+type ColorTheme = 'orange' | 'blue' | 'purple' | 'green' | 'red' | 'pink'
+type FontSize = 'small' | 'medium' | 'large'
+
+interface CardCustomization {
+  cardType: CardType
+  colorTheme: ColorTheme
+  fontSize: FontSize
+}
+
 const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, onClose }) => {
   const cardRef = useRef<HTMLDivElement>(null)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [cardType, setCardType] = useState<'summary' | 'listening' | 'top-track' | 'top-artist' | 'underground' | 'trendsetter' | 'repost' | 'archetype'>('summary')
+  const [customization, setCustomization] = useState<CardCustomization>({
+    cardType: 'summary',
+    colorTheme: 'orange',
+    fontSize: 'medium'
+  })
 
   const downloadCard = async () => {
     if (!cardRef.current) return
@@ -44,7 +59,11 @@ const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, on
       }, 'image/png')
     } catch (error) {
       console.error('Error generating card:', error)
-      alert('Failed to generate card. Please try again.')
+      const errorMessage = error instanceof Error ? error.message : 'Failed to generate card. Please try again.'
+      toast.error(errorMessage, {
+        icon: '❌',
+        duration: 4000
+      })
     } finally {
       setIsGenerating(false)
     }
@@ -69,29 +88,84 @@ const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, on
         <p className="text-slate-300 mb-4">Choose a card type and download for social media</p>
 
         {/* Card Type Selector */}
-        <div className="mb-4 flex flex-wrap gap-2 justify-center">
-          {[
-            { id: 'summary', label: 'Summary' },
-            { id: 'listening', label: 'Listening' },
-            { id: 'top-track', label: 'Top Track' },
-            { id: 'top-artist', label: 'Top Artist' },
-            { id: 'underground', label: 'Underground' },
-            { id: 'trendsetter', label: 'Trendsetter' },
-            { id: 'repost', label: 'Repost' },
-            { id: 'archetype', label: 'Archetype' }
-          ].map((type) => (
-            <button
-              key={type.id}
-              onClick={() => setCardType(type.id as any)}
-              className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                cardType === type.id
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-white/5 text-slate-300 hover:bg-white/10'
-              }`}
-            >
-              {type.label}
-            </button>
-          ))}
+        <div className="mb-4">
+          <label className="text-sm text-slate-300 mb-2 block">Card Type</label>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { id: 'summary', label: 'Summary' },
+              { id: 'listening', label: 'Listening' },
+              { id: 'top-track', label: 'Top Track' },
+              { id: 'top-artist', label: 'Top Artist' },
+              { id: 'underground', label: 'Underground' },
+              { id: 'trendsetter', label: 'Trendsetter' },
+              { id: 'repost', label: 'Repost' },
+              { id: 'archetype', label: 'Archetype' }
+            ].map((type) => (
+              <button
+                key={type.id}
+                onClick={() => setCustomization({ ...customization, cardType: type.id as CardType })}
+                className={`px-3 py-1 rounded-lg text-sm transition-colors ${
+                  customization.cardType === type.id
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                }`}
+              >
+                {type.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Color Theme Selector */}
+        <div className="mb-4">
+          <label className="text-sm text-slate-300 mb-2 block">Color Theme</label>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { id: 'orange', label: 'Orange', color: 'bg-orange-500' },
+              { id: 'blue', label: 'Blue', color: 'bg-blue-500' },
+              { id: 'purple', label: 'Purple', color: 'bg-purple-500' },
+              { id: 'green', label: 'Green', color: 'bg-green-500' },
+              { id: 'red', label: 'Red', color: 'bg-red-500' },
+              { id: 'pink', label: 'Pink', color: 'bg-pink-500' }
+            ].map((theme) => (
+              <button
+                key={theme.id}
+                onClick={() => setCustomization({ ...customization, colorTheme: theme.id as ColorTheme })}
+                className={`px-3 py-1 rounded-lg text-sm transition-colors flex items-center gap-2 ${
+                  customization.colorTheme === theme.id
+                    ? 'bg-white/20 text-white border-2 border-white/50'
+                    : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                }`}
+              >
+                <div className={`w-3 h-3 rounded-full ${theme.color}`} />
+                {theme.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Font Size Selector */}
+        <div className="mb-4">
+          <label className="text-sm text-slate-300 mb-2 block">Font Size</label>
+          <div className="flex gap-2">
+            {[
+              { id: 'small', label: 'Small' },
+              { id: 'medium', label: 'Medium' },
+              { id: 'large', label: 'Large' }
+            ].map((size) => (
+              <button
+                key={size.id}
+                onClick={() => setCustomization({ ...customization, fontSize: size.id as FontSize })}
+                className={`px-4 py-2 rounded-lg text-sm transition-colors flex-1 ${
+                  customization.fontSize === size.id
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                }`}
+              >
+                {size.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Card Preview - 9:16 aspect ratio for Instagram/TikTok stories */}
@@ -102,25 +176,25 @@ const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, on
             style={{ aspectRatio: '9/16' }}
           >
             {/* Render different card types based on selection */}
-            {cardType === 'summary' && (
+            {customization.cardType === 'summary' && (
               <>
-                {/* Background - Dark with gradient */}
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-black" />
+                {/* Background - Dynamic gradient based on theme */}
+                <div className={`absolute inset-0 ${getGradientClasses(customization.colorTheme)}`} />
                 <div className="absolute inset-0 opacity-20">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500 rounded-full blur-3xl" />
-                  <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500 rounded-full blur-3xl" />
+                  <div className={`absolute top-0 right-0 w-64 h-64 ${customization.colorTheme === 'orange' ? 'bg-orange-500' : customization.colorTheme === 'blue' ? 'bg-blue-500' : customization.colorTheme === 'purple' ? 'bg-purple-500' : customization.colorTheme === 'green' ? 'bg-green-500' : customization.colorTheme === 'red' ? 'bg-red-500' : 'bg-pink-500'} rounded-full blur-3xl`} />
+                  <div className={`absolute bottom-0 left-0 w-64 h-64 ${customization.colorTheme === 'orange' ? 'bg-purple-500' : customization.colorTheme === 'blue' ? 'bg-indigo-500' : customization.colorTheme === 'purple' ? 'bg-pink-500' : customization.colorTheme === 'green' ? 'bg-teal-500' : customization.colorTheme === 'red' ? 'bg-orange-500' : 'bg-purple-500'} rounded-full blur-3xl`} />
                 </div>
 
                 {/* Content */}
                 <div className="relative z-10 flex flex-col h-full justify-between">
                   <div className="text-center">
-                    <div className="text-6xl font-black text-white mb-2" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+                    <div className={`${getFontSizeClasses(customization.fontSize, 'title')} font-black text-white mb-2`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
                       2024
                     </div>
-                    <div className="text-4xl font-bold text-white mb-1" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+                    <div className={`${getFontSizeClasses(customization.fontSize, 'subtitle')} font-bold text-white mb-1`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
                       {wrappedData.profile.username}
                     </div>
-                    <div className="text-slate-300 text-sm">Your Year in Music</div>
+                    <div className={`${getFontSizeClasses(customization.fontSize, 'body')} text-slate-300`}>Your Year in Music</div>
                   </div>
 
                   <div className="space-y-4">
@@ -168,40 +242,40 @@ const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, on
               </>
             )}
 
-            {cardType === 'listening' && (
+            {customization.cardType === 'listening' && (
               <>
-                <div className="absolute inset-0 bg-gradient-to-br from-orange-600 via-orange-500 to-yellow-500" />
+                <div className={`absolute inset-0 ${getGradientClasses(customization.colorTheme)}`} />
                 <div className="relative z-10 flex flex-col h-full justify-center items-center text-center">
-                  <div className="text-7xl font-black text-white mb-4" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'title')} font-black text-white mb-4`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
                     {wrappedData.stats.totalListeningHours.toFixed(2).replace(/\.?0+$/, '')}
                   </div>
-                  <div className="text-2xl font-bold text-white mb-8">Hours Listening</div>
-                  <div className="text-white/80 text-sm">Your Year in Music</div>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'subtitle')} font-bold text-white mb-8`}>Hours Listening</div>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'body')} text-white/80`}>Your Year in Music</div>
                   <div className="absolute bottom-8 text-white/60 text-xs">soundwrapped.app</div>
                 </div>
               </>
             )}
 
-            {cardType === 'top-track' && wrappedData.topTracks.length > 0 && (
+            {customization.cardType === 'top-track' && wrappedData.topTracks.length > 0 && (
               <>
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-600 via-pink-600 to-red-500" />
+                <div className={`absolute inset-0 ${getGradientClasses(customization.colorTheme)}`} />
                 <div className="relative z-10 flex flex-col h-full justify-center items-center text-center px-6">
-                  <div className="text-xs text-white/80 mb-4 uppercase tracking-widest">Top Track</div>
-                  <div className="text-3xl font-black text-white mb-3 leading-tight" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'body')} text-white/80 mb-4 uppercase tracking-widest`}>Top Track</div>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'subtitle')} font-black text-white mb-3 leading-tight`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
                     {wrappedData.topTracks[0].title}
                   </div>
-                  <div className="text-xl text-white/90 mb-8">by {wrappedData.topTracks[0].artist}</div>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'subtitle')} text-white/90 mb-8`}>by {wrappedData.topTracks[0].artist}</div>
                   <div className="text-white/60 text-xs">soundwrapped.app</div>
                 </div>
               </>
             )}
 
-            {cardType === 'top-artist' && wrappedData.topArtists.length > 0 && (
+            {customization.cardType === 'top-artist' && wrappedData.topArtists.length > 0 && (
               <>
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600" />
+                <div className={`absolute inset-0 ${getGradientClasses(customization.colorTheme)}`} />
                 <div className="relative z-10 flex flex-col h-full justify-center items-center text-center px-6">
-                  <div className="text-xs text-white/80 mb-4 uppercase tracking-widest">Top Artist</div>
-                  <div className="text-4xl font-black text-white mb-8" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'body')} text-white/80 mb-4 uppercase tracking-widest`}>Top Artist</div>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'title')} font-black text-white mb-8`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
                     {wrappedData.topArtists[0].artist}
                   </div>
                   <div className="text-white/60 text-xs">soundwrapped.app</div>
@@ -209,61 +283,61 @@ const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, on
               </>
             )}
 
-            {cardType === 'underground' && wrappedData.undergroundSupportPercentage !== undefined && (
+            {customization.cardType === 'underground' && wrappedData.undergroundSupportPercentage !== undefined && (
               <>
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-700 via-pink-600 to-purple-800" />
+                <div className={`absolute inset-0 ${getGradientClasses(customization.colorTheme)}`} />
                 <div className="relative z-10 flex flex-col h-full justify-center items-center text-center px-6">
-                  <div className="text-xs text-white/80 mb-4 uppercase tracking-widest">Support the Underground</div>
-                  <div className="text-7xl font-black text-white mb-4" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'body')} text-white/80 mb-4 uppercase tracking-widest`}>Support the Underground</div>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'title')} font-black text-white mb-4`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
                     {wrappedData.undergroundSupportPercentage.toFixed(1)}%
                   </div>
-                  <div className="text-lg text-white/90 mb-8">of your listening time went to artists with fewer than 5,000 followers</div>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'subtitle')} text-white/90 mb-8`}>of your listening time went to artists with fewer than 5,000 followers</div>
                   <div className="text-white/60 text-xs">soundwrapped.app</div>
                 </div>
               </>
             )}
 
-            {cardType === 'trendsetter' && wrappedData.trendsetterScore && (
+            {customization.cardType === 'trendsetter' && wrappedData.trendsetterScore && (
               <>
-                <div className="absolute inset-0 bg-gradient-to-br from-yellow-500 via-orange-500 to-red-500" />
+                <div className={`absolute inset-0 ${getGradientClasses(customization.colorTheme)}`} />
                 <div className="relative z-10 flex flex-col h-full justify-center items-center text-center px-6">
-                  <div className="text-xs text-white/80 mb-4 uppercase tracking-widest">The Trendsetter</div>
-                  <div className="text-5xl font-black text-white mb-3" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'body')} text-white/80 mb-4 uppercase tracking-widest`}>The Trendsetter</div>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'title')} font-black text-white mb-3`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
                     {wrappedData.trendsetterScore.badge}
                   </div>
-                  <div className="text-lg text-white/90 mb-2">Score: {wrappedData.trendsetterScore.score}</div>
-                  <div className="text-sm text-white/80 mb-8">{wrappedData.trendsetterScore.description}</div>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'subtitle')} text-white/90 mb-2`}>Score: {wrappedData.trendsetterScore.score}</div>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'body')} text-white/80 mb-8`}>{wrappedData.trendsetterScore.description}</div>
                   <div className="text-white/60 text-xs">soundwrapped.app</div>
                 </div>
               </>
             )}
 
-            {cardType === 'repost' && wrappedData.repostKingScore && (
+            {customization.cardType === 'repost' && wrappedData.repostKingScore && (
               <>
-                <div className="absolute inset-0 bg-gradient-to-br from-green-600 via-emerald-500 to-teal-600" />
+                <div className={`absolute inset-0 ${getGradientClasses(customization.colorTheme)}`} />
                 <div className="relative z-10 flex flex-col h-full justify-center items-center text-center px-6">
-                  <div className="text-xs text-white/80 mb-4 uppercase tracking-widest">The Repost King/Queen</div>
-                  <div className="text-5xl font-black text-white mb-3" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'body')} text-white/80 mb-4 uppercase tracking-widest`}>The Repost King/Queen</div>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'title')} font-black text-white mb-3`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
                     {wrappedData.repostKingScore.badge}
                   </div>
-                  <div className="text-4xl font-black text-white mb-2">{wrappedData.repostKingScore.trendingTracks}</div>
-                  <div className="text-sm text-white/90 mb-2">of {wrappedData.repostKingScore.repostedTracks} reposts became trending</div>
-                  <div className="text-lg text-white font-bold mb-8">{wrappedData.repostKingScore.percentage.toFixed(1)}% success rate</div>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'title')} font-black text-white mb-2`}>{wrappedData.repostKingScore.trendingTracks}</div>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'body')} text-white/90 mb-2`}>of {wrappedData.repostKingScore.repostedTracks} reposts became trending</div>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'subtitle')} text-white font-bold mb-8`}>{wrappedData.repostKingScore.percentage.toFixed(1)}% success rate</div>
                   <div className="text-white/60 text-xs">soundwrapped.app</div>
                 </div>
               </>
             )}
 
-            {cardType === 'archetype' && wrappedData.sonicArchetype && (
+            {customization.cardType === 'archetype' && wrappedData.sonicArchetype && (
               <>
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-700 via-purple-600 to-pink-600" />
+                <div className={`absolute inset-0 ${getGradientClasses(customization.colorTheme)}`} />
                 <div className="relative z-10 flex flex-col h-full justify-center items-center text-center px-6">
-                  <div className="text-xs text-white/80 mb-4 uppercase tracking-widest">Your Sonic Archetype</div>
-                  <div className="text-2xl font-black text-white mb-6 leading-tight" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'body')} text-white/80 mb-4 uppercase tracking-widest`}>Your Sonic Archetype</div>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'subtitle')} font-black text-white mb-6 leading-tight`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
                     {wrappedData.sonicArchetype.split('\n')[0]}
                   </div>
                   {wrappedData.sonicArchetype.split('\n').slice(1).map((line, i) => (
-                    <div key={i} className="text-base text-white/90 mb-2">{line}</div>
+                    <div key={i} className={`${getFontSizeClasses(customization.fontSize, 'body')} text-white/90 mb-2`}>{line}</div>
                   ))}
                   <div className="absolute bottom-8 text-white/60 text-xs">soundwrapped.app</div>
                 </div>

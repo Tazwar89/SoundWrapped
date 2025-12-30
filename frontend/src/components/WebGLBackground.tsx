@@ -2,9 +2,19 @@ import React, { useEffect, useRef } from 'react'
 
 interface WebGLBackgroundProps {
   className?: string
+  color1?: [number, number, number]
+  color2?: [number, number, number]
+  color3?: [number, number, number]
+  speed?: number
 }
 
-const WebGLBackground: React.FC<WebGLBackgroundProps> = ({ className = '' }) => {
+const WebGLBackground: React.FC<WebGLBackgroundProps> = ({ 
+  className = '',
+  color1,
+  color2,
+  color3,
+  speed
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationFrameRef = useRef<number>()
 
@@ -293,14 +303,14 @@ const WebGLBackground: React.FC<WebGLBackgroundProps> = ({ className = '' }) => 
     // - Secondary: #000000 (RGB: 0, 0, 0) - black
     // Animation style inspired by Luma's fluid, organic background
     const params = {
-      speed: 1.5,                        // Fast, dynamic movement
+      speed: speed ?? 1.5,                        // Fast, dynamic movement (can be overridden)
       noiseDensity: 1.0,
       noiseStrength: 0.6,               // Increased for more organic variation
       brightness: 1.0,
       alpha: 1.0,                      // Fully opaque for maximum visibility
-      color1: [1.0, 0.333, 0.0],         // SoundCloud orange #FF5500 (RGB: 255, 85, 0)
-      color2: [0.5, 0.165, 0.0],         // Mid-tone dark orange #802A00 (RGB: 128, 42, 0)
-      color3: [0.0, 0.0, 0.0],           // Black #000000
+      color1: color1 ?? [1.0, 0.333, 0.0],         // SoundCloud orange #FF5500 (RGB: 255, 85, 0) (can be overridden)
+      color2: color2 ?? [0.5, 0.165, 0.0],         // Mid-tone dark orange #802A00 (RGB: 128, 42, 0) (can be overridden)
+      color3: color3 ?? [0.0, 0.0, 0.0],           // Black #000000 (can be overridden)
       offset: [0.0, 0.0]
     }
 

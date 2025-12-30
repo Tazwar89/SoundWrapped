@@ -24,16 +24,48 @@ api.interceptors.request.use(
   }
 )
 
-// Response interceptor to handle errors
+// Response interceptor to handle errors with better user feedback
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid
-      localStorage.removeItem('accessToken')
-      localStorage.removeItem('user')
-      window.location.href = '/'
+    // Handle different error types
+    if (error.response) {
+      // Server responded with error status
+      const status = error.response.status
+      const message = error.response.data?.message || error.response.data?.error || 'An error occurred'
+      
+      switch (status) {
+        case 401:
+          // Token expired or invalid
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('user')
+          // Don't redirect immediately - let the component handle it
+          break
+        case 403:
+          console.error('Forbidden: ', message)
+          break
+        case 404:
+          console.error('Not found: ', message)
+          break
+        case 429:
+          console.error('Rate limited: ', message)
+          break
+        case 500:
+        case 502:
+        case 503:
+          console.error('Server error: ', message)
+          break
+        default:
+          console.error(`API error (${status}): `, message)
+      }
+    } else if (error.request) {
+      // Request was made but no response received
+      console.error('Network error: No response from server. Please check your connection.')
+    } else {
+      // Something else happened
+      console.error('Request error: ', error.message)
     }
+    
     return Promise.reject(error)
   }
 )

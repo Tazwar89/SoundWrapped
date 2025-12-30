@@ -53,6 +53,13 @@ groq:
 serpapi:
   api-key: ${SERPAPI_API_KEY:}
 
+theaudiodb:
+  api-key: ${THEAUDIODB_API_KEY:}
+
+lastfm:
+  api-key: ${LASTFM_API_KEY:}
+  api-secret: ${LASTFM_API_SECRET:}
+
 # ----------------------------
 # Test profile (Testcontainers)
 # ----------------------------

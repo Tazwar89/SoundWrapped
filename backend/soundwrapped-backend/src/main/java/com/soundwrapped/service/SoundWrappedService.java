@@ -62,6 +62,9 @@ public class SoundWrappedService {
 	private final GenreAnalysisService genreAnalysisService;
 	private final UserActivityRepository userActivityRepository;
 	private final ActivityTrackingService activityTrackingService;
+	private final LyricsService lyricsService;
+	private final EnhancedArtistService enhancedArtistService;
+	private final SimilarArtistsService similarArtistsService;
 	
 	// Daily cache for "Genre of the Day"
 	private static Map<String, Object> cachedGenreOfTheDay = null;
@@ -80,12 +83,18 @@ public class SoundWrappedService {
 			RestTemplate restTemplate,
 			GenreAnalysisService genreAnalysisService,
 			UserActivityRepository userActivityRepository,
-			ActivityTrackingService activityTrackingService) {
+			ActivityTrackingService activityTrackingService,
+			LyricsService lyricsService,
+			EnhancedArtistService enhancedArtistService,
+			SimilarArtistsService similarArtistsService) {
 		this.tokenStore = tokenStore;
 		this.restTemplate = restTemplate;
 		this.genreAnalysisService = genreAnalysisService;
 		this.userActivityRepository = userActivityRepository;
 		this.activityTrackingService = activityTrackingService;
+		this.lyricsService = lyricsService;
+		this.enhancedArtistService = enhancedArtistService;
+		this.similarArtistsService = similarArtistsService;
 	}
 	
 	/**
@@ -1275,6 +1284,7 @@ public class SoundWrappedService {
 	 * @param limit Maximum number of tracks to return
 	 * @return List of popular/trending tracks from chart playlists
 	 */
+	@org.springframework.cache.annotation.Cacheable(value = "popularTracks", key = "#limit", unless = "#result == null || #result.isEmpty()")
 	public List<Map<String, Object>> getPopularTracks(int limit) {
 		try {
 			// Use the playlist URN directly from the embed code: soundcloud:playlists:1714689261
@@ -1518,6 +1528,26 @@ public class SoundWrappedService {
 				int selectedIndex = random.nextInt(Math.min(discoveryTracks.size(), 10));
 				Map<String, Object> selectedTrack = discoveryTracks.get(selectedIndex);
 				
+				// Fetch lyrics for the track (async/non-blocking)
+				try {
+					Object userObj = selectedTrack.get("user");
+					if (userObj instanceof Map<?, ?> userMap) {
+						@SuppressWarnings("unchecked")
+						Map<String, Object> userMapTyped = (Map<String, Object>) userMap;
+						String artist = (String) userMapTyped.getOrDefault("username", "");
+						String title = (String) selectedTrack.getOrDefault("title", "");
+						if (!artist.isEmpty() && !title.isEmpty()) {
+							String lyrics = lyricsService.getLyrics(artist, title);
+							if (lyrics != null && !lyrics.isEmpty()) {
+								selectedTrack.put("lyrics", lyrics);
+							}
+						}
+					}
+				} catch (Exception e) {
+					System.out.println("Error fetching lyrics for featured track: " + e.getMessage());
+					// Continue without lyrics - not critical
+				}
+				
 				// Cache the result for today
 				cachedSongOfTheDay = selectedTrack;
 				cachedSongDate = today;
@@ -1537,7 +1567,27 @@ public class SoundWrappedService {
 				int endIndex = Math.min(30, popularTracks.size());
 				if (endIndex > startIndex) {
 					int selectedIndex = startIndex + random.nextInt(endIndex - startIndex);
-					Map<String, Object> selectedTrack = popularTracks.get(selectedIndex);
+					Map<String, Object> selectedTrack = new HashMap<>(popularTracks.get(selectedIndex));
+					
+					// Fetch lyrics for the track (async/non-blocking)
+					try {
+						Object userObj = selectedTrack.get("user");
+						if (userObj instanceof Map<?, ?> userMap) {
+							@SuppressWarnings("unchecked")
+							Map<String, Object> userMapTyped = (Map<String, Object>) userMap;
+							String artist = (String) userMapTyped.getOrDefault("username", "");
+							String title = (String) selectedTrack.getOrDefault("title", "");
+							if (!artist.isEmpty() && !title.isEmpty()) {
+								String lyrics = lyricsService.getLyrics(artist, title);
+								if (lyrics != null && !lyrics.isEmpty()) {
+									selectedTrack.put("lyrics", lyrics);
+								}
+							}
+						}
+					} catch (Exception e) {
+						System.out.println("Error fetching lyrics for featured track: " + e.getMessage());
+						// Continue without lyrics - not critical
+					}
 					
 					cachedSongOfTheDay = selectedTrack;
 					cachedSongDate = today;
@@ -1547,7 +1597,27 @@ public class SoundWrappedService {
 				} else if (popularTracks.size() > 0) {
 					// If we don't have enough tracks for 11-30 range, use any available track
 					int selectedIndex = random.nextInt(popularTracks.size());
-					Map<String, Object> selectedTrack = popularTracks.get(selectedIndex);
+					Map<String, Object> selectedTrack = new HashMap<>(popularTracks.get(selectedIndex));
+					
+					// Fetch lyrics for the track (async/non-blocking)
+					try {
+						Object userObj = selectedTrack.get("user");
+						if (userObj instanceof Map<?, ?> userMap) {
+							@SuppressWarnings("unchecked")
+							Map<String, Object> userMapTyped = (Map<String, Object>) userMap;
+							String artist = (String) userMapTyped.getOrDefault("username", "");
+							String title = (String) selectedTrack.getOrDefault("title", "");
+							if (!artist.isEmpty() && !title.isEmpty()) {
+								String lyrics = lyricsService.getLyrics(artist, title);
+								if (lyrics != null && !lyrics.isEmpty()) {
+									selectedTrack.put("lyrics", lyrics);
+								}
+							}
+						}
+					} catch (Exception e) {
+						System.out.println("Error fetching lyrics for featured track: " + e.getMessage());
+						// Continue without lyrics - not critical
+					}
 					
 					cachedSongOfTheDay = selectedTrack;
 					cachedSongDate = today;
@@ -1815,6 +1885,27 @@ public class SoundWrappedService {
 					}
 					
 					System.out.println("Final result: getTracksFromArtist returned " + artistTracks.size() + " tracks");
+					
+					// Fetch enhanced artist info from TheAudioDB (async/non-blocking)
+					try {
+						String artistName = (String) selectedArtist.getOrDefault("username", "");
+						if (!artistName.isEmpty()) {
+							Map<String, Object> enhancedInfo = enhancedArtistService.getEnhancedArtistInfo(artistName);
+							if (enhancedInfo != null) {
+								// Add enhanced info to result
+								selectedArtist.put("enhancedInfo", enhancedInfo);
+								
+								// Extract high-quality artwork if available
+								String artwork = enhancedArtistService.getAlbumArtwork(artistName, null);
+								if (artwork != null && !artwork.isEmpty()) {
+									selectedArtist.put("highQualityArtwork", artwork);
+								}
+							}
+						}
+					} catch (Exception e) {
+						System.out.println("Error fetching enhanced artist info: " + e.getMessage());
+						// Continue without enhanced info - not critical
+					}
 					
 					// Create result with artist, description, and tracks
 					Map<String, Object> result = new HashMap<>(selectedArtist);
@@ -2939,6 +3030,7 @@ public class SoundWrappedService {
 	 * @param entityType The type of entity: "music genre" or "music artist"
 	 * @return Description from Groq, or null if not found or API call fails
 	 */
+	@org.springframework.cache.annotation.Cacheable(value = "groqDescriptions", key = "#entityName.toLowerCase() + '|' + #entityType.toLowerCase()", unless = "#result == null || #result.isEmpty()")
 	private String getGroqDescription(String entityName, String entityType) {
 		// Force immediate output
 		System.out.flush();
@@ -3972,12 +4064,34 @@ public class SoundWrappedService {
 			wrapped.put("newestFollower", String.format("Your newest follower this year is @%s!", followerName));
 		}
 
-		//Top 5 tracks by play count
-		List<Map<String, Object>> topTracks = tracks.stream()
+		//Top 5 tracks by play count (deduplicated by track ID)
+		// Use a LinkedHashMap to preserve order while deduplicating by track ID
+		Map<String, Map<String, Object>> uniqueTracks = new LinkedHashMap<>();
+		for (Map<String, Object> track : tracks) {
+			Object trackId = track.get("id");
+			if (trackId != null) {
+				String trackIdStr = String.valueOf(trackId);
+				// Only add if we haven't seen this track ID before, or if this one has a higher playback_count
+				if (!uniqueTracks.containsKey(trackIdStr)) {
+					uniqueTracks.put(trackIdStr, track);
+				} else {
+					// If duplicate, keep the one with higher playback_count
+					Map<String, Object> existing = uniqueTracks.get(trackIdStr);
+					long existingCount = ((Number) existing.getOrDefault("playback_count", 0)).longValue();
+					long newCount = ((Number) track.getOrDefault("playback_count", 0)).longValue();
+					if (newCount > existingCount) {
+						uniqueTracks.put(trackIdStr, track);
+					}
+				}
+			}
+		}
+		
+		List<Map<String, Object>> topTracks = uniqueTracks.values().stream()
 				.sorted((a, b) -> Long.compare(
 						((Number) b.getOrDefault("playback_count", 0)).longValue(),
 						((Number) a.getOrDefault("playback_count", 0)).longValue()))
-				.limit(5).toList();
+				.limit(5)
+				.collect(java.util.stream.Collectors.toList());
 		wrapped.put("topTracks", topTracks);
 
 		//Top 5 liked playlists

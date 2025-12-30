@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { useRetry } from '../hooks/useRetry'
 import { 
   BarChart3, 
   Music, 
@@ -22,6 +23,9 @@ import TopTracksChart from '../components/TopTracksChart'
 import TopArtistsChart from '../components/TopArtistsChart'
 import RecentActivity from '../components/RecentActivity'
 import LoadingSpinner from '../components/LoadingSpinner'
+import GenreConstellation from '../components/GenreConstellation'
+import DynamicMoodBackground from '../components/DynamicMoodBackground'
+import LastFmConnection from '../components/LastFmConnection'
 
 const DashboardPage: React.FC = () => {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -68,8 +72,13 @@ const DashboardPage: React.FC = () => {
       setIsLoadingAnalytics(true)
       const response = await api.get('/soundcloud/dashboard/analytics')
       setAnalytics(response.data)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch analytics:', error)
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to load analytics'
+      toast.error(errorMessage, {
+        icon: '❌',
+        duration: 4000
+      })
     } finally {
       setIsLoadingAnalytics(false)
     }
@@ -238,6 +247,15 @@ const DashboardPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Last.fm Connection */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <LastFmConnection />
+        </motion.div>
+
         {/* Info Banner */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -249,8 +267,8 @@ const DashboardPage: React.FC = () => {
             <div className="flex-1">
               <h4 className="text-sm font-semibold text-orange-300 mb-1">About Your Analytics</h4>
               <p className="text-xs text-orange-200/80">
-                SoundCloud API doesn't provide listening history. The "In-App" stats only track activity within SoundWrapped. 
-                To build comprehensive analytics, use our player to listen to tracks. Platform-wide listening data is not available.
+                Connect your Last.fm account above to automatically track your SoundCloud listening activity across all browsers and devices. 
+                Your plays will be synced every 15 minutes.
               </p>
             </div>
           </div>
@@ -327,38 +345,62 @@ const DashboardPage: React.FC = () => {
 
         {/* Genre Analysis Section */}
         {genreDiscoveryCount > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="stat-card mb-8"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="subsection-title">Genre Discovery</h3>
-                <p className="text-sm text-white/80 mt-1 font-medium">
-                  You've explored {genreDiscoveryCount} {genreDiscoveryCount === 1 ? 'genre' : 'genres'}
+          <>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="stat-card mb-8"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="subsection-title">Genre Discovery</h3>
+                  <p className="text-sm text-white/80 mt-1 font-medium">
+                    You've explored {genreDiscoveryCount} {genreDiscoveryCount === 1 ? 'genre' : 'genres'}
+                  </p>
+                </div>
+              </div>
+              {topGenres.length > 0 && (
+                <div className="flex flex-wrap gap-3">
+                  {topGenres.map((genre: string, index: number) => (
+                    <motion.div
+                      key={genre}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.3, delay: 0.4 + index * 0.05 }}
+                      className="px-4 py-2 bg-gradient-to-r from-orange-500/20 to-orange-600/20 rounded-full border border-orange-500/30"
+                    >
+                      <span className="text-sm font-medium text-orange-300 capitalize">
+                        {genre}
+                      </span>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+            
+            {/* Genre Constellation Visualization */}
+            {genreAnalysis.topGenresByListeningTime && genreAnalysis.topGenresByListeningTime.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+                className="stat-card mb-8"
+              >
+                <h3 className="subsection-title mb-4">Genre Constellation</h3>
+                <p className="text-sm text-white/60 mb-4">
+                  Explore your musical universe. Click on genres to see details.
                 </p>
-              </div>
-            </div>
-            {topGenres.length > 0 && (
-              <div className="flex flex-wrap gap-3">
-                {topGenres.map((genre: string, index: number) => (
-                  <motion.div
-                    key={genre}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.3, delay: 0.4 + index * 0.05 }}
-                    className="px-4 py-2 bg-gradient-to-r from-orange-500/20 to-orange-600/20 rounded-full border border-orange-500/30"
-                  >
-                    <span className="text-sm font-medium text-orange-300 capitalize">
-                      {genre}
-                    </span>
-                  </motion.div>
-                ))}
-              </div>
+                <div className="h-96 w-full">
+                  <GenreConstellation 
+                    genres={genreAnalysis.topGenresByListeningTime.slice(0, 15)}
+                    width={800}
+                    height={384}
+                  />
+                </div>
+              </motion.div>
             )}
-          </motion.div>
+          </>
         )}
 
         {/* Listening Patterns Section */}

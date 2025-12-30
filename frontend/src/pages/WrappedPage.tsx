@@ -178,7 +178,7 @@ const WrappedPage: React.FC = () => {
           <div className="max-w-4xl mx-auto">
             {wrappedData.topTracks.slice(0, 5).map((track, index) => (
               <motion.div
-                key={track.title}
+                key={`${track.title}-${track.artist}-${index}`}
                 initial={{ opacity: 0, x: -50 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.6, delay: index * 0.2 }}

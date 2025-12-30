@@ -77,4 +77,14 @@ public interface UserActivityRepository extends JpaRepository<UserActivity, Long
     @Query("SELECT COUNT(DISTINCT u.soundcloudUserId) FROM UserActivity u " +
            "WHERE u.createdAt >= :since")
     long countDistinctActiveUsersSince(@Param("since") LocalDateTime since);
+
+    /**
+     * Check if an activity already exists (to avoid duplicates from Last.fm syncing)
+     */
+    boolean existsBySoundcloudUserIdAndTrackIdAndActivityTypeAndCreatedAt(
+        String soundcloudUserId,
+        String trackId,
+        UserActivity.ActivityType activityType,
+        LocalDateTime createdAt
+    );
 }

@@ -26,13 +26,9 @@ const HomePage: React.FC = () => {
   useEffect(() => {
     const authStatus = searchParams.get('auth')
     if (authStatus === 'success') {
-      // Show success message and refresh user data
-      console.log('Authentication successful!')
-      // You can add a toast notification here
+      // Authentication successful - user data will be refreshed automatically
     } else if (authStatus === 'error') {
-      // Show error message
-      console.log('Authentication failed!')
-      // You can add a toast notification here
+      // Authentication failed - error handling is done in AuthContext
     }
   }, [searchParams])
 
@@ -42,63 +38,40 @@ const HomePage: React.FC = () => {
       // Fetch featured track from SoundCloud's popular tracks
       try {
         const trackResponse = await api.get('/soundcloud/featured/track')
-        console.log('[HomePage] Featured track response:', trackResponse?.data)
-        console.log('[HomePage] Featured track response keys:', trackResponse?.data ? Object.keys(trackResponse.data) : 'null')
         if (trackResponse?.data && Object.keys(trackResponse.data).length > 0) {
           setFeaturedTrack(trackResponse.data)
-        } else {
-          console.warn('[HomePage] Featured track response is empty or has no keys')
         }
       } catch (e: any) {
-        console.error('[HomePage] Error fetching featured track:', e)
-        console.error('[HomePage] Error details:', e.response?.data || e.message)
         // Silently fail - use placeholder
       }
 
       // Fetch featured artist from SoundCloud's popular tracks
       try {
         const artistResponse = await api.get('/soundcloud/featured/artist')
-        console.log('[HomePage] Featured artist response:', artistResponse?.data)
-        console.log('[HomePage] Featured artist tracks:', artistResponse?.data?.tracks)
-        console.log('[HomePage] Featured artist tracks count:', artistResponse?.data?.tracks?.length || 0)
         if (artistResponse?.data && Object.keys(artistResponse.data).length > 0) {
           setFeaturedArtist(artistResponse.data)
-        } else {
-          console.warn('[HomePage] Featured artist response is empty')
         }
       } catch (e) {
-        console.error('[HomePage] Error fetching featured artist:', e)
         // Silently fail - use placeholder
       }
 
       // Fetch popular/trending tracks from SoundCloud
       try {
         const popularResponse = await api.get('/soundcloud/popular/tracks?limit=5')
-        console.log('[HomePage] Popular tracks response:', popularResponse?.data)
-        console.log('[HomePage] Popular tracks is array?', Array.isArray(popularResponse?.data))
-        console.log('[HomePage] Popular tracks length:', popularResponse?.data?.length)
         if (popularResponse?.data && Array.isArray(popularResponse.data) && popularResponse.data.length > 0) {
           setTrendingTracks(popularResponse.data)
-        } else {
-          console.warn('[HomePage] Popular tracks response is empty or not an array:', popularResponse?.data)
         }
       } catch (e: any) {
-        console.error('[HomePage] Error fetching popular tracks:', e)
-        console.error('[HomePage] Error details:', e.response?.data || e.message)
         // Silently fail - use placeholder
       }
 
       // Fetch featured genre with tracks
       try {
         const genreResponse = await api.get('/soundcloud/featured/genre')
-        console.log('[HomePage] Featured genre response:', genreResponse?.data)
         if (genreResponse?.data) {
           setFeaturedGenre(genreResponse.data)
-        } else {
-          console.warn('[HomePage] Featured genre response is empty')
         }
       } catch (e) {
-        console.error('[HomePage] Error fetching featured genre:', e)
         // Silently fail - use placeholder
       }
     }
@@ -276,6 +249,23 @@ const HomePage: React.FC = () => {
                       <p className="text-sm text-white/80 mb-4">
                         {featuredArtist.description}
                       </p>
+                    )}
+                    {/* Enhanced Artist Info */}
+                    {featuredArtist.enhancedInfo && (
+                      <div className="mt-4 space-y-2">
+                        {featuredArtist.highQualityArtwork && (
+                          <img
+                            src={featuredArtist.highQualityArtwork}
+                            alt={featuredArtist.username || 'Artist'}
+                            className="w-32 h-32 rounded-lg object-cover border border-white/10"
+                          />
+                        )}
+                        {featuredArtist.enhancedInfo.strBiographyEN && (
+                          <p className="text-xs text-white/70 italic">
+                            {featuredArtist.enhancedInfo.strBiographyEN.substring(0, 200)}...
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

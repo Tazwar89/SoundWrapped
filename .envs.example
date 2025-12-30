@@ -24,3 +24,11 @@ GROQ_API_KEY=your_groq_api_key_here
 
 # SerpAPI Configuration (Web Search API)
 SERPAPI_API_KEY=your_serpapi_api_key_here
+
+# TheAudioDB API Configuration (Enhanced Artist Info)
+THEAUDIODB_API_KEY=your_theaudiodb_api_key_here
+
+# Last.fm API Configuration (Similar Artists & Scrobbling)
+LASTFM_API_KEY=your_lastfm_api_key_here
+LASTFM_API_SECRET=your_lastfm_api_secret_here
+

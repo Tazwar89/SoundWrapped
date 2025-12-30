@@ -31,28 +31,35 @@ The following data **is available** directly from SoundCloud API:
 - User's followers/following lists
 - **Playback counts** (global plays on tracks, NOT user-specific)
 
-## What We Track via Browser Extension
+## What We Track via Last.fm Scrobbling
 
-Since SoundCloud API doesn't provide user-specific listening history, we track activity **on SoundCloud.com** using a browser extension:
+Since SoundCloud API doesn't provide user-specific listening history, we track activity via **Last.fm scrobbling**:
 
-### Tracked Events
+### How It Works
 
-1. **Play Events** - When a user plays a track on SoundCloud.com (detected by browser extension)
-   - Track ID
-   - Play duration (milliseconds)
-   - Timestamp
+1. **User Setup**:
+   - User installs [Web Scrobbler](https://webscrobbler.com) extension (works on Chrome, Firefox, Safari, Edge)
+   - User connects SoundCloud in Web Scrobbler settings
+   - User connects their Last.fm account in SoundWrapped
 
-2. **Like Events** - When a user likes a track on SoundCloud.com (detected by browser extension)
-   - Track ID
-   - Timestamp
+2. **Automatic Tracking**:
+   - Web Scrobbler automatically scrobbles SoundCloud plays to Last.fm
+   - SoundWrapped polls Last.fm API every 15 minutes to sync scrobbles
+   - Scrobbled tracks are matched to SoundCloud tracks and stored in UserActivity database
 
-3. **Repost Events** - When a user reposts a track on SoundCloud.com (detected by browser extension)
-   - Track ID
-   - Timestamp
+3. **Tracked Events**:
+   - **Play Events** - Tracks scrobbled from SoundCloud via Last.fm
+     - Track ID (matched from Last.fm artist/title)
+     - Estimated play duration (3 minutes default)
+     - Timestamp from Last.fm
 
-4. **Share Events** - When a user shares a track on SoundCloud.com (detected by browser extension)
-   - Track ID
-   - Timestamp
+### Benefits
+
+- ✅ Works across all browsers (Chrome, Firefox, Safari, Edge)
+- ✅ Cross-platform (desktop, mobile, web)
+- ✅ No custom browser extension needed
+- ✅ Automatic syncing every 15 minutes
+- ✅ Uses industry-standard Last.fm scrobbling
 
 ## Database Schema
 

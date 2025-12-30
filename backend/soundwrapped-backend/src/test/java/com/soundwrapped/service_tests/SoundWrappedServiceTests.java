@@ -1,6 +1,12 @@
 package com.soundwrapped.service_tests;
 
-import com.soundwrapped.service.*;
+import com.soundwrapped.service.TokenStore;
+import com.soundwrapped.service.SoundWrappedService;
+import com.soundwrapped.service.GenreAnalysisService;
+import com.soundwrapped.service.LyricsService;
+import com.soundwrapped.service.EnhancedArtistService;
+import com.soundwrapped.service.SimilarArtistsService;
+import com.soundwrapped.service.ActivityTrackingService;
 import com.soundwrapped.exception.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +38,15 @@ class SoundWrappedServiceTests {
 
 	@Mock
 	private com.soundwrapped.service.ActivityTrackingService activityTrackingService;
+	
+	@Mock
+	private LyricsService lyricsService;
+	
+	@Mock
+	private EnhancedArtistService enhancedArtistService;
+	
+	@Mock
+	private SimilarArtistsService similarArtistsService;
 
 	private SoundWrappedService soundWrappedService;
 
@@ -39,8 +54,8 @@ class SoundWrappedServiceTests {
 	void setUp() {
 		MockitoAnnotations.openMocks(this);
 		// Reset mocks to ensure clean state between tests
-		reset(tokenStore, restTemplate, genreAnalysisService, userActivityRepository, activityTrackingService);
-		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate, genreAnalysisService, userActivityRepository, activityTrackingService);
+		reset(tokenStore, restTemplate, genreAnalysisService, userActivityRepository, activityTrackingService, lyricsService, enhancedArtistService, similarArtistsService);
+		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate, genreAnalysisService, userActivityRepository, activityTrackingService, lyricsService, enhancedArtistService, similarArtistsService);
 		// Inject a non-null base URL to avoid "null/me"
 		ReflectionTestUtils.setField(soundWrappedService, "soundCloudApiBaseUrl", "https://api.soundcloud.com");
 		ReflectionTestUtils.setField(soundWrappedService, "clientId", "testClientId");

@@ -5,6 +5,7 @@ import com.soundwrapped.service.AnalyticsService;
 import com.soundwrapped.service.MusicDoppelgangerService;
 import com.soundwrapped.service.ArtistAnalyticsService;
 import com.soundwrapped.service.MusicTasteMapService;
+import com.soundwrapped.service.SimilarArtistsService;
 import com.soundwrapped.repository.UserActivityRepository;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
@@ -28,6 +29,7 @@ public class SoundWrappedController {
 	private final MusicDoppelgangerService musicDoppelgangerService;
 	private final ArtistAnalyticsService artistAnalyticsService;
 	private final MusicTasteMapService musicTasteMapService;
+	private final SimilarArtistsService similarArtistsService;
 	private final UserActivityRepository userActivityRepository;
 
 	public SoundWrappedController(
@@ -36,12 +38,14 @@ public class SoundWrappedController {
 			MusicDoppelgangerService musicDoppelgangerService,
 			ArtistAnalyticsService artistAnalyticsService,
 			MusicTasteMapService musicTasteMapService,
+			SimilarArtistsService similarArtistsService,
 			UserActivityRepository userActivityRepository) {
 		this.soundWrappedService = soundCloudService;
 		this.analyticsService = analyticsService;
 		this.musicDoppelgangerService = musicDoppelgangerService;
 		this.artistAnalyticsService = artistAnalyticsService;
 		this.musicTasteMapService = musicTasteMapService;
+		this.similarArtistsService = similarArtistsService;
 		this.userActivityRepository = userActivityRepository;
 	}
 
@@ -388,6 +392,28 @@ public class SoundWrappedController {
 			System.err.println("Error fetching online users count: " + e.getMessage());
 			e.printStackTrace();
 			result.put("onlineCount", 0);
+			result.put("error", e.getMessage());
+			return result;
+		}
+	}
+
+	/**
+	 * Get similar artists for a given artist using Last.fm API
+	 */
+	@GetMapping("/similar-artists")
+	public Map<String, Object> getSimilarArtists(@RequestParam String artist, @RequestParam(defaultValue = "10") int limit) {
+		Map<String, Object> result = new HashMap<>();
+		try {
+			List<Map<String, Object>> similarArtists = similarArtistsService.getSimilarArtists(artist, limit);
+			result.put("artist", artist);
+			result.put("similarArtists", similarArtists);
+			result.put("count", similarArtists.size());
+			return result;
+		} catch (Exception e) {
+			System.err.println("Error fetching similar artists: " + e.getMessage());
+			e.printStackTrace();
+			result.put("artist", artist);
+			result.put("similarArtists", new ArrayList<>());
 			result.put("error", e.getMessage());
 			return result;
 		}

@@ -114,12 +114,14 @@ For users who upload tracks:
 - **Top Performing Tracks**: Best performing uploads
 - **Recommendations**: Artist recommendations based on track analysis
 
-### 📱 Browser Extension
+### 🎵 Last.fm Scrobbling Integration
 
-Chrome extension for system-level playback tracking:
-- **Background Tracking**: Monitors audio playback across tabs
-- **Automatic Sync**: Syncs playback data with backend
-- **Activity Logging**: Tracks listening history and patterns
+Automatic tracking via Last.fm scrobbling (replaces browser extension):
+- **Cross-Browser Support**: Works on Chrome, Firefox, Safari, Edge via [Web Scrobbler](https://webscrobbler.com) extension
+- **Automatic Syncing**: Polls Last.fm API every 15 minutes to sync scrobbles
+- **OAuth Integration**: Secure Last.fm authentication flow
+- **Track Matching**: Automatically matches Last.fm scrobbles to SoundCloud tracks
+- **User Dashboard**: Connection status and manual sync trigger in Dashboard
 
 ## 🏗️ Technical Architecture
 
@@ -148,7 +150,8 @@ SoundWrapped follows a **Model-View-Controller (MVC)** architectural pattern, pr
 - **REST Controllers** (`controller/`): Spring Boot `@RestController` classes handling HTTP requests:
   - `SoundWrappedController`: Main API endpoints for music data
   - `OAuthCallbackController`: OAuth2 authentication flow
-  - `ActivityTrackingController`: Browser extension activity tracking
+  - `LastFmController`: Last.fm OAuth and scrobbling management
+  - `LastFmScrobblingService`: Syncs Last.fm scrobbles to UserActivity database
 - **Request Mapping**: RESTful endpoints with proper HTTP methods (GET, POST, etc.)
 - **Response Handling**: JSON responses with appropriate status codes
 
@@ -392,7 +395,6 @@ SoundWrapped/
 │       ├── contexts/            # React contexts
 │       ├── services/            # API services
 │       └── utils/               # Utility functions
-├── browser-extension/           # Chrome extension
 └── docs/                        # Documentation
 ```
 
