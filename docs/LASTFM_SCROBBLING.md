@@ -13,14 +13,16 @@ SoundWrapped now uses **Last.fm scrobbling** instead of a custom browser extensi
    - Works on Chrome, Firefox, Safari, Edge, and Opera
    - Free and open-source
 
-2. **Connect SoundCloud**:
-   - In Web Scrobbler settings, users connect SoundCloud
-   - Web Scrobbler automatically detects SoundCloud plays
+2. **Connect Last.fm in Web Scrobbler**:
+   - In Web Scrobbler settings, go to the **Accounts** section
+   - Connect your **Last.fm** account (this is where scrobbles will be sent)
+   - **Note**: SoundCloud is automatically supported as a built-in connector - you don't need to "connect" SoundCloud separately. It's already in the Connectors list and will work automatically when you visit SoundCloud.com
 
-3. **Connect Last.fm Account**:
+3. **Connect Last.fm to SoundWrapped**:
    - Users visit SoundWrapped Dashboard
    - Click "Connect Last.fm" button
    - Authorize SoundWrapped to access their Last.fm data
+   - This allows SoundWrapped to sync the scrobbled data from Last.fm
 
 ### 2. Automatic Tracking Flow
 
@@ -108,8 +110,9 @@ SoundCloud Play → Web Scrobbler → Last.fm → SoundWrapped (every 15 min)
 
 ### ⚠️ Requires User Setup
 - Users must install Web Scrobbler extension
-- Users must connect SoundCloud in Web Scrobbler
-- Users must connect Last.fm account in SoundWrapped
+- Users must connect their Last.fm account in Web Scrobbler's Accounts section
+- SoundCloud is automatically supported (no separate connection needed)
+- Users must connect Last.fm account in SoundWrapped to sync the data
 
 ### ⚠️ Track Matching
 - Scrobbles are matched to SoundCloud tracks via search
@@ -207,7 +210,7 @@ If you were using the browser extension:
 
 1. **Uninstall the old extension** (if installed)
 2. **Install Web Scrobbler** from [webscrobbler.com](https://webscrobbler.com)
-3. **Connect SoundCloud** in Web Scrobbler settings
+3. **Connect Last.fm** in Web Scrobbler's Accounts section (SoundCloud is automatically supported)
 4. **Connect Last.fm** in SoundWrapped Dashboard
 5. **Your listening data will start syncing automatically**
 

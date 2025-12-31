@@ -49,52 +49,148 @@ public class LastFmController {
 
     /**
      * Get Last.fm authentication URL for user to authorize SoundWrapped.
-     * Returns URL that user should visit to authorize the app.
+     * This implements the proper Last.fm OAuth flow:
+     * 1. Get a request token using auth.getToken
+     * 2. Return authorization URL with the request token
+     * 3. User authorizes, then callback exchanges token for session key
      */
     @GetMapping("/auth-url")
     public ResponseEntity<Map<String, Object>> getAuthUrl() {
         Map<String, Object> response = new HashMap<>();
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Access-Control-Allow-Origin", "*");
+        headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        headers.set("Access-Control-Allow-Headers", "*");
         
-        if (lastFmApiKey == null || lastFmApiKey.isEmpty()) {
-            response.put("error", "Last.fm API key not configured");
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
+        if (lastFmApiKey == null || lastFmApiKey.isEmpty() || lastFmApiSecret == null || lastFmApiSecret.isEmpty()) {
+            response.put("error", "Last.fm API keys not configured");
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .headers(headers)
+                    .body(response);
         }
 
-        // Last.fm auth URL format: https://www.last.fm/api/auth?api_key={api_key}
-        String authUrl = LASTFM_AUTH_URL + "?api_key=" + lastFmApiKey;
-        
-        response.put("authUrl", authUrl);
-        response.put("message", "Visit this URL to authorize SoundWrapped with Last.fm");
-        return ResponseEntity.ok(response);
+        try {
+            // Step 1: Get a request token from Last.fm
+            Map<String, String> params = new HashMap<>();
+            params.put("method", "auth.getToken");
+            params.put("api_key", lastFmApiKey);
+            params.put("format", "json");
+
+            // Generate signature for auth.getToken
+            String signature = generateSignature(params);
+            params.put("api_sig", signature);
+
+            // Build URL
+            UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(LASTFM_API_BASE_URL);
+            params.forEach(builder::queryParam);
+
+            HttpHeaders requestHeaders = new HttpHeaders();
+            requestHeaders.set("Accept", "application/json");
+            HttpEntity<String> request = new HttpEntity<>(requestHeaders);
+
+            ResponseEntity<Map<String, Object>> tokenResponse = restTemplate.exchange(
+                builder.toUriString(),
+                HttpMethod.GET,
+                request,
+                new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>(){}
+            );
+
+            if (!tokenResponse.getStatusCode().is2xxSuccessful() || tokenResponse.getBody() == null) {
+                String errorDetails = "HTTP " + tokenResponse.getStatusCode();
+                if (tokenResponse.getBody() != null) {
+                    errorDetails += " - " + tokenResponse.getBody().toString();
+                }
+                System.err.println("[LastFmController] Failed to get request token from Last.fm: " + errorDetails);
+                response.put("error", "Failed to get request token from Last.fm. Please check your API keys and ensure the callback URL (http://localhost:8080/api/lastfm/callback) is configured in your Last.fm app settings.");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .headers(headers)
+                        .body(response);
+            }
+
+            // Extract token from response
+            // Last.fm API returns: { "token": "..." } or { "lfm": { "token": "..." } }
+            Map<String, Object> body = tokenResponse.getBody();
+            String requestToken = null;
+            
+            // Try nested format first: { "lfm": { "token": "..." } }
+            @SuppressWarnings("unchecked")
+            Map<String, Object> lfmObj = (Map<String, Object>) body.get("lfm");
+            if (lfmObj != null) {
+                requestToken = (String) lfmObj.get("token");
+            }
+            
+            // If not found, try direct format: { "token": "..." }
+            if (requestToken == null) {
+                requestToken = (String) body.get("token");
+            }
+            
+            if (requestToken == null || requestToken.isEmpty()) {
+                System.err.println("[LastFmController] Failed to extract token from Last.fm response. Response body: " + body);
+                // Check if there's an error in the response
+                Object errorObj = body.get("error");
+                String errorMessage = "Failed to get request token from Last.fm";
+                if (errorObj != null) {
+                    errorMessage += ". Last.fm error: " + errorObj.toString();
+                } else {
+                    errorMessage += ". Unexpected response format: " + body;
+                }
+                response.put("error", errorMessage + " Please check your API keys and ensure the callback URL (http://localhost:8080/api/lastfm/callback) is configured in your Last.fm app settings.");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .headers(headers)
+                        .body(response);
+            }
+
+            // Step 2: Build authorization URL with request token
+            String authUrl = LASTFM_AUTH_URL + "?api_key=" + lastFmApiKey + "&token=" + requestToken;
+            response.put("authUrl", authUrl);
+            response.put("requestToken", requestToken); // Store for callback
+            response.put("message", "Visit this URL to authorize SoundWrapped with Last.fm");
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(response);
+
+        } catch (Exception e) {
+            System.err.println("[LastFmController] Error getting auth URL: " + e.getMessage());
+            e.printStackTrace();
+            response.put("error", "Failed to get Last.fm authorization URL: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .headers(headers)
+                    .body(response);
+        }
     }
 
     /**
      * Complete Last.fm authentication after user authorizes.
      * This endpoint is called after user visits the auth URL and authorizes.
      * The token parameter is provided by Last.fm after authorization.
+     * Redirects to frontend with success/error status.
      */
     @GetMapping("/callback")
-    public ResponseEntity<Map<String, Object>> handleCallback(@RequestParam(required = false) String token) {
-        Map<String, Object> response = new HashMap<>();
-
-        if (token == null || token.isEmpty()) {
-            response.put("error", "Missing token parameter");
-            return ResponseEntity.badRequest().body(response);
-        }
-
+    public ResponseEntity<Void> handleCallback(@RequestParam(required = false) String token) {
         try {
+            if (token == null || token.isEmpty()) {
+                System.err.println("[LastFmController] Callback missing token parameter");
+                return ResponseEntity.status(HttpStatus.FOUND)
+                        .header("Location", "http://localhost:3000/dashboard?lastfm_connected=false&error=missing_token")
+                        .build();
+            }
+
             // Get session key from Last.fm using the token
             String sessionKey = getSessionKey(token);
             if (sessionKey == null) {
-                response.put("error", "Failed to get session key from Last.fm");
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+                System.err.println("[LastFmController] Failed to get session key from Last.fm for token: " + token);
+                return ResponseEntity.status(HttpStatus.FOUND)
+                        .header("Location", "http://localhost:3000/dashboard?lastfm_connected=false&error=session_key_failed")
+                        .build();
             }
 
             // Get Last.fm username from session
             String username = getUsername(sessionKey);
             if (username == null) {
-                response.put("error", "Failed to get username from Last.fm");
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+                System.err.println("[LastFmController] Failed to get username from Last.fm session key");
+                return ResponseEntity.status(HttpStatus.FOUND)
+                        .header("Location", "http://localhost:3000/dashboard?lastfm_connected=false&error=username_failed")
+                        .build();
             }
 
             // Get current SoundCloud user ID
@@ -118,19 +214,31 @@ public class LastFmController {
 
             lastFmTokenRepository.save(lastFmToken);
 
-            // Trigger immediate sync
-            lastFmScrobblingService.syncUserScrobbles(lastFmToken);
+            // Trigger immediate sync (async, don't wait)
+            try {
+                lastFmScrobblingService.syncUserScrobbles(lastFmToken);
+            } catch (Exception syncError) {
+                System.err.println("[LastFmController] Warning: Failed to trigger initial sync: " + syncError.getMessage());
+                // Don't fail the connection if sync fails
+            }
 
-            response.put("success", true);
-            response.put("message", "Last.fm account connected successfully");
-            response.put("username", username);
-            return ResponseEntity.ok(response);
+            System.out.println("[LastFmController] ✅ Last.fm account connected successfully for user: " + username);
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", "http://localhost:3000/dashboard?lastfm_connected=true&username=" + java.net.URLEncoder.encode(username, "UTF-8"))
+                    .build();
 
         } catch (Exception e) {
             System.err.println("[LastFmController] Error handling callback: " + e.getMessage());
             e.printStackTrace();
-            response.put("error", "Failed to connect Last.fm account: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            try {
+                return ResponseEntity.status(HttpStatus.FOUND)
+                        .header("Location", "http://localhost:3000/dashboard?lastfm_connected=false&error=" + java.net.URLEncoder.encode(e.getMessage(), "UTF-8"))
+                        .build();
+            } catch (Exception encodingError) {
+                return ResponseEntity.status(HttpStatus.FOUND)
+                        .header("Location", "http://localhost:3000/dashboard?lastfm_connected=false&error=unknown")
+                        .build();
+            }
         }
     }
 
@@ -166,14 +274,33 @@ public class LastFmController {
 
             Map<String, Object> body = response.getBody();
             if (response.getStatusCode().is2xxSuccessful() && body != null) {
+                // Last.fm API returns: { "session": { "key": "...", "name": "..." } } or { "lfm": { "session": { ... } } }
                 @SuppressWarnings("unchecked")
                 Map<String, Object> sessionObj = (Map<String, Object>) body.get("session");
-                if (sessionObj != null) {
-                    return (String) sessionObj.get("key");
+                
+                // Try nested format: { "lfm": { "session": { ... } } }
+                if (sessionObj == null) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> lfmObj = (Map<String, Object>) body.get("lfm");
+                    if (lfmObj != null) {
+                        sessionObj = (Map<String, Object>) lfmObj.get("session");
+                    }
                 }
+                
+                if (sessionObj != null) {
+                    String sessionKey = (String) sessionObj.get("key");
+                    if (sessionKey != null && !sessionKey.isEmpty()) {
+                        return sessionKey;
+                    }
+                }
+                
+                System.err.println("[LastFmController] Failed to extract session key from Last.fm response. Response body: " + body);
+            } else {
+                System.err.println("[LastFmController] Last.fm API returned non-2xx status: " + response.getStatusCode() + ", body: " + body);
             }
         } catch (Exception e) {
             System.err.println("[LastFmController] Error getting session key: " + e.getMessage());
+            e.printStackTrace();
         }
 
         return null;
@@ -211,14 +338,33 @@ public class LastFmController {
 
             Map<String, Object> body = response.getBody();
             if (response.getStatusCode().is2xxSuccessful() && body != null) {
+                // Last.fm API returns: { "user": { "name": "..." } } or { "lfm": { "user": { ... } } }
                 @SuppressWarnings("unchecked")
                 Map<String, Object> userObj = (Map<String, Object>) body.get("user");
-                if (userObj != null) {
-                    return (String) userObj.get("name");
+                
+                // Try nested format: { "lfm": { "user": { ... } } }
+                if (userObj == null) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> lfmObj = (Map<String, Object>) body.get("lfm");
+                    if (lfmObj != null) {
+                        userObj = (Map<String, Object>) lfmObj.get("user");
+                    }
                 }
+                
+                if (userObj != null) {
+                    String username = (String) userObj.get("name");
+                    if (username != null && !username.isEmpty()) {
+                        return username;
+                    }
+                }
+                
+                System.err.println("[LastFmController] Failed to extract username from Last.fm response. Response body: " + body);
+            } else {
+                System.err.println("[LastFmController] Last.fm API returned non-2xx status: " + response.getStatusCode() + ", body: " + body);
             }
         } catch (Exception e) {
             System.err.println("[LastFmController] Error getting username: " + e.getMessage());
+            e.printStackTrace();
         }
 
         return null;
@@ -265,10 +411,27 @@ public class LastFmController {
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> getConnectionStatus() {
         Map<String, Object> response = new HashMap<>();
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Access-Control-Allow-Origin", "*");
+        headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        headers.set("Access-Control-Allow-Headers", "*");
 
         try {
             Map<String, Object> profile = soundWrappedService.getUserProfile();
+            if (profile == null || profile.isEmpty()) {
+                System.err.println("[LastFmController] getUserProfile returned null or empty");
+                response.put("connected", false);
+                response.put("error", "Unable to get user profile. Please ensure you are logged in.");
+                return ResponseEntity.ok().headers(headers).body(response);
+            }
+            
             String soundcloudUserId = String.valueOf(profile.getOrDefault("id", "unknown"));
+            if ("unknown".equals(soundcloudUserId) || soundcloudUserId == null) {
+                System.err.println("[LastFmController] Could not extract user ID from profile: " + profile);
+                response.put("connected", false);
+                response.put("error", "Unable to identify user. Please ensure you are logged in.");
+                return ResponseEntity.ok().headers(headers).body(response);
+            }
 
             Optional<LastFmToken> token = lastFmTokenRepository.findBySoundcloudUserId(soundcloudUserId);
             
@@ -280,21 +443,14 @@ public class LastFmController {
                 response.put("connected", false);
             }
 
-            return ResponseEntity.ok()
-                    .header("Access-Control-Allow-Origin", "*")
-                    .header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-                    .header("Access-Control-Allow-Headers", "*")
-                    .body(response);
+            return ResponseEntity.ok().headers(headers).body(response);
         } catch (Exception e) {
             System.err.println("[LastFmController] Error checking connection status: " + e.getMessage());
             e.printStackTrace();
             response.put("connected", false);
             response.put("error", "Failed to check connection status: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.OK) // Return 200 instead of 500 to avoid CORS issues
-                    .header("Access-Control-Allow-Origin", "*")
-                    .header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-                    .header("Access-Control-Allow-Headers", "*")
-                    .body(response);
+            // Always return 200 with CORS headers to avoid CORS issues
+            return ResponseEntity.ok().headers(headers).body(response);
         }
     }
 

@@ -28,15 +28,15 @@ https://your-domain.com
 ### Callback URL
 For **development/local**:
 ```
-http://localhost:8080/callback
+http://localhost:8080/api/lastfm/callback
 ```
 
 For **production** (if you have a deployed URL):
 ```
-https://your-domain.com/callback
+https://your-domain.com/api/lastfm/callback
 ```
 
-**Note**: Last.fm uses OAuth for user authentication, but for our use case (similar artists API), we only need the API key, not the full OAuth flow. The callback URL is required by their form but won't be actively used for our read-only API calls.
+**Important**: This callback URL must be set in your Last.fm app settings. After the user authorizes SoundWrapped on Last.fm, Last.fm will redirect them to this URL with a token parameter. The backend will then exchange this token for a session key and save the connection.
 
 ## Steps to Get Your API Key
 

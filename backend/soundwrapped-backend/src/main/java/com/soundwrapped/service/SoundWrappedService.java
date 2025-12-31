@@ -2153,7 +2153,10 @@ public class SoundWrappedService {
 							
 							// Filter tracks: English titles only and genre must be in tags
 							String genreLower = genreName.toLowerCase();
-							String genreNormalized = genreLower.replaceAll("[\\s-]", "");
+							// Normalize genre: remove spaces, hyphens, and special characters like "&"
+							String genreNormalized = genreLower.replaceAll("[\\s&-]", "").replace("&", "");
+							// Create genre aliases for common variations (e.g., "drum & bass" -> "dnb", "drumandbass")
+							List<String> genreAliases = getGenreAliases(genreLower);
 							List<Map<String, Object>> filteredDirectTracks = new ArrayList<>();
 							
 							for (Map<String, Object> track : directTracks) {
@@ -2181,7 +2184,8 @@ public class SoundWrappedService {
 								boolean genreFound = false;
 								for (String tag : tags) {
 									String normalizedTag = tag.trim().toLowerCase();
-									String tagNormalized = normalizedTag.replaceAll("[\\s-]", "");
+									// Normalize tag: remove spaces, hyphens, and special characters
+									String tagNormalized = normalizedTag.replaceAll("[\\s&-]", "").replace("&", "");
 									
 									// Use exact match on normalized strings OR check if tag contains genre name
 									// This handles cases like "country music", "country pop", etc.
@@ -2190,6 +2194,16 @@ public class SoundWrappedService {
 										genreFound = true;
 										break;
 									}
+									
+									// Also check against genre aliases
+									for (String alias : genreAliases) {
+										if (normalizedTag.equals(alias) || normalizedTag.contains(alias) ||
+											tagNormalized.contains(alias.replaceAll("[\\s&-]", "").replace("&", ""))) {
+											genreFound = true;
+											break;
+										}
+									}
+									if (genreFound) break;
 								}
 								
 								if (!genreFound) {
@@ -2221,7 +2235,10 @@ public class SoundWrappedService {
 				
 				// Filter tracks: English titles only and genre must be in tags
 				String genreLower = genreName.toLowerCase();
-				String genreNormalized = genreLower.replaceAll("[\\s-]", "");
+				// Normalize genre: remove spaces, hyphens, and special characters like "&"
+				String genreNormalized = genreLower.replaceAll("[\\s&-]", "").replace("&", "");
+				// Create genre aliases for common variations (e.g., "drum & bass" -> "dnb", "drumandbass")
+				List<String> genreAliases = getGenreAliases(genreLower);
 				List<Map<String, Object>> filteredTracks = new ArrayList<>();
 				
 				for (Map<String, Object> track : tracks) {
@@ -2249,7 +2266,8 @@ public class SoundWrappedService {
 					boolean genreFound = false;
 					for (String tag : tags) {
 						String normalizedTag = tag.trim().toLowerCase();
-						String tagNormalized = normalizedTag.replaceAll("[\\s-]", "");
+						// Normalize tag: remove spaces, hyphens, and special characters
+						String tagNormalized = normalizedTag.replaceAll("[\\s&-]", "").replace("&", "");
 						
 						// Use exact match on normalized strings OR check if tag contains genre name
 						// This handles cases like "country music", "country pop", etc.
@@ -2258,6 +2276,16 @@ public class SoundWrappedService {
 							genreFound = true;
 							break;
 						}
+						
+						// Also check against genre aliases
+						for (String alias : genreAliases) {
+							if (normalizedTag.equals(alias) || normalizedTag.contains(alias) ||
+								tagNormalized.contains(alias.replaceAll("[\\s&-]", "").replace("&", ""))) {
+								genreFound = true;
+								break;
+							}
+						}
+						if (genreFound) break;
 					}
 					
 					if (!genreFound) {
@@ -2293,6 +2321,48 @@ public class SoundWrappedService {
 			e.printStackTrace();
 			return new ArrayList<>();
 		}
+	}
+
+	/**
+	 * Get genre aliases for flexible tag matching.
+	 * Handles common variations like "drum & bass" -> "dnb", "drumandbass", etc.
+	 */
+	private List<String> getGenreAliases(String genreName) {
+		List<String> aliases = new ArrayList<>();
+		String lower = genreName.toLowerCase();
+		
+		// Add the original genre name
+		aliases.add(lower);
+		
+		// Handle "drum & bass" variations
+		if (lower.contains("drum") && lower.contains("bass")) {
+			aliases.add("dnb");
+			aliases.add("drumandbass");
+			aliases.add("drum n bass");
+			aliases.add("jungle"); // Related genre
+		}
+		
+		// Handle "r&b" variations
+		if (lower.equals("r&b") || lower.equals("r and b")) {
+			aliases.add("rnb");
+			aliases.add("randb");
+			aliases.add("rhythm and blues");
+		}
+		
+		// Handle "lo-fi" variations
+		if (lower.contains("lo-fi") || lower.contains("lofi")) {
+			aliases.add("lofi");
+			aliases.add("lo fi");
+			aliases.add("lowfi");
+		}
+		
+		// Handle "hip-hop" variations
+		if (lower.contains("hip") && lower.contains("hop")) {
+			aliases.add("hiphop");
+			aliases.add("hip hop");
+		}
+		
+		return aliases;
 	}
 
 	/**

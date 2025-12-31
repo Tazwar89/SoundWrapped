@@ -18,6 +18,24 @@ const LastFmConnection: React.FC = () => {
 
   useEffect(() => {
     checkConnectionStatus()
+    
+    // Check for Last.fm callback in URL params
+    const urlParams = new URLSearchParams(window.location.search)
+    const lastfmConnected = urlParams.get('lastfm_connected')
+    const error = urlParams.get('error')
+    const username = urlParams.get('username')
+    
+    if (lastfmConnected === 'true') {
+      toast.success(`Last.fm connected successfully${username ? ` as ${username}` : ''}!`, { icon: '✅' })
+      // Clear URL params
+      window.history.replaceState({}, '', window.location.pathname)
+      checkConnectionStatus()
+    } else if (lastfmConnected === 'false') {
+      const errorMsg = error ? `: ${error}` : ''
+      toast.error(`Failed to connect Last.fm account${errorMsg}`, { icon: '❌' })
+      // Clear URL params
+      window.history.replaceState({}, '', window.location.pathname)
+    }
   }, [])
 
   const checkConnectionStatus = async () => {
@@ -37,7 +55,20 @@ const LastFmConnection: React.FC = () => {
     try {
       setIsConnecting(true)
       const response = await api.get('/lastfm/auth-url')
+      
+      // Check for error in response
+      if (response.data.error) {
+        toast.error(response.data.error || 'Failed to get Last.fm authorization URL', { icon: '❌' })
+        setIsConnecting(false)
+        return
+      }
+      
       const authUrl = response.data.authUrl
+      if (!authUrl) {
+        toast.error('No authorization URL received from server', { icon: '❌' })
+        setIsConnecting(false)
+        return
+      }
       
       // Open Last.fm auth page in new window
       const authWindow = window.open(
@@ -46,13 +77,19 @@ const LastFmConnection: React.FC = () => {
         'width=600,height=700,scrollbars=yes'
       )
 
-      // Poll for callback completion
+      if (!authWindow) {
+        toast.error('Popup blocked. Please allow popups for this site.', { icon: '❌' })
+        setIsConnecting(false)
+        return
+      }
+
+      // Poll for callback completion (window will redirect to dashboard)
       const pollInterval = setInterval(async () => {
         try {
           if (authWindow?.closed) {
             clearInterval(pollInterval)
             setIsConnecting(false)
-            // Check if connection was successful
+            // Check if connection was successful (URL params will be checked by useEffect)
             await checkConnectionStatus()
           }
         } catch (error) {
@@ -60,19 +97,19 @@ const LastFmConnection: React.FC = () => {
         }
       }, 1000)
 
-      // Also listen for message from callback page (if we implement it)
-      window.addEventListener('message', async (event) => {
-        if (event.data.type === 'LASTFM_AUTH_SUCCESS') {
-          clearInterval(pollInterval)
-          setIsConnecting(false)
-          await checkConnectionStatus()
-          toast.success('Last.fm connected successfully!')
+      // Cleanup interval after 5 minutes (timeout)
+      setTimeout(() => {
+        clearInterval(pollInterval)
+        if (authWindow && !authWindow.closed) {
+          authWindow.close()
         }
-      })
+        setIsConnecting(false)
+      }, 300000) // 5 minutes
 
     } catch (error: any) {
       console.error('Failed to initiate Last.fm connection:', error)
-      toast.error('Failed to connect Last.fm account')
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to connect Last.fm account'
+      toast.error(errorMessage, { icon: '❌' })
       setIsConnecting(false)
     }
   }
@@ -175,10 +212,10 @@ const LastFmConnection: React.FC = () => {
               <div className="text-xs text-blue-200">
                 <p className="font-medium mb-1">How it works:</p>
                 <ul className="list-disc list-inside space-y-1 text-blue-300/80">
-                  <li>Install <a href="https://webscrobbler.com" target="_blank" rel="noopener noreferrer" className="underline">Web Scrobbler</a> extension (works on Chrome, Firefox, Safari)</li>
-                  <li>Connect SoundCloud in Web Scrobbler settings</li>
-                  <li>Your SoundCloud plays will be automatically tracked via Last.fm</li>
-                  <li>We sync your Last.fm data every 15 minutes</li>
+                  <li>Web Scrobbler automatically detects SoundCloud playback (it's a built-in connector)</li>
+                  <li>Your SoundCloud plays are scrobbled to your Last.fm account</li>
+                  <li>SoundWrapped syncs your Last.fm data every 15 minutes</li>
+                  <li>Works across all browsers and devices where you have Web Scrobbler installed</li>
                 </ul>
               </div>
             </div>
@@ -215,10 +252,11 @@ const LastFmConnection: React.FC = () => {
               <div className="text-xs text-orange-200">
                 <p className="font-medium mb-1">Setup Instructions:</p>
                 <ol className="list-decimal list-inside space-y-1 text-orange-300/80">
-                  <li>Install <a href="https://webscrobbler.com" target="_blank" rel="noopener noreferrer" className="underline">Web Scrobbler</a> extension <ExternalLink className="h-3 w-3 inline" /></li>
-                  <li>Connect SoundCloud in Web Scrobbler settings</li>
-                  <li>Click "Connect Last.fm" above to link your account</li>
-                  <li>Start listening on SoundCloud - your plays will be tracked automatically!</li>
+                  <li>Install <a href="https://webscrobbler.com" target="_blank" rel="noopener noreferrer" className="underline">Web Scrobbler</a> extension <ExternalLink className="h-3 w-3 inline" /> (Chrome, Firefox, Safari, Edge)</li>
+                  <li>In Web Scrobbler settings, go to <strong>Accounts</strong> and connect your <strong>Last.fm</strong> account</li>
+                  <li>SoundCloud is automatically supported (no need to connect it separately - it's in the Connectors list)</li>
+                  <li>Click "Connect Last.fm" above to link your Last.fm account to SoundWrapped</li>
+                  <li>Start listening on SoundCloud.com - your plays will be automatically scrobbled to Last.fm!</li>
                 </ol>
               </div>
             </div>
