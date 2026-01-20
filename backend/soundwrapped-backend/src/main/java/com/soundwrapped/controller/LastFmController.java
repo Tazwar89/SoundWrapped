@@ -9,6 +9,7 @@ import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.security.MessageDigest;
 import java.util.*;
@@ -19,7 +20,7 @@ import java.util.*;
  */
 @RestController
 @RequestMapping("/api/lastfm")
-@CrossOrigin(origins = "*")
+// CORS is handled globally by CorsConfig for /api/** endpoints
 public class LastFmController {
 
     private final RestTemplate restTemplate;
@@ -34,7 +35,7 @@ public class LastFmController {
     private String lastFmApiSecret;
 
     private static final String LASTFM_API_BASE_URL = "https://ws.audioscrobbler.com/2.0";
-    private static final String LASTFM_AUTH_URL = "https://www.last.fm/api/auth";
+    private static final String LASTFM_AUTH_URL = "https://www.last.fm/api/auth/"; // Note: trailing slash per Last.fm docs
 
     public LastFmController(
             RestTemplate restTemplate,
@@ -57,15 +58,10 @@ public class LastFmController {
     @GetMapping("/auth-url")
     public ResponseEntity<Map<String, Object>> getAuthUrl() {
         Map<String, Object> response = new HashMap<>();
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Access-Control-Allow-Origin", "*");
-        headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        headers.set("Access-Control-Allow-Headers", "*");
         
         if (lastFmApiKey == null || lastFmApiKey.isEmpty() || lastFmApiSecret == null || lastFmApiSecret.isEmpty()) {
             response.put("error", "Last.fm API keys not configured");
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .headers(headers)
                     .body(response);
         }
 
@@ -103,7 +99,6 @@ public class LastFmController {
                 System.err.println("[LastFmController] Failed to get request token from Last.fm: " + errorDetails);
                 response.put("error", "Failed to get request token from Last.fm. Please check your API keys and ensure the callback URL (http://localhost:8080/api/lastfm/callback) is configured in your Last.fm app settings.");
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .headers(headers)
                         .body(response);
             }
 
@@ -136,17 +131,40 @@ public class LastFmController {
                 }
                 response.put("error", errorMessage + " Please check your API keys and ensure the callback URL (http://localhost:8080/api/lastfm/callback) is configured in your Last.fm app settings.");
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .headers(headers)
                         .body(response);
             }
 
-            // Step 2: Build authorization URL with request token
-            String authUrl = LASTFM_AUTH_URL + "?api_key=" + lastFmApiKey + "&token=" + requestToken;
+            // Step 2: Build authorization URL with request token and callback URL
+            // Last.fm requires the 'cb' parameter to know where to redirect after authorization
+            // Format per Last.fm docs: http://www.last.fm/api/auth/?api_key=xxx&cb=http://example.com
+            // IMPORTANT: The callback URL in the 'cb' parameter MUST match exactly what's configured in Last.fm app settings
+            // NOTE: Last.fm doesn't redirect to localhost URLs. For development, use ngrok or similar tunnel service.
+            // Set this to your ngrok URL if using a tunnel, otherwise use localhost for testing (may not work)
+            String callbackUrl = System.getenv("LASTFM_CALLBACK_URL");
+            if (callbackUrl == null || callbackUrl.isEmpty()) {
+                callbackUrl = "http://localhost:8080/api/lastfm/callback"; // Default to localhost
+            }
+            // Use UriComponentsBuilder to properly construct the URL
+            // Note: UriComponentsBuilder will automatically URL-encode the callback URL
+            UriComponentsBuilder authUrlBuilder = UriComponentsBuilder.fromHttpUrl(LASTFM_AUTH_URL)
+                    .queryParam("api_key", lastFmApiKey)
+                    .queryParam("token", requestToken)
+                    .queryParam("cb", callbackUrl);
+            String authUrl = authUrlBuilder.toUriString();
+            System.out.println("[LastFmController] ========================================");
+            System.out.println("[LastFmController] Generated auth URL: " + authUrl);
+            System.out.println("[LastFmController] Callback URL configured: " + callbackUrl);
+            System.out.println("[LastFmController] ⚠️ IMPORTANT: Ensure this callback URL matches EXACTLY in Last.fm app settings:");
+            System.out.println("[LastFmController]    " + callbackUrl);
+            System.out.println("[LastFmController] ⚠️ NOTE: Last.fm may not redirect to localhost URLs.");
+            System.out.println("[LastFmController]    If redirect fails, consider using a tunnel service (ngrok, localtunnel)");
+            System.out.println("[LastFmController]    or deploy to a publicly accessible URL for testing.");
+            System.out.println("[LastFmController] ========================================");
             response.put("authUrl", authUrl);
             response.put("requestToken", requestToken); // Store for callback
+            response.put("callbackUrl", callbackUrl); // Include callback URL in response for debugging
             response.put("message", "Visit this URL to authorize SoundWrapped with Last.fm");
             return ResponseEntity.ok()
-                    .headers(headers)
                     .body(response);
 
         } catch (Exception e) {
@@ -154,7 +172,6 @@ public class LastFmController {
             e.printStackTrace();
             response.put("error", "Failed to get Last.fm authorization URL: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .headers(headers)
                     .body(response);
         }
     }
@@ -165,13 +182,39 @@ public class LastFmController {
      * The token parameter is provided by Last.fm after authorization.
      * Redirects to frontend with success/error status.
      */
+    /**
+     * Test endpoint to verify callback URL is accessible.
+     * This helps debug if Last.fm can reach the callback endpoint.
+     */
+    @GetMapping("/callback/test")
+    public ResponseEntity<Map<String, Object>> testCallback() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "success");
+        response.put("message", "Callback endpoint is accessible");
+        response.put("timestamp", java.time.LocalDateTime.now().toString());
+        response.put("expectedCallbackUrl", "http://localhost:8080/api/lastfm/callback");
+        response.put("instructions", "Ensure this exact URL is set in your Last.fm app settings at https://www.last.fm/api/account/create");
+        System.out.println("[LastFmController] ✅ Test callback endpoint hit at " + java.time.LocalDateTime.now());
+        return ResponseEntity.ok().body(response);
+    }
+
     @GetMapping("/callback")
-    public ResponseEntity<Void> handleCallback(@RequestParam(required = false) String token) {
+    public ResponseEntity<Void> handleCallback(
+            @RequestParam(required = false) String token,
+            HttpServletRequest request) {
+        System.out.println("[LastFmController] ========================================");
+        System.out.println("[LastFmController] 🔔 Callback endpoint hit!");
+        System.out.println("[LastFmController] Request URL: " + request.getRequestURL() + "?" + request.getQueryString());
+        System.out.println("[LastFmController] Request method: " + request.getMethod());
+        System.out.println("[LastFmController] Token parameter: " + (token != null && !token.isEmpty() ? "present (length: " + token.length() + ")" : "null or empty"));
+        System.out.println("[LastFmController] All query parameters: " + request.getQueryString());
+        System.out.println("[LastFmController] Request received at: " + java.time.LocalDateTime.now());
+        System.out.println("[LastFmController] ========================================");
         try {
             if (token == null || token.isEmpty()) {
                 System.err.println("[LastFmController] Callback missing token parameter");
                 return ResponseEntity.status(HttpStatus.FOUND)
-                        .header("Location", "http://localhost:3000/dashboard?lastfm_connected=false&error=missing_token")
+                        .header("Location", "http://localhost:3000/lastfm/callback?lastfm_connected=false&error=missing_token")
                         .build();
             }
 
@@ -180,7 +223,7 @@ public class LastFmController {
             if (sessionKey == null) {
                 System.err.println("[LastFmController] Failed to get session key from Last.fm for token: " + token);
                 return ResponseEntity.status(HttpStatus.FOUND)
-                        .header("Location", "http://localhost:3000/dashboard?lastfm_connected=false&error=session_key_failed")
+                        .header("Location", "http://localhost:3000/lastfm/callback?lastfm_connected=false&error=session_key_failed")
                         .build();
             }
 
@@ -189,14 +232,29 @@ public class LastFmController {
             if (username == null) {
                 System.err.println("[LastFmController] Failed to get username from Last.fm session key");
                 return ResponseEntity.status(HttpStatus.FOUND)
-                        .header("Location", "http://localhost:3000/dashboard?lastfm_connected=false&error=username_failed")
+                        .header("Location", "http://localhost:3000/lastfm/callback?lastfm_connected=false&error=username_failed")
                         .build();
             }
 
             // Get current SoundCloud user ID
             Map<String, Object> profile = soundWrappedService.getUserProfile();
+            if (profile == null || profile.isEmpty()) {
+                System.err.println("[LastFmController] getUserProfile returned null or empty");
+                return ResponseEntity.status(HttpStatus.FOUND)
+                        .header("Location", "http://localhost:3000/lastfm/callback?lastfm_connected=false&error=user_not_logged_in")
+                        .build();
+            }
+            
             String soundcloudUserId = String.valueOf(profile.getOrDefault("id", "unknown"));
+            if ("unknown".equals(soundcloudUserId) || soundcloudUserId == null) {
+                System.err.println("[LastFmController] Could not extract user ID from profile: " + profile);
+                return ResponseEntity.status(HttpStatus.FOUND)
+                        .header("Location", "http://localhost:3000/lastfm/callback?lastfm_connected=false&error=invalid_user_id")
+                        .build();
+            }
 
+            System.out.println("[LastFmController] Saving Last.fm token for SoundCloud user: " + soundcloudUserId);
+            
             // Save or update Last.fm token
             Optional<LastFmToken> existingToken = lastFmTokenRepository.findBySoundcloudUserId(soundcloudUserId);
             LastFmToken lastFmToken;
@@ -205,14 +263,17 @@ public class LastFmController {
                 lastFmToken = existingToken.get();
                 lastFmToken.setLastFmUsername(username);
                 lastFmToken.setSessionKey(sessionKey);
+                System.out.println("[LastFmController] Updating existing Last.fm token");
             } else {
                 lastFmToken = new LastFmToken();
                 lastFmToken.setSoundcloudUserId(soundcloudUserId);
                 lastFmToken.setLastFmUsername(username);
                 lastFmToken.setSessionKey(sessionKey);
+                System.out.println("[LastFmController] Creating new Last.fm token");
             }
 
             lastFmTokenRepository.save(lastFmToken);
+            System.out.println("[LastFmController] ✅ Last.fm token saved successfully. ID: " + lastFmToken.getId());
 
             // Trigger immediate sync (async, don't wait)
             try {
@@ -224,7 +285,7 @@ public class LastFmController {
 
             System.out.println("[LastFmController] ✅ Last.fm account connected successfully for user: " + username);
             return ResponseEntity.status(HttpStatus.FOUND)
-                    .header("Location", "http://localhost:3000/dashboard?lastfm_connected=true&username=" + java.net.URLEncoder.encode(username, "UTF-8"))
+                    .header("Location", "http://localhost:3000/lastfm/callback?lastfm_connected=true&username=" + java.net.URLEncoder.encode(username, "UTF-8"))
                     .build();
 
         } catch (Exception e) {
@@ -232,11 +293,11 @@ public class LastFmController {
             e.printStackTrace();
             try {
                 return ResponseEntity.status(HttpStatus.FOUND)
-                        .header("Location", "http://localhost:3000/dashboard?lastfm_connected=false&error=" + java.net.URLEncoder.encode(e.getMessage(), "UTF-8"))
+                        .header("Location", "http://localhost:3000/lastfm/callback?lastfm_connected=false&error=" + java.net.URLEncoder.encode(e.getMessage(), "UTF-8"))
                         .build();
             } catch (Exception encodingError) {
                 return ResponseEntity.status(HttpStatus.FOUND)
-                        .header("Location", "http://localhost:3000/dashboard?lastfm_connected=false&error=unknown")
+                        .header("Location", "http://localhost:3000/lastfm/callback?lastfm_connected=false&error=unknown")
                         .build();
             }
         }
@@ -411,10 +472,6 @@ public class LastFmController {
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> getConnectionStatus() {
         Map<String, Object> response = new HashMap<>();
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Access-Control-Allow-Origin", "*");
-        headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        headers.set("Access-Control-Allow-Headers", "*");
 
         try {
             Map<String, Object> profile = soundWrappedService.getUserProfile();
@@ -422,7 +479,7 @@ public class LastFmController {
                 System.err.println("[LastFmController] getUserProfile returned null or empty");
                 response.put("connected", false);
                 response.put("error", "Unable to get user profile. Please ensure you are logged in.");
-                return ResponseEntity.ok().headers(headers).body(response);
+                return ResponseEntity.ok().body(response);
             }
             
             String soundcloudUserId = String.valueOf(profile.getOrDefault("id", "unknown"));
@@ -430,7 +487,7 @@ public class LastFmController {
                 System.err.println("[LastFmController] Could not extract user ID from profile: " + profile);
                 response.put("connected", false);
                 response.put("error", "Unable to identify user. Please ensure you are logged in.");
-                return ResponseEntity.ok().headers(headers).body(response);
+                return ResponseEntity.ok().body(response);
             }
 
             Optional<LastFmToken> token = lastFmTokenRepository.findBySoundcloudUserId(soundcloudUserId);
@@ -443,14 +500,14 @@ public class LastFmController {
                 response.put("connected", false);
             }
 
-            return ResponseEntity.ok().headers(headers).body(response);
+            return ResponseEntity.ok().body(response);
         } catch (Exception e) {
             System.err.println("[LastFmController] Error checking connection status: " + e.getMessage());
             e.printStackTrace();
             response.put("connected", false);
             response.put("error", "Failed to check connection status: " + e.getMessage());
-            // Always return 200 with CORS headers to avoid CORS issues
-            return ResponseEntity.ok().headers(headers).body(response);
+            // Always return 200 (CORS is handled globally)
+            return ResponseEntity.ok().body(response);
         }
     }
 
@@ -470,9 +527,6 @@ public class LastFmController {
             response.put("success", true);
             response.put("message", "Last.fm account disconnected");
             return ResponseEntity.ok()
-                    .header("Access-Control-Allow-Origin", "*")
-                    .header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-                    .header("Access-Control-Allow-Headers", "*")
                     .body(response);
         } catch (Exception e) {
             System.err.println("[LastFmController] Error disconnecting: " + e.getMessage());
@@ -480,9 +534,6 @@ public class LastFmController {
             response.put("success", false);
             response.put("error", "Failed to disconnect: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.OK) // Return 200 instead of 500 to avoid CORS issues
-                    .header("Access-Control-Allow-Origin", "*")
-                    .header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-                    .header("Access-Control-Allow-Headers", "*")
                     .body(response);
         }
     }
@@ -504,9 +555,6 @@ public class LastFmController {
                 response.put("success", false);
                 response.put("error", "Last.fm account not connected");
                 return ResponseEntity.ok()
-                        .header("Access-Control-Allow-Origin", "*")
-                        .header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-                        .header("Access-Control-Allow-Headers", "*")
                         .body(response);
             }
 
@@ -515,9 +563,6 @@ public class LastFmController {
             response.put("success", true);
             response.put("message", "Sync triggered successfully");
             return ResponseEntity.ok()
-                    .header("Access-Control-Allow-Origin", "*")
-                    .header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-                    .header("Access-Control-Allow-Headers", "*")
                     .body(response);
         } catch (Exception e) {
             System.err.println("[LastFmController] Error triggering sync: " + e.getMessage());
@@ -525,9 +570,6 @@ public class LastFmController {
             response.put("success", false);
             response.put("error", "Failed to trigger sync: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.OK) // Return 200 instead of 500 to avoid CORS issues
-                    .header("Access-Control-Allow-Origin", "*")
-                    .header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-                    .header("Access-Control-Allow-Headers", "*")
                     .body(response);
         }
     }

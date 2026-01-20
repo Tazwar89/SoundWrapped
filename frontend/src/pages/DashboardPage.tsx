@@ -1,8 +1,7 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { useRetry } from '../hooks/useRetry'
 import { 
   BarChart3, 
   Music, 
@@ -19,13 +18,15 @@ import { useAuth } from '../contexts/AuthContext'
 import { useMusicData } from '../contexts/MusicDataContext'
 import { api } from '../services/api'
 import StatCard from '../components/StatCard'
-import TopTracksChart from '../components/TopTracksChart'
-import TopArtistsChart from '../components/TopArtistsChart'
+import { lazy, Suspense } from 'react'
 import RecentActivity from '../components/RecentActivity'
 import LoadingSpinner from '../components/LoadingSpinner'
-import GenreConstellation from '../components/GenreConstellation'
-import DynamicMoodBackground from '../components/DynamicMoodBackground'
 import LastFmConnection from '../components/LastFmConnection'
+
+// Lazy load heavy chart components
+const TopTracksChart = lazy(() => import('../components/TopTracksChart'))
+const TopArtistsChart = lazy(() => import('../components/TopArtistsChart'))
+const GenreConstellation = lazy(() => import('../components/GenreConstellation'))
 
 const DashboardPage: React.FC = () => {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -39,28 +40,26 @@ const DashboardPage: React.FC = () => {
   } = useMusicData()
   
   const [analytics, setAnalytics] = useState<any>(null)
-  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false)
   const [recentActivity, setRecentActivity] = useState<any[]>([])
   const [isLoadingActivity, setIsLoadingActivity] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  
+  // Use ref to prevent duplicate fetches
+  const hasFetchedRef = useRef(false)
+  const isFetchingRef = useRef(false)
 
   // Define fetch functions before useEffect
   const fetchRecentActivity = useCallback(async () => {
     try {
       setIsLoadingActivity(true)
-      console.log('[Dashboard] Fetching recent activity...')
       const response = await api.get('/soundcloud/recent-activity?limit=5')
-      console.log('[Dashboard] Recent activity response:', response?.data)
       if (response?.data && Array.isArray(response.data)) {
-        console.log('[Dashboard] Setting recent activity, count:', response.data.length)
         setRecentActivity(response.data)
       } else {
-        console.warn('[Dashboard] Invalid recent activity response:', response?.data)
         setRecentActivity([])
       }
     } catch (error: any) {
       console.error('Failed to fetch recent activity:', error)
-      console.error('Error details:', error.response?.data || error.message)
       setRecentActivity([])
     } finally {
       setIsLoadingActivity(false)
@@ -69,36 +68,68 @@ const DashboardPage: React.FC = () => {
 
   const fetchAnalytics = useCallback(async () => {
     try {
-      setIsLoadingAnalytics(true)
-      const response = await api.get('/soundcloud/dashboard/analytics')
+      // Use a longer timeout for analytics endpoint
+      const response = await api.get('/soundcloud/dashboard/analytics', {
+        timeout: 30000 // 30 seconds
+      })
       setAnalytics(response.data)
     } catch (error: any) {
-      console.error('Failed to fetch analytics:', error)
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to load analytics'
-      toast.error(errorMessage, {
-        icon: '❌',
-        duration: 4000
-      })
-    } finally {
-      setIsLoadingAnalytics(false)
+      // Only log error, don't show toast for analytics (non-critical)
+      if (error.code !== 'ECONNABORTED') {
+        console.error('Failed to fetch analytics:', error)
+      }
+      // Analytics is optional, so we don't show error toast
     }
   }, [])
 
-  // Auto-refresh whenever the Dashboard page is visited
+  // Handle Last.fm callback from full-page redirect
   useEffect(() => {
-    console.log('Dashboard useEffect: isAuthenticated =', isAuthenticated, 'location =', location.pathname)
-    if (isAuthenticated && location.pathname === '/dashboard') {
-      console.log('Dashboard: Auto-refreshing all data on page visit...')
-      refreshAllData()
-      fetchAnalytics()
-      fetchRecentActivity()
+    const params = new URLSearchParams(location.search)
+    const lastfmConnected = params.get('lastfm_connected')
+    const lastfmUsername = params.get('username')
+    const lastfmError = params.get('error')
+    
+    if (lastfmConnected !== null) {
+      if (lastfmConnected === 'true') {
+        toast.success(`Last.fm connected successfully${lastfmUsername ? ` as ${lastfmUsername}` : ''}!`, { icon: '✅' })
+      } else {
+        const errorMsg = lastfmError ? `: ${lastfmError}` : ''
+        toast.error(`Failed to connect Last.fm account${errorMsg}`, { icon: '❌' })
+      }
+      
+      // Clean up URL parameters
+      window.history.replaceState({}, '', '/dashboard')
     }
-  }, [isAuthenticated, location.pathname, refreshAllData, fetchAnalytics, fetchRecentActivity])
+  }, [location.search])
+
+  // Auto-refresh whenever the Dashboard page is visited (only once per mount)
+  useEffect(() => {
+    if (isAuthenticated && location.pathname === '/dashboard' && !hasFetchedRef.current && !isFetchingRef.current) {
+      isFetchingRef.current = true
+      
+      // Fetch data in parallel
+      Promise.all([
+        refreshAllData(),
+        fetchAnalytics(),
+        fetchRecentActivity()
+      ]).finally(() => {
+        hasFetchedRef.current = true
+        isFetchingRef.current = false
+      })
+    }
+    
+    // Reset ref when navigating away
+    return () => {
+      if (location.pathname !== '/dashboard') {
+        hasFetchedRef.current = false
+      }
+    }
+  }, [isAuthenticated, location.pathname]) // Remove function dependencies to prevent re-runs
 
   const handleRefresh = async () => {
     try {
       setIsRefreshing(true)
-      console.log('[Dashboard] Refresh button clicked - refreshing all data...')
+      hasFetchedRef.current = false // Reset to allow refresh
       
       // Refresh all data in parallel for better performance
       await Promise.all([
@@ -107,19 +138,19 @@ const DashboardPage: React.FC = () => {
         fetchRecentActivity() // Refreshes recent activity
       ])
       
-      console.log('[Dashboard] All data refreshed successfully')
       toast.success('Dashboard refreshed successfully!', {
         icon: '✅',
         duration: 2000
       })
     } catch (error) {
-      console.error('[Dashboard] Error refreshing data:', error)
+      console.error('Error refreshing dashboard:', error)
       toast.error('Failed to refresh dashboard. Please try again.', {
         icon: '❌',
-        duration: 3000
+        duration: 2000
       })
     } finally {
       setIsRefreshing(false)
+      hasFetchedRef.current = true
     }
   }
 
@@ -314,7 +345,9 @@ const DashboardPage: React.FC = () => {
             {isLoadingTracks ? (
               <LoadingSpinner />
             ) : (
-              <TopTracksChart tracks={tracks.slice(0, 5)} />
+              <Suspense fallback={<LoadingSpinner />}>
+                <TopTracksChart tracks={tracks.slice(0, 5)} />
+              </Suspense>
             )}
           </motion.div>
 
@@ -338,7 +371,9 @@ const DashboardPage: React.FC = () => {
             {isLoadingArtists ? (
               <LoadingSpinner />
             ) : (
-              <TopArtistsChart artists={artists.slice(0, 5)} />
+              <Suspense fallback={<LoadingSpinner />}>
+                <TopArtistsChart artists={artists.slice(0, 5)} />
+              </Suspense>
             )}
           </motion.div>
         </div>
@@ -392,11 +427,13 @@ const DashboardPage: React.FC = () => {
                   Explore your musical universe. Click on genres to see details.
                 </p>
                 <div className="h-96 w-full">
-                  <GenreConstellation 
-                    genres={genreAnalysis.topGenresByListeningTime.slice(0, 15)}
-                    width={800}
-                    height={384}
-                  />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <GenreConstellation 
+                      genres={genreAnalysis.topGenresByListeningTime.slice(0, 15)}
+                      width={800}
+                      height={384}
+                    />
+                  </Suspense>
                 </div>
               </motion.div>
             )}

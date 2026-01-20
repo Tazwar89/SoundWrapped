@@ -31,6 +31,13 @@ For **development/local**:
 http://localhost:8080/api/lastfm/callback
 ```
 
+**⚠️ IMPORTANT**: This callback URL **MUST** be configured in your Last.fm API application settings:
+1. Go to https://www.last.fm/api/account/create (or edit your existing app)
+2. Set the **Callback URL** field to: `http://localhost:8080/api/lastfm/callback`
+3. Save the application settings
+
+Without this, Last.fm will not redirect to your callback endpoint after authorization!
+
 For **production** (if you have a deployed URL):
 ```
 https://your-domain.com/api/lastfm/callback
@@ -68,4 +75,11 @@ After adding the key and restarting the backend:
 - **No similar artists showing**: Check backend logs for Last.fm API errors
 - **API key invalid**: Verify the key is correct and hasn't expired
 - **Rate limiting**: Last.fm has rate limits on free tier - if you hit them, wait a bit and try again
+- **Callback not redirecting (localhost)**: Last.fm may not redirect to localhost URLs. Use a tunnel service:
+  1. Install ngrok: `brew install ngrok` (Mac) or download from https://ngrok.com
+  2. Start ngrok: `ngrok http 8080`
+  3. Copy the HTTPS URL (e.g., `https://abc123.ngrok.io`)
+  4. Update Last.fm app settings: Set callback URL to `https://abc123.ngrok.io/api/lastfm/callback`
+  5. Update backend code: Change `callbackUrl` in `LastFmController.java` to use the ngrok URL
+  6. Restart backend and try connecting again
 

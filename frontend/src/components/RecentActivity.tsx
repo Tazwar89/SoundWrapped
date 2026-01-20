@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Play, Heart, Share2, Clock, Upload, UserPlus } from 'lucide-react'
 import { formatRelativeTime, formatDurationShort } from '../utils/formatters'
@@ -27,10 +27,11 @@ interface RecentActivityProps {
 }
 
 const RecentActivity: React.FC<RecentActivityProps> = ({ activities }) => {
-  console.log('[RecentActivity] Received activities:', activities)
-  
-  // Transform backend data to frontend format
-  const transformedActivities: ActivityItem[] = (activities || []).map((activity: any) => {
+  // Memoize transformation to prevent unnecessary re-computation
+  const transformedActivities: ActivityItem[] = useMemo(() => {
+    if (!activities || activities.length === 0) return []
+    
+    return activities.map((activity: any) => {
     // Prioritize activity timestamp (when activity was performed) over track/user created_at
     const activityTimestamp = activity.timestamp || activity.track?.created_at || activity.user?.created_at || ''
     
@@ -59,10 +60,9 @@ const RecentActivity: React.FC<RecentActivityProps> = ({ activities }) => {
       }
     }
     
-    return transformed
-  })
-  
-  console.log('[RecentActivity] Transformed activities:', transformedActivities)
+      return transformed
+    })
+  }, [activities])
   
   if (transformedActivities.length === 0) {
     return (

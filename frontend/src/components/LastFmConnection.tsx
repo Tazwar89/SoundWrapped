@@ -19,22 +19,46 @@ const LastFmConnection: React.FC = () => {
   useEffect(() => {
     checkConnectionStatus()
     
-    // Check for Last.fm callback in URL params
-    const urlParams = new URLSearchParams(window.location.search)
-    const lastfmConnected = urlParams.get('lastfm_connected')
-    const error = urlParams.get('error')
-    const username = urlParams.get('username')
+    // Listen for messages from the callback popup window
+    const handleMessage = (event: MessageEvent) => {
+      console.log('[LastFmConnection] 📨 Received message:', event.data, 'from origin:', event.origin, 'expected origin:', window.location.origin)
+      
+      // Accept messages from same origin (callback page is on same origin)
+      // Also accept from localhost:3000 explicitly for development
+      const allowedOrigins = [
+        window.location.origin,
+        'http://localhost:3000',
+        'https://localhost:3000'
+      ]
+      
+      if (!allowedOrigins.includes(event.origin)) {
+        console.log('[LastFmConnection] ⚠️ Ignoring message from different origin:', event.origin)
+        return
+      }
+      
+      if (event.data?.type === 'lastfm_callback') {
+        console.log('[LastFmConnection] ✅ Processing callback message:', event.data)
+        if (event.data.connected) {
+          toast.success(`Last.fm connected successfully${event.data.username ? ` as ${event.data.username}` : ''}!`, { icon: '✅' })
+          // Wait a bit for backend to finish saving, then check status
+          setTimeout(() => {
+            checkConnectionStatus()
+          }, 1000)
+        } else {
+          const errorMsg = event.data.error ? `: ${event.data.error}` : ''
+          toast.error(`Failed to connect Last.fm account${errorMsg}`, { icon: '❌' })
+          checkConnectionStatus()
+        }
+      } else {
+        console.log('[LastFmConnection] ⚠️ Message type not recognized:', event.data?.type)
+      }
+    }
     
-    if (lastfmConnected === 'true') {
-      toast.success(`Last.fm connected successfully${username ? ` as ${username}` : ''}!`, { icon: '✅' })
-      // Clear URL params
-      window.history.replaceState({}, '', window.location.pathname)
-      checkConnectionStatus()
-    } else if (lastfmConnected === 'false') {
-      const errorMsg = error ? `: ${error}` : ''
-      toast.error(`Failed to connect Last.fm account${errorMsg}`, { icon: '❌' })
-      // Clear URL params
-      window.history.replaceState({}, '', window.location.pathname)
+    window.addEventListener('message', handleMessage)
+    console.log('[LastFmConnection] Message listener registered')
+    
+    return () => {
+      window.removeEventListener('message', handleMessage)
     }
   }, [])
 
@@ -64,13 +88,61 @@ const LastFmConnection: React.FC = () => {
       }
       
       const authUrl = response.data.authUrl
+      const callbackUrl = response.data.callbackUrl
+      
       if (!authUrl) {
         toast.error('No authorization URL received from server', { icon: '❌' })
         setIsConnecting(false)
         return
       }
       
-      // Open Last.fm auth page in new window
+      // Log the auth URL for debugging
+      console.log('[LastFmConnection] ========================================')
+      console.log('[LastFmConnection] 🔗 Opening Last.fm auth URL')
+      console.log('[LastFmConnection] Full URL:', authUrl)
+      console.log('[LastFmConnection] Callback URL from backend:', callbackUrl || 'not provided')
+      console.log('[LastFmConnection] Expected callback URL: http://localhost:8080/api/lastfm/callback')
+      
+      // Verify callback URL is in the auth URL
+      if (authUrl.includes('cb=')) {
+        const cbMatch = authUrl.match(/cb=([^&]+)/)
+        if (cbMatch) {
+          const decodedCb = decodeURIComponent(cbMatch[1])
+          console.log('[LastFmConnection] ✅ Callback URL in auth URL (decoded):', decodedCb)
+          if (decodedCb !== 'http://localhost:8080/api/lastfm/callback') {
+            console.error('[LastFmConnection] ❌ CALLBACK URL MISMATCH!')
+            console.error('[LastFmConnection] Expected: http://localhost:8080/api/lastfm/callback')
+            console.error('[LastFmConnection] Got:', decodedCb)
+            console.error('[LastFmConnection] ⚠️ This MUST match exactly in Last.fm app settings!')
+          } else {
+            console.log('[LastFmConnection] ✅ Callback URL matches expected value')
+          }
+        }
+      } else {
+        console.error('[LastFmConnection] ❌ No callback URL (cb parameter) found in auth URL!')
+        console.error('[LastFmConnection] Last.fm will NOT redirect without this parameter!')
+      }
+      console.log('[LastFmConnection] ========================================')
+      
+      // For localhost, use full-page redirect instead of popup to avoid browser security issues
+      // Last.fm redirects to localhost callbacks can be blocked in popups
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      
+      if (isLocalhost) {
+        console.log('[LastFmConnection] Using full-page redirect for localhost (popup redirects may be blocked)')
+        console.log('[LastFmConnection] ⚠️ IMPORTANT: After authorizing on Last.fm, check:')
+        console.log('[LastFmConnection] 1. What URL are you on? (Check the address bar)')
+        console.log('[LastFmConnection] 2. Are you on Last.fm still, or did it redirect?')
+        console.log('[LastFmConnection] 3. If redirected, what is the full URL?')
+        console.log('[LastFmConnection] 4. Check backend terminal for callback endpoint logs')
+        // Store the auth URL in sessionStorage so we can check it after redirect
+        sessionStorage.setItem('lastfm_auth_initiated', 'true')
+        // Redirect the main window
+        window.location.href = authUrl
+        return // Don't continue with popup logic
+      }
+      
+      // For production/non-localhost, use popup
       const authWindow = window.open(
         authUrl,
         'LastFmAuth',
@@ -83,19 +155,69 @@ const LastFmConnection: React.FC = () => {
         return
       }
 
-      // Poll for callback completion (window will redirect to dashboard)
+      // Poll for callback completion (window will redirect to callback page)
+      let lastUrl = authUrl
       const pollInterval = setInterval(async () => {
         try {
           if (authWindow?.closed) {
             clearInterval(pollInterval)
             setIsConnecting(false)
-            // Check if connection was successful (URL params will be checked by useEffect)
-            await checkConnectionStatus()
+            console.log('[LastFmConnection] Auth window closed, checking connection status')
+            console.log('[LastFmConnection] Last known URL before close:', lastUrl)
+            // Wait a bit for backend to process, then check status
+            // Always check status when window closes as fallback (in case message wasn't received)
+            setTimeout(async () => {
+              console.log('[LastFmConnection] Checking connection status after window closed (fallback)')
+              await checkConnectionStatus()
+            }, 2000) // Increased delay to ensure backend has processed
+            return
+          }
+          
+          // Try to check the current URL of the popup (may fail due to cross-origin)
+          try {
+            const currentUrl = authWindow.location.href
+            if (currentUrl !== lastUrl) {
+              console.log('[LastFmConnection] 🔄 Popup URL changed:', currentUrl)
+              lastUrl = currentUrl
+              
+              // Check if we're on the callback page
+              if (currentUrl.includes('/lastfm/callback') || currentUrl.includes('/api/lastfm/callback')) {
+                console.log('[LastFmConnection] ✅ Popup navigated to callback URL!')
+                // Don't close yet, let the callback page handle it
+              } else if (currentUrl === 'about:blank') {
+                console.warn('[LastFmConnection] ⚠️ Popup navigated to about:blank - this usually means a redirect failed')
+                console.warn('[LastFmConnection] Possible causes:')
+                console.warn('[LastFmConnection] 1. Callback URL in Last.fm app settings doesn\'t match')
+                console.warn('[LastFmConnection] 2. Last.fm rejected the callback URL')
+                console.warn('[LastFmConnection] 3. Browser blocked the redirect')
+                // Wait a bit to see if it redirects properly
+                setTimeout(() => {
+                  try {
+                    const finalUrl = authWindow.location.href
+                    if (finalUrl !== 'about:blank') {
+                      console.log('[LastFmConnection] Popup recovered, new URL:', finalUrl)
+                    } else {
+                      console.error('[LastFmConnection] ❌ Popup stuck on about:blank - Last.fm redirect failed')
+                    }
+                  } catch (e) {
+                    // Window might be closed or cross-origin
+                  }
+                }, 2000)
+              }
+            }
+          } catch (e) {
+            // Cross-origin error is expected when on Last.fm domain
+            // This is normal and not an error - it means we're on Last.fm's domain
+            // Only log if it's not the expected cross-origin error
+            if (!e.message || !e.message.includes('cross-origin')) {
+              console.log('[LastFmConnection] Popup check (cross-origin expected):', e.message || 'Unknown error')
+            }
           }
         } catch (error) {
           // Window might be closed
+          console.error('[LastFmConnection] Error polling window:', error)
         }
-      }, 1000)
+      }, 500) // Check more frequently
 
       // Cleanup interval after 5 minutes (timeout)
       setTimeout(() => {

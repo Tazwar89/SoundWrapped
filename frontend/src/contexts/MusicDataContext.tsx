@@ -151,7 +151,6 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
 
   const fetchTracks = useCallback(async () => {
     try {
-      console.log('fetchTracks: Starting...')
       setIsLoadingTracks(true)
       
       // Real API call to get user's tracks
@@ -172,20 +171,16 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
       // Tracks are already sorted by user's play count from backend
       
       setTracks(tracksData)
-      console.log('fetchTracks: Real tracks loaded, count:', tracksData.length)
-      
     } catch (error) {
       console.error('Failed to fetch tracks:', error)
       toast.error('Failed to load tracks')
     } finally {
       setIsLoadingTracks(false)
-      console.log('fetchTracks: Completed')
     }
   }, [])
 
   const fetchArtists = useCallback(async () => {
     try {
-      console.log('fetchArtists: Starting, tracks count:', tracks.length)
       setIsLoadingArtists(true)
       // This would be calculated from tracks data
       const artistMap = new Map<string, { playCount: number; listeningHours: number; trackCount: number }>()
@@ -209,13 +204,11 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
       })).sort((a, b) => b.listeningHours - a.listeningHours)
 
       setArtists(artistsData)
-      console.log('fetchArtists: Artists calculated, count:', artistsData.length)
     } catch (error) {
       console.error('Failed to fetch artists:', error)
       toast.error('Failed to load artists')
     } finally {
       setIsLoadingArtists(false)
-      console.log('fetchArtists: Completed')
     }
   }, [tracks]) // Depends on tracks array
 
@@ -246,18 +239,13 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
 
   const fetchWrappedData = useCallback(async () => {
     try {
-      console.log('fetchWrappedData called')
       setIsLoadingWrapped(true)
       
       // Real API call to get wrapped data with longer timeout (60 seconds for wrapped)
       const response = await api.get('/soundcloud/wrapped/full', {
         timeout: 60000 // 60 seconds timeout for wrapped endpoint
       })
-      const wrappedData = response.data
-      
-      console.log('Setting wrapped data:', wrappedData)
-      setWrappedData(wrappedData)
-      
+      setWrappedData(response.data)
     } catch (error) {
       console.error('Failed to fetch wrapped data:', error)
       toast.error('Failed to load your wrapped data. This may be due to rate limiting - please try again in a few moments.')
@@ -304,22 +292,18 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
 
   const refreshAllData = useCallback(async () => {
     try {
-      console.log('refreshAllData: Starting...')
       // First fetch tracks, then calculate artists from them
       await fetchTracks()
-      console.log('refreshAllData: Tracks loaded, fetching artists...')
       await fetchArtists()
       
       // Then fetch other data in parallel
-      console.log('refreshAllData: Fetching other data in parallel...')
       await Promise.all([
         fetchPlaylists(),
         fetchWrappedData(),
         fetchMusicTasteMap()
       ])
-      console.log('refreshAllData: Completed successfully')
     } catch (error) {
-      console.error('refreshAllData: Error occurred:', error)
+      console.error('Error refreshing all data:', error)
     }
   }, [fetchTracks, fetchArtists, fetchPlaylists, fetchWrappedData, fetchMusicTasteMap])
 

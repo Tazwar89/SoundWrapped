@@ -40,6 +40,16 @@ const Header: React.FC = () => {
                 <Link
                   key={item.name}
                   to={item.href}
+                  onMouseEnter={() => {
+                    // Prefetch route on hover
+                    if (item.href === '/dashboard') {
+                      import('../pages/DashboardPage')
+                    } else if (item.href === '/wrapped') {
+                      import('../pages/WrappedPage')
+                    } else if (item.href === '/music-taste-map') {
+                      import('../pages/MusicTasteMapPage')
+                    }
+                  }}
                   className={cn(
                     'flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
                     isActive(item.href)
@@ -125,6 +135,16 @@ const Header: React.FC = () => {
                   <Link
                     key={item.name}
                     to={item.href}
+                    onMouseEnter={() => {
+                      // Prefetch route on hover
+                      if (item.href === '/dashboard') {
+                        import('../pages/DashboardPage')
+                      } else if (item.href === '/wrapped') {
+                        import('../pages/WrappedPage')
+                      } else if (item.href === '/music-taste-map') {
+                        import('../pages/MusicTasteMapPage')
+                      }
+                    }}
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={cn(
                       'flex items-center space-x-3 px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200',

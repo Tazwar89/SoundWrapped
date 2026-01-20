@@ -174,7 +174,7 @@ public class SoundWrappedService {
 				
 				List<Map<String, Object>> listBody = listResponse.getBody();
 				if (listBody != null) {
-					Map<String, Object> result = new HashMap<>();
+					Map<String, Object> result = new HashMap<String, Object>();
 					result.put("collection", listBody);
 					return result;
 				}
@@ -546,7 +546,7 @@ public class SoundWrappedService {
 		} catch (Exception e) {
 			System.out.println("Error fetching user profile: " + e.getMessage());
 			// Return empty profile on unexpected errors only
-			Map<String, Object> errorProfile = new HashMap<>();
+			Map<String, Object> errorProfile = new HashMap<String, Object>();
 			errorProfile.put("error", "Unable to fetch profile data");
 			errorProfile.put("message", e.getMessage());
 			errorProfile.put("username", "Unknown");
@@ -567,7 +567,7 @@ public class SoundWrappedService {
 		return fetchPaginatedResultsWithRefresh(url);
 		} catch (Exception e) {
 			System.out.println("Error fetching likes: " + e.getMessage());
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		}
     }
 
@@ -582,7 +582,7 @@ public class SoundWrappedService {
 		return fetchPaginatedResultsWithRefresh(url);
 		} catch (Exception e) {
 			System.out.println("Error fetching playlists: " + e.getMessage());
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		}
     }
 
@@ -597,7 +597,7 @@ public class SoundWrappedService {
 			return fetchPaginatedResultsWithRefresh(url);
 		} catch (Exception e) {
 			System.out.println("Error fetching followers: " + e.getMessage());
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		}
     }
 
@@ -612,7 +612,7 @@ public class SoundWrappedService {
 		return fetchPaginatedResultsWithRefresh(url);
 		} catch (Exception e) {
 			System.out.println("Error fetching followings: " + e.getMessage());
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		}
     }
 
@@ -625,7 +625,7 @@ public class SoundWrappedService {
 	 * @return List of activity items with type, track/user info, and timestamp
 	 */
 	public List<Map<String, Object>> getRecentActivity(int limit) {
-		List<Map<String, Object>> activities = new ArrayList<>();
+		List<Map<String, Object>> activities = new ArrayList<Map<String, Object>>();
 		
 		// Get user ID for querying tracked activities
 		String userId = "";
@@ -637,7 +637,7 @@ public class SoundWrappedService {
 		}
 		
 		// Build a map of trackId -> most recent LIKE activity timestamp from database
-		Map<String, java.time.LocalDateTime> trackedLikeTimestamps = new HashMap<>();
+		Map<String, java.time.LocalDateTime> trackedLikeTimestamps = new HashMap<String, java.time.LocalDateTime>();
 		if (!userId.isEmpty()) {
 			try {
 				List<com.soundwrapped.entity.UserActivity> likeActivities = 
@@ -662,7 +662,7 @@ public class SoundWrappedService {
 		}
 		
 		// Build a map of trackId -> most recent REPOST activity timestamp from database
-		Map<String, java.time.LocalDateTime> trackedRepostTimestamps = new HashMap<>();
+		Map<String, java.time.LocalDateTime> trackedRepostTimestamps = new HashMap<String, java.time.LocalDateTime>();
 		if (!userId.isEmpty()) {
 			try {
 				List<com.soundwrapped.entity.UserActivity> repostActivities = 
@@ -693,7 +693,7 @@ public class SoundWrappedService {
 				for (Map<String, Object> favorite : favorites) {
 					if (favorite != null) {
 						try {
-							Map<String, Object> activity = new HashMap<>();
+							Map<String, Object> activity = new HashMap<String, Object>();
 							activity.put("type", "like");
 							activity.put("track", favorite);
 							
@@ -733,7 +733,7 @@ public class SoundWrappedService {
 				for (Map<String, Object> upload : uploads) {
 					if (upload != null) {
 						try {
-							Map<String, Object> activity = new HashMap<>();
+							Map<String, Object> activity = new HashMap<String, Object>();
 							activity.put("type", "upload");
 							activity.put("track", upload);
 							Object createdAt = upload.get("created_at");
@@ -758,7 +758,7 @@ public class SoundWrappedService {
 				for (Map<String, Object> following : followings) {
 					if (following != null) {
 						try {
-							Map<String, Object> activity = new HashMap<>();
+							Map<String, Object> activity = new HashMap<String, Object>();
 							activity.put("type", "follow");
 							activity.put("user", following);
 							Object createdAt = following.get("created_at");
@@ -849,7 +849,7 @@ public class SoundWrappedService {
 		return fetchPaginatedResultsWithRefresh(url);
 		} catch (Exception e) {
 			System.out.println("Failed to fetch liked tracks: " + e.getMessage());
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		}
 	}
 
@@ -883,7 +883,7 @@ public class SoundWrappedService {
 			}
 			
 			// Create a map of trackId -> userPlayCount
-			Map<String, Long> trackPlayCounts = new HashMap<>();
+			Map<String, Long> trackPlayCounts = new HashMap<String, Long>();
 			for (Object[] result : mostPlayed) {
 				String trackId = String.valueOf(result[0]);
 				Long playCount = ((Number) result[1]).longValue();
@@ -891,7 +891,7 @@ public class SoundWrappedService {
 			}
 			
 			// Fetch track details from SoundCloud API for each tracked track
-			List<Map<String, Object>> topTracks = new ArrayList<>();
+			List<Map<String, Object>> topTracks = new ArrayList<Map<String, Object>>();
 			for (String trackId : trackPlayCounts.keySet()) {
 				try {
 					String url = soundCloudApiBaseUrl + "/tracks/" + trackId;
@@ -1029,7 +1029,7 @@ public class SoundWrappedService {
 			String accessToken = getAccessTokenForRequest();
 			if (accessToken == null) {
 				System.err.println("No access token available for playlist request. User may need to authenticate.");
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			}
 			
 			// Try alternative approach: extract username and set name from URL
@@ -1132,11 +1132,11 @@ public class SoundWrappedService {
 			} catch (org.springframework.web.client.HttpClientErrorException e) {
 				System.err.println("HTTP error resolving playlist " + playlistUrl + ": " + e.getStatusCode() + " - " + e.getMessage());
 				System.err.println("Response body: " + e.getResponseBodyAsString());
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			} catch (Exception e) {
 				System.err.println("Exception resolving playlist " + playlistUrl + ": " + e.getClass().getSimpleName() + " - " + e.getMessage());
 				e.printStackTrace();
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			}
 			
 			System.out.println("Resolve response status: " + resolveResponse.getStatusCode());
@@ -1144,7 +1144,7 @@ public class SoundWrappedService {
 			if (playlist == null) {
 				System.err.println("Playlist resolve returned null for: " + playlistUrl);
 				System.err.println("Response status: " + resolveResponse.getStatusCode());
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			}
 			
 			System.out.println("Resolved playlist, keys: " + playlist.keySet());
@@ -1162,7 +1162,7 @@ public class SoundWrappedService {
 					System.out.println("Found " + directTracks.size() + " tracks directly in resolved object");
 					return directTracks;
 				}
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			}
 			
 			// Get playlist ID
@@ -1170,7 +1170,7 @@ public class SoundWrappedService {
 			if (playlistIdObj == null) {
 				System.err.println("Playlist ID not found in response for: " + playlistUrl);
 				System.err.println("Playlist response keys: " + playlist.keySet());
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			}
 			
 			String playlistId = String.valueOf(playlistIdObj);
@@ -1180,7 +1180,7 @@ public class SoundWrappedService {
 		} catch (Exception e) {
 			System.err.println("Error fetching tracks from playlist " + playlistUrl + ": " + e.getMessage());
 			e.printStackTrace();
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		}
 	}
 	
@@ -1192,7 +1192,7 @@ public class SoundWrappedService {
 	 */
 	private List<Map<String, Object>> getTracksFromPlaylistById(String playlistId, String accessToken) {
 		try {
-			List<Map<String, Object>> allTracks = new ArrayList<>();
+			List<Map<String, Object>> allTracks = new ArrayList<Map<String, Object>>();
 			String nextUrl = soundCloudApiBaseUrl + "/playlists/" + playlistId + "/tracks?limit=50&linked_partitioning=true";
 			
 			System.out.println("Fetching tracks from playlist ID: " + playlistId);
@@ -1268,11 +1268,11 @@ public class SoundWrappedService {
 				System.err.println("No tracks found in response for playlist " + playlistId);
 			}
 			
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		} catch (Exception e) {
 			System.err.println("Error fetching tracks from playlist ID " + playlistId + ": " + e.getMessage());
 			e.printStackTrace();
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		}
 	}
 
@@ -1374,7 +1374,7 @@ public class SoundWrappedService {
 					
 					// Get tracks from the playlist - they might be in a "tracks" field or we need to fetch them separately
 					Object tracksObj = playlist.get("tracks");
-					List<Map<String, Object>> playlistTracksFromResponse = new ArrayList<>();
+					List<Map<String, Object>> playlistTracksFromResponse = new ArrayList<Map<String, Object>>();
 					
 					if (tracksObj instanceof List) {
 						@SuppressWarnings("unchecked")
@@ -1437,7 +1437,7 @@ public class SoundWrappedService {
 			String accessToken = getAccessTokenForRequest();
 			if (accessToken == null) {
 				System.err.println("No access token available for popular tracks. User may need to authenticate.");
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			}
 			
 			System.out.println("Using fallback method to fetch popular tracks");
@@ -1462,7 +1462,7 @@ public class SoundWrappedService {
 			Map<String, Object> responseBody = response.getBody();
 			if (responseBody == null) {
 				System.err.println("Fallback method: No response body from SoundCloud API");
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			}
 			
 			// Extract tracks from paginated response
@@ -1471,7 +1471,7 @@ public class SoundWrappedService {
 			if (tracks == null || tracks.isEmpty()) {
 				System.err.println("Fallback method: No tracks in collection from SoundCloud API");
 				System.err.println("Response keys: " + responseBody.keySet());
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			}
 			
 			System.out.println("Fallback method: Retrieved " + tracks.size() + " tracks from SoundCloud");
@@ -1495,7 +1495,7 @@ public class SoundWrappedService {
 		} catch (Exception e) {
 			System.err.println("Error in fallback method for popular tracks: " + e.getMessage());
 			e.printStackTrace();
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		}
 	}
 
@@ -1567,7 +1567,7 @@ public class SoundWrappedService {
 				int endIndex = Math.min(30, popularTracks.size());
 				if (endIndex > startIndex) {
 					int selectedIndex = startIndex + random.nextInt(endIndex - startIndex);
-					Map<String, Object> selectedTrack = new HashMap<>(popularTracks.get(selectedIndex));
+					Map<String, Object> selectedTrack = new HashMap<String, Object>(popularTracks.get(selectedIndex));
 					
 					// Fetch lyrics for the track (async/non-blocking)
 					try {
@@ -1597,7 +1597,7 @@ public class SoundWrappedService {
 				} else if (popularTracks.size() > 0) {
 					// If we don't have enough tracks for 11-30 range, use any available track
 					int selectedIndex = random.nextInt(popularTracks.size());
-					Map<String, Object> selectedTrack = new HashMap<>(popularTracks.get(selectedIndex));
+					Map<String, Object> selectedTrack = new HashMap<String, Object>(popularTracks.get(selectedIndex));
 					
 					// Fetch lyrics for the track (async/non-blocking)
 					try {
@@ -1630,7 +1630,7 @@ public class SoundWrappedService {
 			System.out.println("Error fetching featured track: " + e.getMessage());
 			e.printStackTrace();
 		}
-		return new HashMap<>();
+		return new HashMap<String, Object>();
 	}
 	
 	/**
@@ -1646,7 +1646,7 @@ public class SoundWrappedService {
 			String accessToken = getAccessTokenForRequest();
 			if (accessToken == null) {
 				System.err.println("No access token available for discovery tracks.");
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			}
 			
 			// Fetch a larger set of tracks to find ones with good engagement
@@ -1729,7 +1729,7 @@ public class SoundWrappedService {
 			System.err.println("Error fetching discovery tracks: " + e.getMessage());
 			e.printStackTrace();
 		}
-		return new ArrayList<>();
+		return new ArrayList<Map<String, Object>>();
 	}
 
 	/**
@@ -1767,8 +1767,8 @@ public class SoundWrappedService {
 			System.out.println("getFeaturedArtist: Retrieved " + popularTracks.size() + " popular tracks");
 			if (!popularTracks.isEmpty()) {
 				// Extract unique artists with their trending scores
-				Map<String, Map<String, Object>> artistMap = new HashMap<>();
-				Map<String, Double> artistTrendingScores = new HashMap<>();
+				Map<String, Map<String, Object>> artistMap = new HashMap<String, Map<String, Object>>();
+				Map<String, Double> artistTrendingScores = new HashMap<String, Double>();
 				
 				for (Map<String, Object> track : popularTracks) {
 					Object userObj = track.get("user");
@@ -1881,7 +1881,7 @@ public class SoundWrappedService {
 					}
 					
 					if (artistTracks == null) {
-						artistTracks = new ArrayList<>();
+						artistTracks = new ArrayList<Map<String, Object>>();
 					}
 					
 					System.out.println("Final result: getTracksFromArtist returned " + artistTracks.size() + " tracks");
@@ -1908,7 +1908,7 @@ public class SoundWrappedService {
 					}
 					
 					// Create result with artist, description, and tracks
-					Map<String, Object> result = new HashMap<>(selectedArtist);
+					Map<String, Object> result = new HashMap<String, Object>(selectedArtist);
 					// Only cache if we have a valid description - don't cache empty descriptions
 					String finalDescription = artistDescription != null ? artistDescription : "";
 					result.put("description", finalDescription);
@@ -1962,7 +1962,7 @@ public class SoundWrappedService {
 			System.err.println("Error fetching featured artist: " + e.getMessage());
 			e.printStackTrace();
 		}
-		return new HashMap<>();
+		return new HashMap<String, Object>();
 	}
 
 	/**
@@ -1982,14 +1982,16 @@ public class SoundWrappedService {
 			
 			// List of popular genres to choose from
 			List<String> popularGenres = Arrays.asList(
-				"wave", "electronic", "hip-hop", "indie", "rock", "pop", 
-				"house", "techno", "dubstep", "ambient", "jazz", "r&b",
-				"alternative", "folk", "country", "metal", "punk", "reggae",
-				// Obscure subgenres
-				"indietronica", "future garage", "vaporwave", "synthwave",
-				"drum & bass", "rage", "lo-fi", "chillwave", "shoegaze",
-				"post-rock", "math rock", "hyperpop", "neo-soul",
-				"afrobeats", "phonk", "dancehall", "grime", "drill"
+				"wave", "hip hop", "pop", "house", "techno", "dubstep",
+				"r&b", "folk", "country", "punk", "reggae", "indietronica",
+				"future garage", "vaporwave", "synthwave", "drum & bass",
+				"rage", "lo-fi", "chillwave", "shoegaze", "post-rock",
+				"math rock", "hyperpop", "neo-soul", "afrobeats", "phonk",
+				"dancehall", "grime", "drill", "acid jazz", "alternative rock",
+				"trip hop", "deep house", "tropical house", "bitpop", "synthpop",
+				"indie pop", "progressive house", "progressive metal", "funk",
+				"grunge", "melodic death metal", "moombahton", "trance",
+				"stoner rock", "new wave", "trap"
 			);
 			
 			// Use date-based seed for deterministic but daily-changing selection
@@ -2004,7 +2006,7 @@ public class SoundWrappedService {
 			// Fetch popular tracks from this genre using tag-based endpoint
 			List<Map<String, Object>> genreTracks = getTracksFromGenreTag(selectedGenre, 5);
 			
-			Map<String, Object> result = new HashMap<>();
+			Map<String, Object> result = new HashMap<String, Object>();
 			result.put("genre", selectedGenre);
 			// Ensure description is never null - use fallback if generation failed
 			result.put("description", genreDescription != null ? genreDescription : 
@@ -2021,10 +2023,10 @@ public class SoundWrappedService {
 			System.err.println("Error fetching featured genre with tracks: " + e.getMessage());
 			e.printStackTrace();
 			// Return default
-			Map<String, Object> result = new HashMap<>();
+			Map<String, Object> result = new HashMap<String, Object>();
 			result.put("genre", "electronic");
 			result.put("description", "Electronic music encompasses a wide range of genres that primarily use electronic instruments and technology.");
-			result.put("tracks", new ArrayList<>());
+			result.put("tracks", new ArrayList<Map<String, Object>>());
 			return result;
 		}
 	}
@@ -2041,7 +2043,7 @@ public class SoundWrappedService {
 			String accessToken = getAccessTokenForRequest();
 			if (accessToken == null) {
 				System.err.println("No access token available for genre tag request.");
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			}
 			
 		// Try using the resolve endpoint first for tag URLs (e.g., soundcloud.com/tags/ambient/popular-tracks)
@@ -2114,13 +2116,13 @@ public class SoundWrappedService {
 				
 				if (!response.getStatusCode().is2xxSuccessful()) {
 					System.err.println("Genre tag API returned non-2xx status: " + response.getStatusCode());
-					return new ArrayList<>();
+					return new ArrayList<Map<String, Object>>();
 				}
 				
 				Map<String, Object> responseBody = response.getBody();
 				if (responseBody == null) {
 					System.err.println("No response body from genre tag endpoint");
-					return new ArrayList<>();
+					return new ArrayList<Map<String, Object>>();
 				}
 				
 				// Log response body keys for debugging
@@ -2157,7 +2159,7 @@ public class SoundWrappedService {
 							String genreNormalized = genreLower.replaceAll("[\\s&-]", "").replace("&", "");
 							// Create genre aliases for common variations (e.g., "drum & bass" -> "dnb", "drumandbass")
 							List<String> genreAliases = getGenreAliases(genreLower);
-							List<Map<String, Object>> filteredDirectTracks = new ArrayList<>();
+							List<Map<String, Object>> filteredDirectTracks = new ArrayList<Map<String, Object>>();
 							
 							for (Map<String, Object> track : directTracks) {
 								// Check if title is in English
@@ -2228,7 +2230,7 @@ public class SoundWrappedService {
 						}
 					}
 					System.err.println("No tracks in collection from genre tag endpoint");
-					return new ArrayList<>();
+					return new ArrayList<Map<String, Object>>();
 				}
 				
 				System.out.println("Found " + tracks.size() + " tracks in collection");
@@ -2239,7 +2241,7 @@ public class SoundWrappedService {
 				String genreNormalized = genreLower.replaceAll("[\\s&-]", "").replace("&", "");
 				// Create genre aliases for common variations (e.g., "drum & bass" -> "dnb", "drumandbass")
 				List<String> genreAliases = getGenreAliases(genreLower);
-				List<Map<String, Object>> filteredTracks = new ArrayList<>();
+				List<Map<String, Object>> filteredTracks = new ArrayList<Map<String, Object>>();
 				
 				for (Map<String, Object> track : tracks) {
 					// Check if title is in English
@@ -2310,16 +2312,16 @@ public class SoundWrappedService {
 					.collect(java.util.stream.Collectors.toList());
 			} catch (HttpClientErrorException e) {
 				System.err.println("HTTP error for genre " + genreName + ": " + e.getStatusCode() + " - " + e.getMessage());
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			} catch (Exception e) {
 				System.err.println("Error fetching tracks for genre " + genreName + ": " + e.getMessage());
 				e.printStackTrace();
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			}
 		} catch (Exception e) {
 			System.err.println("Error fetching tracks from genre tag " + genreName + ": " + e.getMessage());
 			e.printStackTrace();
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		}
 	}
 
@@ -2328,7 +2330,7 @@ public class SoundWrappedService {
 	 * Handles common variations like "drum & bass" -> "dnb", "drumandbass", etc.
 	 */
 	private List<String> getGenreAliases(String genreName) {
-		List<String> aliases = new ArrayList<>();
+		List<String> aliases = new ArrayList<String>();
 		String lower = genreName.toLowerCase();
 		
 		// Add the original genre name
@@ -2430,7 +2432,7 @@ public class SoundWrappedService {
 		}
 		
 		// 2. Fallback to hardcoded descriptions for well-known genres
-		Map<String, String> genreDescriptions = new HashMap<>();
+		Map<String, String> genreDescriptions = new HashMap<Map<String, String>>();
 		genreDescriptions.put("wave", "Wave is a subgenre of electronic music characterized by its atmospheric, ethereal soundscapes and emotional melodies. Often featuring reverb-drenched synths and haunting vocals, wave music creates a dreamy, introspective listening experience.");
 		genreDescriptions.put("electronic", "Electronic music encompasses a wide range of genres that primarily use electronic instruments and technology. From ambient soundscapes to high-energy dance tracks, electronic music continues to evolve and influence modern music culture.");
 		genreDescriptions.put("hip-hop", "Hip-hop is a cultural movement and music genre that emerged in the 1970s. Characterized by rhythmic speech (rapping), DJing, breakdancing, and graffiti art, hip-hop has become one of the most influential music genres worldwide.");
@@ -2589,7 +2591,7 @@ public class SoundWrappedService {
 			HttpHeaders headers = new HttpHeaders();
 			headers.set("User-Agent", "SoundWrapped/1.0 (https://soundwrapped.com; contact@example.com)");
 			headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-			HttpEntity<String> request = new HttpEntity<>(headers);
+			HttpEntity<String> request = new HttpEntity<String>(headers);
 			
 			ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
 				wikiUrl,
@@ -2627,7 +2629,7 @@ public class SoundWrappedService {
 	 */
 	private String getWikipediaDescription(String searchTerm) {
 		// Build list of search variations to try
-		java.util.List<String> searchVariations = new java.util.ArrayList<>();
+		java.util.List<String> searchVariations = new java.util.ArrayList<String>();
 		
 		// Add original search term
 		searchVariations.add(searchTerm);
@@ -2671,7 +2673,7 @@ public class SoundWrappedService {
 		}
 		
 		// Remove duplicates
-		java.util.Set<String> uniqueVariations = new java.util.LinkedHashSet<>(searchVariations);
+		java.util.Set<String> uniqueVariations = new java.util.LinkedHashSet<String>(searchVariations);
 		
 		for (String variation : uniqueVariations) {
 			try {
@@ -2681,7 +2683,7 @@ public class SoundWrappedService {
 				HttpHeaders headers = new HttpHeaders();
 				headers.set("User-Agent", "SoundWrapped/1.0 (https://soundwrapped.com; contact@example.com)");
 				headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-				HttpEntity<String> request = new HttpEntity<>(headers);
+				HttpEntity<String> request = new HttpEntity<String>(headers);
 				
 				ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
 					wikiUrl,
@@ -2807,7 +2809,7 @@ public class SoundWrappedService {
 			
 			HttpHeaders headers = new HttpHeaders();
 			headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-			HttpEntity<String> request = new HttpEntity<>(headers);
+			HttpEntity<String> request = new HttpEntity<String>(headers);
 			
 			ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
 				kgUrl,
@@ -2870,7 +2872,7 @@ public class SoundWrappedService {
 			
 			HttpHeaders headers = new HttpHeaders();
 			headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-			HttpEntity<String> request = new HttpEntity<>(headers);
+			HttpEntity<String> request = new HttpEntity<String>(headers);
 			
 			ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
 				kgUrl,
@@ -2970,7 +2972,7 @@ public class SoundWrappedService {
 			
 			HttpHeaders headers = new HttpHeaders();
 			headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-			HttpEntity<String> request = new HttpEntity<>(headers);
+			HttpEntity<String> request = new HttpEntity<String>(headers);
 			
 			ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
 				serpApiUrl,
@@ -3244,10 +3246,10 @@ public class SoundWrappedService {
 			
 			// Build request body for Groq Chat API (simple chat completion, no function calling)
 			// Using llama-3.3-70b-versatile (llama-3.1-70b-versatile was decommissioned)
-			Map<String, Object> requestBody = new HashMap<>();
+			Map<String, Object> requestBody = new HashMap<Map<String, Object>>();
 			requestBody.put("model", "llama-3.3-70b-versatile");
-			List<Map<String, Object>> messages = new ArrayList<>();
-			Map<String, Object> userMessage = new HashMap<>();
+			List<Map<String, Object>> messages = new ArrayList<Map<String, Object>>();
+			Map<String, Object> userMessage = new HashMap<String, Object>();
 			userMessage.put("role", "user");
 			userMessage.put("content", prompt);
 			messages.add(userMessage);
@@ -3258,7 +3260,7 @@ public class SoundWrappedService {
 			HttpHeaders headers = new HttpHeaders();
 			headers.setContentType(MediaType.APPLICATION_JSON);
 			headers.setBearerAuth(apiKey);
-			HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+			HttpEntity<Map<String, Object>> request = new HttpEntity<Map<String, Object>>(requestBody, headers);
 			
 			System.out.println("  - Making HTTP POST request to Groq...");
 			System.out.flush();
@@ -3504,7 +3506,7 @@ public class SoundWrappedService {
 			String accessToken = getAccessTokenForRequest();
 			if (accessToken == null) {
 				System.err.println("No access token available for artist tracks request.");
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			}
 			System.out.println("Access token obtained (length: " + (accessToken != null ? accessToken.length() : 0) + ")");
 			
@@ -3512,7 +3514,7 @@ public class SoundWrappedService {
 			
 			if (artistPermalink == null || artistPermalink.isEmpty()) {
 				System.err.println("Artist permalink is null or empty, cannot fetch tracks");
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			}
 			
 		// Try to get tracks from popular-tracks URL first
@@ -3545,7 +3547,7 @@ public class SoundWrappedService {
 				System.err.println("Fallback also failed: " + e2.getMessage());
 				e2.printStackTrace();
 			}
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		}
 	}
 	
@@ -3561,7 +3563,7 @@ public class SoundWrappedService {
 			String accessToken = getAccessTokenForRequest();
 			if (accessToken == null) {
 				System.err.println("No access token available for popular-tracks URL request.");
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			}
 			
 			// Construct the popular-tracks URL
@@ -3586,11 +3588,11 @@ public class SoundWrappedService {
 			} catch (org.springframework.web.client.HttpClientErrorException e) {
 				System.err.println("HTTP error resolving popular-tracks URL: " + e.getStatusCode() + " - " + e.getMessage());
 				System.err.println("Response body: " + e.getResponseBodyAsString());
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			} catch (Exception e) {
 				System.err.println("Exception resolving popular-tracks URL: " + e.getClass().getSimpleName() + " - " + e.getMessage());
 				e.printStackTrace();
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			}
 			
 			System.out.println("Resolve response status: " + resolveResponse.getStatusCode());
@@ -3652,7 +3654,7 @@ public class SoundWrappedService {
 				System.err.println("Failed to resolve popular-tracks URL - status: " + resolveResponse.getStatusCode());
 			}
 			
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 			
 		} catch (Exception e) {
 			System.err.println("========================================");
@@ -3660,7 +3662,7 @@ public class SoundWrappedService {
 			System.err.println("Error: " + e.getMessage());
 			System.err.println("========================================");
 			e.printStackTrace();
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		}
 	}
 	
@@ -3675,7 +3677,7 @@ public class SoundWrappedService {
 			String accessToken = getAccessTokenForRequest();
 			if (accessToken == null) {
 				System.err.println("No access token available for artist tracks request.");
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			}
 			
 			// Fetch a large number of tracks to ensure we get the popular ones
@@ -3741,7 +3743,7 @@ public class SoundWrappedService {
 				e.printStackTrace();
 			}
 			
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 			
 		} catch (Exception e) {
 			System.err.println("========================================");
@@ -3749,7 +3751,7 @@ public class SoundWrappedService {
 			System.err.println("Error: " + e.getMessage());
 			System.err.println("========================================");
 			e.printStackTrace();
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		}
 	}
 	
@@ -3763,7 +3765,7 @@ public class SoundWrappedService {
 		try {
 			if (accessToken == null) {
 				System.err.println("Fallback: No access token available");
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			}
 			
 			System.out.println("Trying fallback method for artist: " + artistPermalink);
@@ -3790,11 +3792,11 @@ public class SoundWrappedService {
 			} catch (org.springframework.web.client.HttpClientErrorException e) {
 				System.err.println("Fallback: HTTP error resolving artist profile: " + e.getStatusCode() + " - " + e.getMessage());
 				System.err.println("Fallback: Response body: " + e.getResponseBodyAsString());
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			} catch (Exception e) {
 				System.err.println("Fallback: Exception resolving artist profile: " + e.getClass().getSimpleName() + " - " + e.getMessage());
 				e.printStackTrace();
-				return new ArrayList<>();
+				return new ArrayList<Map<String, Object>>();
 			}
 			
 			System.out.println("Fallback: Resolve response status: " + resolveResponse.getStatusCode());
@@ -3894,7 +3896,7 @@ public class SoundWrappedService {
 								
 								if (searchTracks != null && !searchTracks.isEmpty()) {
 									// Filter tracks to only include those by this artist
-									List<Map<String, Object>> artistTracks = new ArrayList<>();
+									List<Map<String, Object>> artistTracks = new ArrayList<Map<String, Object>>();
 									for (Map<String, Object> track : searchTracks) {
 										Object userObj = track.get("user");
 										if (userObj instanceof Map) {
@@ -3945,7 +3947,7 @@ public class SoundWrappedService {
 			e.printStackTrace();
 		}
 		System.err.println("Fallback: Returning empty list for artist: " + artistPermalink);
-		return new ArrayList<>();
+		return new ArrayList<Map<String, Object>>();
 	}
 
 	/**
@@ -3964,8 +3966,8 @@ public class SoundWrappedService {
 			}
 			
 			// Count genres from trending tracks
-			Map<String, Integer> genreCounts = new HashMap<>();
-			Map<String, Double> genrePopularityScores = new HashMap<>();
+			Map<String, Integer> genreCounts = new HashMap<String, Integer>();
+			Map<String, Double> genrePopularityScores = new HashMap<String, Double>();
 			
 			for (Map<String, Object> track : popularTracks) {
 				// Extract genre from track
@@ -4023,7 +4025,7 @@ public class SoundWrappedService {
 		Map<String, Object> wrapped = new HashMap<String, Object>();
 		
 		// Get profile first (this is the most important and usually works)
-		Map<String, Object> profile = new HashMap<>();
+		Map<String, Object> profile = new HashMap<String, Object>();
 		try {
 			profile = getUserProfile();
 		} catch (Exception e) {
@@ -4042,7 +4044,7 @@ public class SoundWrappedService {
 		}
 		
 		// Add delays between API calls to avoid rate limiting (SoundCloud has strict rate limits)
-		List<Map<String, Object>> likes = new ArrayList<>();
+		List<Map<String, Object>> likes = new ArrayList<Map<String, Object>>();
 		try {
 			Thread.sleep(500); // 500ms delay
 			likes = getUserLikes();
@@ -4050,7 +4052,7 @@ public class SoundWrappedService {
 			System.out.println("Failed to fetch likes: " + e.getMessage());
 		}
 		
-		List<Map<String, Object>> tracks = new ArrayList<>();
+		List<Map<String, Object>> tracks = new ArrayList<Map<String, Object>>();
 		try {
 			Thread.sleep(500); // 500ms delay
 			tracks = getUserTracks();
@@ -4058,7 +4060,7 @@ public class SoundWrappedService {
 			System.out.println("Failed to fetch tracks: " + e.getMessage());
 		}
 		
-		List<Map<String, Object>> playlists = new ArrayList<>();
+		List<Map<String, Object>> playlists = new ArrayList<Map<String, Object>>();
 		try {
 			Thread.sleep(500); // 500ms delay
 			playlists = getUserPlaylists();
@@ -4066,7 +4068,7 @@ public class SoundWrappedService {
 			System.out.println("Failed to fetch playlists: " + e.getMessage());
 		}
 		
-		List<Map<String, Object>> followers = new ArrayList<>();
+		List<Map<String, Object>> followers = new ArrayList<Map<String, Object>>();
 		try {
 			Thread.sleep(500); // 500ms delay
 			followers = getUserFollowers();
@@ -4136,7 +4138,7 @@ public class SoundWrappedService {
 
 		//Top 5 tracks by play count (deduplicated by track ID)
 		// Use a LinkedHashMap to preserve order while deduplicating by track ID
-		Map<String, Map<String, Object>> uniqueTracks = new LinkedHashMap<>();
+		Map<String, Map<String, Object>> uniqueTracks = new LinkedHashMap<String, Map<String, Object>>();
 		for (Map<String, Object> track : tracks) {
 			Object trackId = track.get("id");
 			if (trackId != null) {
@@ -4249,7 +4251,7 @@ public class SoundWrappedService {
 		}
 
 		// Create a map of artist username to follower count from likes
-		Map<String, Integer> artistFollowers = new HashMap<>();
+		Map<String, Integer> artistFollowers = new HashMap<String, Integer>();
 		for (Map<String, Object> like : likes) {
 			Object userObj = like.get("user");
 			if (userObj instanceof Map<?, ?> userMap) {
@@ -4384,9 +4386,9 @@ public class SoundWrappedService {
 		try {
 			String url = groqBaseUrl + "/chat/completions";
 			
-			Map<String, Object> requestBody = new HashMap<>();
-			List<Map<String, Object>> messages = new ArrayList<>();
-			Map<String, Object> userMessage = new HashMap<>();
+			Map<String, Object> requestBody = new HashMap<String, Object>();
+			List<Map<String, Object>> messages = new ArrayList<Map<String, Object>>();
+			Map<String, Object> userMessage = new HashMap<String, Object>();
 			userMessage.put("role", "user");
 			userMessage.put("content", customPrompt);
 			messages.add(userMessage);
@@ -4400,7 +4402,7 @@ public class SoundWrappedService {
 			headers.setContentType(MediaType.APPLICATION_JSON);
 			headers.setBearerAuth(groqApiKey);
 			
-			HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+			HttpEntity<Map<String, Object>> request = new HttpEntity<Map<String, Object>>(requestBody, headers);
 			
 			ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
 				url,
@@ -4440,7 +4442,7 @@ public class SoundWrappedService {
 	 * @return Map containing score, badge, and description
 	 */
 	private Map<String, Object> calculateTrendsetterScore(String userId, List<Map<String, Object>> tracks) {
-		Map<String, Object> result = new HashMap<>();
+		Map<String, Object> result = new HashMap<String, Object>();
 		
 		if (userId == null || userId.isEmpty() || tracks == null || tracks.isEmpty()) {
 			result.put("score", 0);
@@ -4464,7 +4466,7 @@ public class SoundWrappedService {
 				);
 
 			// Create a map of trackId -> first play timestamp (earliest play)
-			Map<String, java.time.LocalDateTime> firstPlayTimestamps = new HashMap<>();
+			Map<String, java.time.LocalDateTime> firstPlayTimestamps = new HashMap<String, java.time.LocalDateTime>();
 			for (com.soundwrapped.entity.UserActivity activity : playActivities) {
 				String trackId = activity.getTrackId();
 				java.time.LocalDateTime playTime = activity.getCreatedAt();
@@ -4575,7 +4577,7 @@ public class SoundWrappedService {
 	 * @return Map containing count, percentage, and description
 	 */
 	private Map<String, Object> calculateRepostKingScore(String userId, List<Map<String, Object>> likes) {
-		Map<String, Object> result = new HashMap<>();
+		Map<String, Object> result = new HashMap<String, Object>();
 		
 		if (userId == null || userId.isEmpty() || likes == null || likes.isEmpty()) {
 			result.put("repostedTracks", 0);
@@ -4600,7 +4602,7 @@ public class SoundWrappedService {
 				);
 
 			// Create a set of reposted track IDs
-			Set<String> repostedTrackIds = new HashSet<>();
+			Set<String> repostedTrackIds = new HashSet<String>();
 			for (com.soundwrapped.entity.UserActivity activity : repostActivities) {
 				repostedTrackIds.add(activity.getTrackId());
 			}
@@ -4620,7 +4622,7 @@ public class SoundWrappedService {
 
 			// Optimize: Create a map of trackId -> reposts_count for O(1) lookup
 			// Only process tracks that were actually reposted
-			Map<String, Long> repostedTrackReposts = new HashMap<>();
+			Map<String, Long> repostedTrackReposts = new HashMap<String, Long>();
 			for (Map<String, Object> track : likes) {
 				String trackId = String.valueOf(track.getOrDefault("id", ""));
 				if (repostedTrackIds.contains(trackId)) {
@@ -4750,8 +4752,8 @@ public class SoundWrappedService {
 			
 			// Analyze genres for classic vs modern indicators
 			// Use HashSet for O(1) lookup instead of O(n) stream operations
-			Set<String> classicGenres = new HashSet<>(Arrays.asList("jazz", "blues", "classical", "soul", "funk", "disco", "rock", "country", "folk", "gospel"));
-			Set<String> modernGenres = new HashSet<>(Arrays.asList("edm", "electronic", "dubstep", "trap", "hip hop", "rap", "pop", "indie", "alternative", "r&b"));
+			Set<String> classicGenres = new HashSet<String>(Arrays.asList("jazz", "blues", "classical", "soul", "funk", "disco", "rock", "country", "folk", "gospel"));
+			Set<String> modernGenres = new HashSet<String>(Arrays.asList("edm", "electronic", "dubstep", "trap", "hip hop", "rap", "pop", "indie", "alternative", "r&b"));
 			
 			int classicGenreCount = 0;
 			int modernGenreCount = 0;
@@ -4778,7 +4780,7 @@ public class SoundWrappedService {
 			int totalTracksAnalyzed = 0;
 			
 			// Combine tracks and likes for analysis
-			List<Map<String, Object>> allTracks = new ArrayList<>();
+			List<Map<String, Object>> allTracks = new ArrayList<Map<String, Object>>();
 			if (tracks != null) allTracks.addAll(tracks);
 			if (likes != null) allTracks.addAll(likes);
 			
@@ -4945,7 +4947,7 @@ public class SoundWrappedService {
 		rank = 1;
 
 		for (String artist : rawTopArtists) {
-			Map<String, Object> entry = new LinkedHashMap<>();
+			Map<String, Object> entry = new LinkedHashMap<String, Object>();
 			entry.put("rank", rank++);
 			entry.put("artist", artist);
 			rankedArtists.add(entry);
@@ -4993,12 +4995,12 @@ public class SoundWrappedService {
 
 		// Phase 2: Add Trendsetter Score
 		@SuppressWarnings("unchecked")
-		Map<String, Object> trendsetterScore = (Map<String, Object>) raw.getOrDefault("trendsetterScore", new HashMap<>());
+		Map<String, Object> trendsetterScore = (Map<String, Object>) raw.getOrDefault("trendsetterScore", new HashMap<String, Object>());
 		wrapped.put("trendsetterScore", trendsetterScore);
 
 		// Phase 2: Add Repost King/Queen Score
 		@SuppressWarnings("unchecked")
-		Map<String, Object> repostKingScore = (Map<String, Object>) raw.getOrDefault("repostKingScore", new HashMap<>());
+		Map<String, Object> repostKingScore = (Map<String, Object>) raw.getOrDefault("repostKingScore", new HashMap<String, Object>());
 		wrapped.put("repostKingScore", repostKingScore);
 
 		// Phase 2: Add Sonic Archetype
@@ -5059,18 +5061,18 @@ public class SoundWrappedService {
 		} catch (Exception e) {
 			System.out.println("Error in formattedWrappedSummary: " + e.getMessage());
 			// Return minimal wrapped data on error
-			Map<String, Object> minimalWrapped = new LinkedHashMap<>();
-			Map<String, Object> minimalProfile = new LinkedHashMap<>();
+			Map<String, Object> minimalWrapped = new LinkedHashMap<String, Object>();
+			Map<String, Object> minimalProfile = new LinkedHashMap<String, Object>();
 			minimalProfile.put("username", "Unknown");
 			minimalProfile.put("accountAgeYears", 0);
 			minimalProfile.put("followers", 0);
 			minimalProfile.put("tracksUploaded", 0);
 			minimalProfile.put("playlistsCreated", 0);
 			minimalWrapped.put("profile", minimalProfile);
-			minimalWrapped.put("topTracks", new ArrayList<>());
-			minimalWrapped.put("topArtists", new ArrayList<>());
-			minimalWrapped.put("topRepostedTracks", new ArrayList<>());
-			Map<String, Object> minimalStats = new LinkedHashMap<>();
+			minimalWrapped.put("topTracks", new ArrayList<Map<String, Object>>());
+			minimalWrapped.put("topArtists", new ArrayList<Map<String, Object>>());
+			minimalWrapped.put("topRepostedTracks", new ArrayList<Map<String, Object>>());
+			Map<String, Object> minimalStats = new LinkedHashMap<String, Object>();
 			minimalStats.put("totalListeningHours", 0);
 			minimalStats.put("likesGiven", 0);
 			minimalStats.put("tracksUploaded", 0);
@@ -5080,7 +5082,7 @@ public class SoundWrappedService {
 			minimalWrapped.put("funFact", "Unable to load data - please try again later");
 			minimalWrapped.put("peakYear", "");
 			minimalWrapped.put("globalTasteComparison", "");
-			minimalWrapped.put("stories", new ArrayList<>());
+			minimalWrapped.put("stories", new ArrayList<String>());
 			return minimalWrapped;
 		}
 	}

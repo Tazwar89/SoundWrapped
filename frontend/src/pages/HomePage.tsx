@@ -12,16 +12,19 @@ import {
   Radio
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { useFeaturedTrack, useFeaturedArtist, useFeaturedGenre, usePopularTracks } from '../hooks/useMusicQueries'
 import { api } from '../services/api'
 
 const HomePage: React.FC = () => {
   const { isAuthenticated, login } = useAuth()
   const [searchParams] = useSearchParams()
-  const [featuredTrack, setFeaturedTrack] = useState<any>(null)
-  const [featuredArtist, setFeaturedArtist] = useState<any>(null)
-  const [trendingTracks, setTrendingTracks] = useState<any[]>([])
-  const [featuredGenre, setFeaturedGenre] = useState<any>(null)
   const [onlineUsers, setOnlineUsers] = useState<number>(0)
+
+  // Use React Query hooks for data fetching with automatic caching
+  const { data: featuredTrack } = useFeaturedTrack()
+  const { data: featuredArtist } = useFeaturedArtist()
+  const { data: featuredGenre } = useFeaturedGenre()
+  const { data: trendingTracks = [] } = usePopularTracks(5)
 
   useEffect(() => {
     const authStatus = searchParams.get('auth')
@@ -32,53 +35,8 @@ const HomePage: React.FC = () => {
     }
   }, [searchParams])
 
-  // Fetch featured content (works for both authenticated and non-authenticated users)
+  // Fetch currently online users count
   useEffect(() => {
-    const fetchFeaturedContent = async () => {
-      // Fetch featured track from SoundCloud's popular tracks
-      try {
-        const trackResponse = await api.get('/soundcloud/featured/track')
-        if (trackResponse?.data && Object.keys(trackResponse.data).length > 0) {
-          setFeaturedTrack(trackResponse.data)
-        }
-      } catch (e: any) {
-        // Silently fail - use placeholder
-      }
-
-      // Fetch featured artist from SoundCloud's popular tracks
-      try {
-        const artistResponse = await api.get('/soundcloud/featured/artist')
-        if (artistResponse?.data && Object.keys(artistResponse.data).length > 0) {
-          setFeaturedArtist(artistResponse.data)
-        }
-      } catch (e) {
-        // Silently fail - use placeholder
-      }
-
-      // Fetch popular/trending tracks from SoundCloud
-      try {
-        const popularResponse = await api.get('/soundcloud/popular/tracks?limit=5')
-        if (popularResponse?.data && Array.isArray(popularResponse.data) && popularResponse.data.length > 0) {
-          setTrendingTracks(popularResponse.data)
-        }
-      } catch (e: any) {
-        // Silently fail - use placeholder
-      }
-
-      // Fetch featured genre with tracks
-      try {
-        const genreResponse = await api.get('/soundcloud/featured/genre')
-        if (genreResponse?.data) {
-          setFeaturedGenre(genreResponse.data)
-        }
-      } catch (e) {
-        // Silently fail - use placeholder
-      }
-    }
-
-    fetchFeaturedContent()
-
-    // Fetch currently online users count
     const fetchOnlineUsers = async () => {
       try {
         const response = await api.get('/soundcloud/online-users')
