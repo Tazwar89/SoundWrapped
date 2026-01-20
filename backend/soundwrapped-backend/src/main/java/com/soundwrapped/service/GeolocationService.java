@@ -45,7 +45,7 @@ public class GeolocationService {
             HttpHeaders headers = new HttpHeaders();
             headers.set("User-Agent", "SoundWrapped/1.0");
             headers.set("Accept", "application/json");
-            HttpEntity<String> request = new HttpEntity<>(headers);
+            HttpEntity<String> request = new HttpEntity<String>(headers);
             
             ResponseEntity<Map> response = restTemplate.exchange(
                 url,
@@ -60,7 +60,7 @@ public class GeolocationService {
             }
             
             // Transform ipapi.co response to our format
-            Map<String, Object> location = new HashMap<>();
+            Map<String, Object> location = new HashMap<String, Object>();
             location.put("city", data.getOrDefault("city", "Unknown"));
             location.put("country", data.getOrDefault("country_name", "Unknown"));
             location.put("countryCode", data.getOrDefault("country_code", ""));
@@ -87,7 +87,7 @@ public class GeolocationService {
             HttpHeaders headers = new HttpHeaders();
             headers.set("User-Agent", "SoundWrapped/1.0");
             headers.set("Accept", "application/json");
-            HttpEntity<String> request = new HttpEntity<>(headers);
+            HttpEntity<String> request = new HttpEntity<String>(headers);
             
             ResponseEntity<Map> response = restTemplate.exchange(
                 url,
@@ -101,7 +101,7 @@ public class GeolocationService {
                 return getFallbackLocation();
             }
             
-            Map<String, Object> location = new HashMap<>();
+            Map<String, Object> location = new HashMap<String, Object>();
             location.put("city", data.getOrDefault("city", "Unknown"));
             location.put("country", data.getOrDefault("country", "Unknown"));
             location.put("countryCode", data.getOrDefault("countryCode", ""));
@@ -118,7 +118,7 @@ public class GeolocationService {
     }
     
     private Map<String, Object> getFallbackLocation() {
-        Map<String, Object> fallback = new HashMap<>();
+        Map<String, Object> fallback = new HashMap<String, Object>();
         fallback.put("city", "Unknown");
         fallback.put("country", "Unknown");
         fallback.put("countryCode", "");

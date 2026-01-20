@@ -23,7 +23,7 @@ public class GenreAnalysisService {
      * @return Set of unique genres/tags found in the track
      */
     public Set<String> extractGenresFromTrack(Map<String, Object> track) {
-        Set<String> genres = new HashSet<>();
+        Set<String> genres = new HashSet<String>();
         
         // Extract main genre
         Object genreObj = track.get("genre");
@@ -94,12 +94,12 @@ public class GenreAnalysisService {
      * @return Genre analysis results
      */
     public Map<String, Object> analyzeGenres(List<Map<String, Object>> tracks) {
-        Map<String, Object> analysis = new HashMap<>();
+        Map<String, Object> analysis = new HashMap<String, Object>();
         
         // Track genre counts
-        Map<String, Integer> genreCounts = new HashMap<>();
-        Map<String, Long> genreListeningMs = new HashMap<>();
-        Set<String> allGenres = new HashSet<>();
+        Map<String, Integer> genreCounts = new HashMap<String, Integer>();
+        Map<String, Long> genreListeningMs = new HashMap<String, Long>();
+        Set<String> allGenres = new HashSet<String>();
         
         for (Map<String, Object> track : tracks) {
             Set<String> trackGenres = extractGenresFromTrack(track);
@@ -120,7 +120,7 @@ public class GenreAnalysisService {
             .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
             .limit(10)
             .map(entry -> {
-                Map<String, Object> genreData = new HashMap<>();
+                Map<String, Object> genreData = new HashMap<String, Object>();
                 genreData.put("genre", entry.getKey());
                 genreData.put("trackCount", entry.getValue());
                 genreData.put("listeningMs", genreListeningMs.getOrDefault(entry.getKey(), 0L));
@@ -134,7 +134,7 @@ public class GenreAnalysisService {
             .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
             .limit(10)
             .map(entry -> {
-                Map<String, Object> genreData = new HashMap<>();
+                Map<String, Object> genreData = new HashMap<String, Object>();
                 genreData.put("genre", entry.getKey());
                 genreData.put("listeningMs", entry.getValue());
                 genreData.put("listeningHours", entry.getValue() / 1000.0 / 60.0 / 60.0);
@@ -147,7 +147,7 @@ public class GenreAnalysisService {
         int genreDiscoveryCount = allGenres.size();
         
         // Genre distribution (percentage of tracks per genre)
-        Map<String, Double> genreDistribution = new HashMap<>();
+        Map<String, Double> genreDistribution = new HashMap<String, Double>();
         int totalTracks = tracks.size();
         if (totalTracks > 0) {
             for (Map.Entry<String, Integer> entry : genreCounts.entrySet()) {
@@ -160,7 +160,7 @@ public class GenreAnalysisService {
         analysis.put("topGenresByTrackCount", topGenresByCount);
         analysis.put("topGenresByListeningTime", topGenresByTime);
         analysis.put("genreDistribution", genreDistribution);
-        analysis.put("allGenres", new ArrayList<>(allGenres));
+        analysis.put("allGenres", new ArrayList<String>(allGenres));
         
         return analysis;
     }
@@ -175,7 +175,7 @@ public class GenreAnalysisService {
         List<Map<String, Object>> topGenres = (List<Map<String, Object>>) analysis.get("topGenresByListeningTime");
         
         if (topGenres == null || topGenres.isEmpty()) {
-            return new ArrayList<>();
+            return new ArrayList<String>();
         }
         
         return topGenres.stream()

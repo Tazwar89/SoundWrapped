@@ -30,7 +30,7 @@ public class ListeningPatternService {
      * @return Analysis of listening patterns
      */
     public Map<String, Object> analyzeListeningPatterns(String soundcloudUserId) {
-        Map<String, Object> analysis = new HashMap<>();
+        Map<String, Object> analysis = new HashMap<String, Object>();
         
         // Get all play activities for current year
         LocalDateTime yearStart = Year.now().atDay(1).atStartOfDay();
@@ -50,12 +50,12 @@ public class ListeningPatternService {
         }
         
         // Analyze by hour of day (0-23)
-        Map<Integer, Integer> hourCounts = new HashMap<>();
-        Map<Integer, Long> hourListeningMs = new HashMap<>();
+        Map<Integer, Integer> hourCounts = new HashMap<Integer, Integer>();
+        Map<Integer, Long> hourListeningMs = new HashMap<Integer, Long>();
         
         // Analyze by day of week (1=Monday, 7=Sunday)
-        Map<DayOfWeek, Integer> dayCounts = new HashMap<>();
-        Map<DayOfWeek, Long> dayListeningMs = new HashMap<>();
+        Map<DayOfWeek, Integer> dayCounts = new HashMap<DayOfWeek, Integer>();
+        Map<DayOfWeek, Long> dayListeningMs = new HashMap<DayOfWeek, Long>();
         
         for (UserActivity activity : playActivities) {
             LocalDateTime createdAt = activity.getCreatedAt();
@@ -88,9 +88,9 @@ public class ListeningPatternService {
         String persona = calculateListeningPersona(hourCounts, hourListeningMs);
         
         // Prepare hour distribution (0-23)
-        List<Map<String, Object>> hourDistribution = new ArrayList<>();
+        List<Map<String, Object>> hourDistribution = new ArrayList<Map<String, Object>>();
         for (int hour = 0; hour < 24; hour++) {
-            Map<String, Object> hourData = new HashMap<>();
+            Map<String, Object> hourData = new HashMap<String, Object>();
             hourData.put("hour", hour);
             hourData.put("hourLabel", formatHour(hour));
             hourData.put("playCount", hourCounts.getOrDefault(hour, 0));
@@ -100,10 +100,10 @@ public class ListeningPatternService {
         }
         
         // Prepare day distribution
-        List<Map<String, Object>> dayDistribution = new ArrayList<>();
+        List<Map<String, Object>> dayDistribution = new ArrayList<Map<String, Object>>();
         DayOfWeek[] daysOfWeek = DayOfWeek.values();
         for (DayOfWeek day : daysOfWeek) {
-            Map<String, Object> dayData = new HashMap<>();
+            Map<String, Object> dayData = new HashMap<String, Object>();
             dayData.put("day", day.name());
             dayData.put("dayLabel", formatDay(day));
             dayData.put("playCount", dayCounts.getOrDefault(day, 0));
@@ -196,4 +196,3 @@ public class ListeningPatternService {
         };
     }
 }
-

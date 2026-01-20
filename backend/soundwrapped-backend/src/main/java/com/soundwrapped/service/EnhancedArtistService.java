@@ -55,7 +55,7 @@ public class EnhancedArtistService {
             
             HttpHeaders headers = new HttpHeaders();
             headers.set("Accept", "application/json");
-            HttpEntity<String> request = new HttpEntity<>(headers);
+            HttpEntity<String> request = new HttpEntity<String>(headers);
             
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 searchUrl,
@@ -109,7 +109,7 @@ public class EnhancedArtistService {
             
             HttpHeaders headers = new HttpHeaders();
             headers.set("Accept", "application/json");
-            HttpEntity<String> request = new HttpEntity<>(headers);
+            HttpEntity<String> request = new HttpEntity<String>(headers);
             
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 url,
@@ -122,13 +122,13 @@ public class EnhancedArtistService {
             if (response.getStatusCode().is2xxSuccessful() && responseBody != null) {
                 @SuppressWarnings("unchecked")
                 List<Map<String, Object>> albums = (List<Map<String, Object>>) responseBody.get("album");
-                return albums != null ? albums : new ArrayList<>();
+                return albums != null ? albums : new ArrayList<Map<String, Object>>();
             }
         } catch (Exception e) {
             System.out.println("Error fetching albums for artist " + artistId + ": " + e.getMessage());
         }
         
-        return new ArrayList<>();
+        return new ArrayList<Map<String, Object>>();
     }
     
     /**
@@ -143,7 +143,7 @@ public class EnhancedArtistService {
             
             HttpHeaders headers = new HttpHeaders();
             headers.set("Accept", "application/json");
-            HttpEntity<String> request = new HttpEntity<>(headers);
+            HttpEntity<String> request = new HttpEntity<String>(headers);
             
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 url,
@@ -156,13 +156,13 @@ public class EnhancedArtistService {
             if (response.getStatusCode().is2xxSuccessful() && responseBody != null) {
                 @SuppressWarnings("unchecked")
                 List<Map<String, Object>> videos = (List<Map<String, Object>>) responseBody.get("mvids");
-                return videos != null ? videos : new ArrayList<>();
+                return videos != null ? videos : new ArrayList<Map<String, Object>>();
             }
         } catch (Exception e) {
             System.out.println("Error fetching videos for artist " + artistId + ": " + e.getMessage());
         }
         
-        return new ArrayList<>();
+        return new ArrayList<Map<String, Object>>();
     }
     
     /**

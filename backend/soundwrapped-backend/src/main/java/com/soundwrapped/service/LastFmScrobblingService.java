@@ -173,7 +173,7 @@ public class LastFmScrobblingService {
     private List<Map<String, Object>> getRecentTracks(String username, String sessionKey, long fromTimestamp) {
         try {
             // Build request with authentication
-            Map<String, String> params = new HashMap<>();
+            Map<String, String> params = new HashMap<String, String>();
             params.put("method", "user.getRecentTracks");
             params.put("user", username);
             params.put("api_key", lastFmApiKey);
@@ -192,7 +192,7 @@ public class LastFmScrobblingService {
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("Accept", "application/json");
-            HttpEntity<String> request = new HttpEntity<>(headers);
+            HttpEntity<String> request = new HttpEntity<String>(headers);
 
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 builder.toUriString(),
@@ -209,14 +209,14 @@ public class LastFmScrobblingService {
                 if (recentTracksObj != null) {
                     @SuppressWarnings("unchecked")
                     List<Map<String, Object>> tracks = (List<Map<String, Object>>) recentTracksObj.get("track");
-                    return tracks != null ? tracks : new ArrayList<>();
+                    return tracks != null ? tracks : new ArrayList<Map<String, Object>>();
                 }
             }
         } catch (Exception e) {
             System.err.println("[LastFmScrobbling] Error fetching recent tracks: " + e.getMessage());
         }
 
-        return new ArrayList<>();
+        return new ArrayList<Map<String, Object>>();
     }
 
     /**
@@ -224,7 +224,7 @@ public class LastFmScrobblingService {
      */
     private String generateSignature(Map<String, String> params, String sessionKey) {
         // Sort parameters alphabetically
-        List<String> sortedKeys = new ArrayList<>(params.keySet());
+        List<String> sortedKeys = new ArrayList<String>(params.keySet());
         Collections.sort(sortedKeys);
 
         // Build signature string
@@ -275,7 +275,7 @@ public class LastFmScrobblingService {
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("Accept", "application/json");
-            HttpEntity<String> request = new HttpEntity<>(headers);
+            HttpEntity<String> request = new HttpEntity<String>(headers);
 
             ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
                 searchUrl,
@@ -333,5 +333,4 @@ public class LastFmScrobblingService {
 
         return null;
     }
-
 }

@@ -57,7 +57,7 @@ public class LastFmController {
      */
     @GetMapping("/auth-url")
     public ResponseEntity<Map<String, Object>> getAuthUrl() {
-        Map<String, Object> response = new HashMap<>();
+        Map<String, Object> response = new HashMap<String, Object>();
         
         if (lastFmApiKey == null || lastFmApiKey.isEmpty() || lastFmApiSecret == null || lastFmApiSecret.isEmpty()) {
             response.put("error", "Last.fm API keys not configured");
@@ -67,7 +67,7 @@ public class LastFmController {
 
         try {
             // Step 1: Get a request token from Last.fm
-            Map<String, String> params = new HashMap<>();
+            Map<String, String> params = new HashMap<String, String>();
             params.put("method", "auth.getToken");
             params.put("api_key", lastFmApiKey);
             params.put("format", "json");
@@ -82,7 +82,7 @@ public class LastFmController {
 
             HttpHeaders requestHeaders = new HttpHeaders();
             requestHeaders.set("Accept", "application/json");
-            HttpEntity<String> request = new HttpEntity<>(requestHeaders);
+            HttpEntity<String> request = new HttpEntity<String>(requestHeaders);
 
             ResponseEntity<Map<String, Object>> tokenResponse = restTemplate.exchange(
                 builder.toUriString(),
@@ -188,7 +188,7 @@ public class LastFmController {
      */
     @GetMapping("/callback/test")
     public ResponseEntity<Map<String, Object>> testCallback() {
-        Map<String, Object> response = new HashMap<>();
+        Map<String, Object> response = new HashMap<String, Object>();
         response.put("status", "success");
         response.put("message", "Callback endpoint is accessible");
         response.put("timestamp", java.time.LocalDateTime.now().toString());
@@ -308,7 +308,7 @@ public class LastFmController {
      */
     private String getSessionKey(String token) {
         try {
-            Map<String, String> params = new HashMap<>();
+            Map<String, String> params = new HashMap<String, String>();
             params.put("method", "auth.getSession");
             params.put("api_key", lastFmApiKey);
             params.put("token", token);
@@ -324,7 +324,7 @@ public class LastFmController {
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("Accept", "application/json");
-            HttpEntity<String> request = new HttpEntity<>(headers);
+            HttpEntity<String> request = new HttpEntity<String>(headers);
 
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 builder.toUriString(),
@@ -372,7 +372,7 @@ public class LastFmController {
      */
     private String getUsername(String sessionKey) {
         try {
-            Map<String, String> params = new HashMap<>();
+            Map<String, String> params = new HashMap<String, String>();
             params.put("method", "user.getInfo");
             params.put("api_key", lastFmApiKey);
             params.put("sk", sessionKey);
@@ -388,7 +388,7 @@ public class LastFmController {
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("Accept", "application/json");
-            HttpEntity<String> request = new HttpEntity<>(headers);
+            HttpEntity<String> request = new HttpEntity<String>(headers);
 
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 builder.toUriString(),
@@ -436,7 +436,7 @@ public class LastFmController {
      */
     private String generateSignature(Map<String, String> params) {
         // Sort parameters alphabetically
-        List<String> sortedKeys = new ArrayList<>(params.keySet());
+        List<String> sortedKeys = new ArrayList<String>(params.keySet());
         Collections.sort(sortedKeys);
 
         // Build signature string
@@ -471,7 +471,7 @@ public class LastFmController {
      */
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> getConnectionStatus() {
-        Map<String, Object> response = new HashMap<>();
+        Map<String, Object> response = new HashMap<String, Object>();
 
         try {
             Map<String, Object> profile = soundWrappedService.getUserProfile();
@@ -516,7 +516,7 @@ public class LastFmController {
      */
     @PostMapping("/disconnect")
     public ResponseEntity<Map<String, Object>> disconnect() {
-        Map<String, Object> response = new HashMap<>();
+        Map<String, Object> response = new HashMap<String, Object>();
 
         try {
             Map<String, Object> profile = soundWrappedService.getUserProfile();
@@ -543,7 +543,7 @@ public class LastFmController {
      */
     @PostMapping("/sync")
     public ResponseEntity<Map<String, Object>> triggerSync() {
-        Map<String, Object> response = new HashMap<>();
+        Map<String, Object> response = new HashMap<String, Object>();
 
         try {
             Map<String, Object> profile = soundWrappedService.getUserProfile();
@@ -574,4 +574,3 @@ public class LastFmController {
         }
     }
 }
-

@@ -45,7 +45,7 @@ public class AnalyticsService {
             Map<String, Object> apiProfileData,
             List<Map<String, Object>> apiTracksData) {
         
-        Map<String, Object> analytics = new HashMap<>();
+        Map<String, Object> analytics = new HashMap<String, Object>();
         
         // Current year date range for tracked activity
         LocalDateTime yearStart = Year.now().atDay(1).atStartOfDay();

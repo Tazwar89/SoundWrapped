@@ -117,7 +117,7 @@ public class SystemPlaybackController {
                 System.out.println("[SystemPlayback] ⚠️ Empty track ID, skipping");
             }
             
-            Map<String, Object> response = new HashMap<>();
+            Map<String, Object> response = new HashMap<String, Object>();
             response.put("success", true);
             response.put("message", "Playback event tracked");
             response.put("trackId", trackId);
@@ -128,7 +128,7 @@ public class SystemPlaybackController {
         } catch (Exception e) {
             System.err.println("[SystemPlayback] ❌ Error tracking playback: " + e.getMessage());
             e.printStackTrace();
-            Map<String, Object> error = new HashMap<>();
+            Map<String, Object> error = new HashMap<String, Object>();
             error.put("success", false);
             error.put("message", "Failed to track playback event: " + e.getMessage());
             error.put("error", e.getClass().getSimpleName());
@@ -163,12 +163,12 @@ public class SystemPlaybackController {
             
             activityTrackingService.trackLike(userId, trackId);
             
-            Map<String, Object> response = new HashMap<>();
+            Map<String, Object> response = new HashMap<String, Object>();
             response.put("success", true);
             response.put("message", "Like event tracked");
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            Map<String, Object> error = new HashMap<>();
+            Map<String, Object> error = new HashMap<String, Object>();
             error.put("success", false);
             error.put("message", "Failed to track like event: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
@@ -187,12 +187,12 @@ public class SystemPlaybackController {
             String clientIp = getClientIpAddress(request);
             userLocationService.updateUserLocation(userId, clientIp);
             
-            Map<String, Object> response = new HashMap<>();
+            Map<String, Object> response = new HashMap<String, Object>();
             response.put("success", true);
             response.put("message", "Location updated");
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            Map<String, Object> error = new HashMap<>();
+            Map<String, Object> error = new HashMap<String, Object>();
             error.put("success", false);
             error.put("message", "Failed to update location: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
@@ -204,7 +204,7 @@ public class SystemPlaybackController {
      */
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> healthCheck() {
-        Map<String, Object> response = new HashMap<>();
+        Map<String, Object> response = new HashMap<String, Object>();
         response.put("status", "healthy");
         response.put("service", "System Playback Tracking");
         response.put("version", "1.0.0");

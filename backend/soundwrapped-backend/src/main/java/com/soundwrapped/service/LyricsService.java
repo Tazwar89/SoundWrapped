@@ -46,7 +46,7 @@ public class LyricsService {
             
             HttpHeaders headers = new HttpHeaders();
             headers.set("Accept", "application/json");
-            HttpEntity<String> request = new HttpEntity<>(headers);
+            HttpEntity<String> request = new HttpEntity<String>(headers);
             
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 url,

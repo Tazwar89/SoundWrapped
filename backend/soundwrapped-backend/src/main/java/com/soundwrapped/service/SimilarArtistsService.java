@@ -36,7 +36,7 @@ public class SimilarArtistsService {
     @Cacheable(value = "similarArtists", key = "#artistName.toLowerCase() + '|' + #limit", unless = "#result == null || #result.isEmpty()")
     public List<Map<String, Object>> getSimilarArtists(String artistName, int limit) {
         if (artistName == null || artistName.isEmpty() || lastFmApiKey == null || lastFmApiKey.isEmpty()) {
-            return new ArrayList<>();
+            return new ArrayList<Map<String, Object>>();
         }
         
         try {
@@ -49,7 +49,7 @@ public class SimilarArtistsService {
             
             HttpHeaders headers = new HttpHeaders();
             headers.set("Accept", "application/json");
-            HttpEntity<String> request = new HttpEntity<>(headers);
+            HttpEntity<String> request = new HttpEntity<String>(headers);
             
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 url,
@@ -70,9 +70,9 @@ public class SimilarArtistsService {
                     
                     if (artists != null && !artists.isEmpty()) {
                         // Transform Last.fm response to our format
-                        List<Map<String, Object>> similarArtists = new ArrayList<>();
+                        List<Map<String, Object>> similarArtists = new ArrayList<Map<String, Object>>();
                         for (Map<String, Object> artist : artists) {
-                            Map<String, Object> similarArtist = new HashMap<>();
+                            Map<String, Object> similarArtist = new HashMap<String, Object>();
                             similarArtist.put("name", artist.get("name"));
                             
                             // Last.fm provides match score (0-1)
@@ -124,7 +124,7 @@ public class SimilarArtistsService {
             System.out.println("Error fetching similar artists for " + artistName + ": " + e.getMessage());
         }
         
-        return new ArrayList<>();
+        return new ArrayList<Map<String, Object>>();
     }
     
     /**
@@ -136,7 +136,7 @@ public class SimilarArtistsService {
      */
     public List<Map<String, Object>> getArtistTopTracks(String artistName, int limit) {
         if (artistName == null || artistName.isEmpty() || lastFmApiKey == null || lastFmApiKey.isEmpty()) {
-            return new ArrayList<>();
+            return new ArrayList<Map<String, Object>>();
         }
         
         try {
@@ -148,7 +148,7 @@ public class SimilarArtistsService {
             
             HttpHeaders headers = new HttpHeaders();
             headers.set("Accept", "application/json");
-            HttpEntity<String> request = new HttpEntity<>(headers);
+            HttpEntity<String> request = new HttpEntity<String>(headers);
             
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 url,
@@ -167,9 +167,9 @@ public class SimilarArtistsService {
                     List<Map<String, Object>> tracks = (List<Map<String, Object>>) toptracksObj.get("track");
                     
                     if (tracks != null && !tracks.isEmpty()) {
-                        List<Map<String, Object>> topTracks = new ArrayList<>();
+                        List<Map<String, Object>> topTracks = new ArrayList<Map<String, Object>>();
                         for (Map<String, Object> track : tracks) {
-                            Map<String, Object> trackInfo = new HashMap<>();
+                            Map<String, Object> trackInfo = new HashMap<String, Object>();
                             trackInfo.put("name", track.get("name"));
                             trackInfo.put("playcount", track.get("playcount"));
                             
@@ -198,7 +198,6 @@ public class SimilarArtistsService {
             System.out.println("Error fetching top tracks for " + artistName + ": " + e.getMessage());
         }
         
-        return new ArrayList<>();
+        return new ArrayList<Map<String, Object>>();
     }
 }
-

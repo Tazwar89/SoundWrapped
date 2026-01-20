@@ -122,7 +122,7 @@ class SoundWrappedServiceTests {
 
 		when(restTemplate.exchange(eq("https://api.soundcloud.com/oauth2/token"), eq(HttpMethod.POST),
 				any(HttpEntity.class), any(ParameterizedTypeReference.class)))
-				.thenReturn(new ResponseEntity<>(fakeResponse, HttpStatus.OK));
+				.thenReturn(new ResponseEntity<Map<String, Object>>(fakeResponse, HttpStatus.OK));
 
 		Map<String, Object> result = soundWrappedService.exchangeAuthorizationCode(authCode);
 
@@ -167,7 +167,7 @@ class SoundWrappedServiceTests {
 
 		Map<String, Object> profile = Map.of("username", "user1");
 		when(restTemplate.exchange(eq(profileUrl), eq(HttpMethod.GET), any(HttpEntity.class),
-				any(ParameterizedTypeReference.class))).thenReturn(new ResponseEntity<>(profile, HttpStatus.OK));
+				any(ParameterizedTypeReference.class))).thenReturn(new ResponseEntity<Map<String, Object>>(profile, HttpStatus.OK));
 
 		Map<String, Object> result = soundWrappedService.getUserProfile();
 

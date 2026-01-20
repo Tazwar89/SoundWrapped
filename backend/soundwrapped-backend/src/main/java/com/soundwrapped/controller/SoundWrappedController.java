@@ -59,7 +59,7 @@ public class SoundWrappedController {
 			return soundWrappedService.getUserProfile();
 		} catch (Exception e) {
 			System.out.println("Error fetching profile: " + e.getMessage());
-			Map<String, Object> errorProfile = new HashMap<>();
+			Map<String, Object> errorProfile = new HashMap<String, Object>();
 			errorProfile.put("error", "Unable to fetch profile data");
 			errorProfile.put("message", e.getMessage());
 			return errorProfile;
@@ -77,7 +77,7 @@ public class SoundWrappedController {
 			return soundWrappedService.getUserPlaylists();
 		} catch (Exception e) {
 			System.out.println("Error fetching playlists: " + e.getMessage());
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		}
 	}
 
@@ -97,7 +97,7 @@ public class SoundWrappedController {
 			return soundWrappedService.getUserTopTracksByPlays(userId, 50);
 		} catch (Exception e) {
 			System.out.println("Error fetching tracks: " + e.getMessage());
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		}
 	}
 
@@ -113,7 +113,7 @@ public class SoundWrappedController {
 		} catch (Exception e) {
 			System.err.println("Error fetching popular tracks: " + e.getMessage());
 			e.printStackTrace();
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		}
 	}
 
@@ -129,7 +129,7 @@ public class SoundWrappedController {
 		} catch (Exception e) {
 			System.err.println("Error fetching featured track: " + e.getMessage());
 			e.printStackTrace();
-			return new HashMap<>();
+			return new HashMap<String, Object>();
 		}
 	}
 
@@ -164,7 +164,7 @@ public class SoundWrappedController {
 		} catch (Exception e) {
 			System.err.println("Error fetching featured artist: " + e.getMessage());
 			e.printStackTrace();
-			return new HashMap<>();
+			return new HashMap<String, Object>();
 		}
 	}
 
@@ -177,10 +177,10 @@ public class SoundWrappedController {
 			System.err.println("Error fetching featured genre: " + e.getMessage());
 			e.printStackTrace();
 			// Return default genre with tracks even on error
-			Map<String, Object> result = new HashMap<>();
+			Map<String, Object> result = new HashMap<String, Object>();
 			result.put("genre", "electronic");
 			result.put("description", "Electronic music encompasses a wide range of genres that primarily use electronic instruments and technology.");
-			result.put("tracks", new ArrayList<>());
+			result.put("tracks", new ArrayList<Map<String, Object>>());
 			return result;
 		}
 	}
@@ -191,7 +191,7 @@ public class SoundWrappedController {
 	 */
 	@PostMapping("/featured/clear-cache")
 	public Map<String, Object> clearFeaturedCache() {
-		Map<String, Object> result = new HashMap<>();
+		Map<String, Object> result = new HashMap<String, Object>();
 		try {
 			soundWrappedService.clearFeaturedCache();
 			result.put("success", true);
@@ -229,18 +229,18 @@ public class SoundWrappedController {
 			// Return minimal wrapped data based on profile only
 			try {
 				Map<String, Object> profile = soundWrappedService.getUserProfile();
-				Map<String, Object> minimalWrapped = new HashMap<>();
-				Map<String, Object> wrappedProfile = new HashMap<>();
+				Map<String, Object> minimalWrapped = new HashMap<String, Object>();
+				Map<String, Object> wrappedProfile = new HashMap<String, Object>();
 				wrappedProfile.put("username", profile.get("username"));
 				wrappedProfile.put("followers", profile.get("followers_count"));
 				wrappedProfile.put("tracksUploaded", profile.getOrDefault("track_count", 0));
 				wrappedProfile.put("playlistsCreated", profile.getOrDefault("playlist_count", 0));
 				wrappedProfile.put("accountAgeYears", 0);
 				minimalWrapped.put("profile", wrappedProfile);
-				minimalWrapped.put("topTracks", new ArrayList<>());
-				minimalWrapped.put("topArtists", new ArrayList<>());
-				minimalWrapped.put("topRepostedTracks", new ArrayList<>());
-				Map<String, Object> stats = new HashMap<>();
+				minimalWrapped.put("topTracks", new ArrayList<Map<String, Object>>());
+				minimalWrapped.put("topArtists", new ArrayList<Map<String, Object>>());
+				minimalWrapped.put("topRepostedTracks", new ArrayList<Map<String, Object>>());
+				Map<String, Object> stats = new HashMap<String, Object>();
 				stats.put("totalListeningHours", 0);
 				stats.put("likesGiven", profile.getOrDefault("public_favorites_count", 0));
 				stats.put("tracksUploaded", profile.getOrDefault("track_count", 0));
@@ -250,22 +250,22 @@ public class SoundWrappedController {
 				minimalWrapped.put("funFact", "Unable to load full data - SoundCloud API rate limited");
 				minimalWrapped.put("peakYear", "");
 				minimalWrapped.put("globalTasteComparison", "");
-				minimalWrapped.put("stories", new ArrayList<>());
+				minimalWrapped.put("stories", new ArrayList<Map<String, Object>>());
 				return minimalWrapped;
 			} catch (Exception profileError) {
 				// If even profile fails, return empty structure
-				Map<String, Object> emptyWrapped = new HashMap<>();
-				Map<String, Object> emptyProfile = new HashMap<>();
+				Map<String, Object> emptyWrapped = new HashMap<String, Object>();
+				Map<String, Object> emptyProfile = new HashMap<String, Object>();
 				emptyProfile.put("username", "Unknown");
 				emptyProfile.put("accountAgeYears", 0);
 				emptyProfile.put("followers", 0);
 				emptyProfile.put("tracksUploaded", 0);
 				emptyProfile.put("playlistsCreated", 0);
 				emptyWrapped.put("profile", emptyProfile);
-				emptyWrapped.put("topTracks", new ArrayList<>());
-				emptyWrapped.put("topArtists", new ArrayList<>());
-				emptyWrapped.put("topRepostedTracks", new ArrayList<>());
-				Map<String, Object> emptyStats = new HashMap<>();
+				emptyWrapped.put("topTracks", new ArrayList<Map<String, Object>>());
+				emptyWrapped.put("topArtists", new ArrayList<Map<String, Object>>());
+				emptyWrapped.put("topRepostedTracks", new ArrayList<Map<String, Object>>());
+				Map<String, Object> emptyStats = new HashMap<String, Object>();
 				emptyStats.put("totalListeningHours", 0);
 				emptyStats.put("likesGiven", 0);
 				emptyStats.put("tracksUploaded", 0);
@@ -275,7 +275,7 @@ public class SoundWrappedController {
 				emptyWrapped.put("funFact", "Unable to load data - please try again later");
 				emptyWrapped.put("peakYear", "");
 				emptyWrapped.put("globalTasteComparison", "");
-				emptyWrapped.put("stories", new ArrayList<>());
+				emptyWrapped.put("stories", new ArrayList<Map<String, Object>>());
 				return emptyWrapped;
 			}
 		}
@@ -294,7 +294,7 @@ public class SoundWrappedController {
 			return analyticsService.getDashboardAnalytics(userId, profile, tracks);
 		} catch (Exception e) {
 			System.out.println("Error fetching dashboard analytics: " + e.getMessage());
-			Map<String, Object> error = new HashMap<>();
+			Map<String, Object> error = new HashMap<String, Object>();
 			error.put("error", "Unable to fetch analytics");
 			error.put("message", e.getMessage());
 			return error;
@@ -311,7 +311,7 @@ public class SoundWrappedController {
 			return musicDoppelgangerService.findMusicDoppelganger();
 		} catch (Exception e) {
 			System.out.println("Error finding Music Doppelgänger: " + e.getMessage());
-			Map<String, Object> error = new HashMap<>();
+			Map<String, Object> error = new HashMap<String, Object>();
 			error.put("found", false);
 			error.put("message", "Error analyzing taste similarity: " + e.getMessage());
 			return error;
@@ -329,7 +329,7 @@ public class SoundWrappedController {
 			return artistAnalyticsService.getArtistAnalytics(userId);
 		} catch (Exception e) {
 			System.out.println("Error fetching artist analytics: " + e.getMessage());
-			Map<String, Object> error = new HashMap<>();
+			Map<String, Object> error = new HashMap<String, Object>();
 			error.put("error", "Unable to fetch artist analytics");
 			error.put("message", e.getMessage());
 			return error;
@@ -345,7 +345,7 @@ public class SoundWrappedController {
 			return artistAnalyticsService.getArtistRecommendations(trackId);
 		} catch (Exception e) {
 			System.out.println("Error fetching artist recommendations: " + e.getMessage());
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		}
 	}
 
@@ -358,7 +358,7 @@ public class SoundWrappedController {
 			return musicTasteMapService.getMusicTasteMap();
 		} catch (Exception e) {
 			System.out.println("Error fetching music taste map: " + e.getMessage());
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		}
 	}
 
@@ -372,7 +372,7 @@ public class SoundWrappedController {
 		} catch (Exception e) {
 			System.err.println("Error fetching recent activity: " + e.getMessage());
 			e.printStackTrace();
-			return new ArrayList<>();
+			return new ArrayList<Map<String, Object>>();
 		}
 	}
 
@@ -381,7 +381,7 @@ public class SoundWrappedController {
 	 */
 	@GetMapping("/online-users")
 	public Map<String, Object> getCurrentlyOnlineUsers() {
-		Map<String, Object> result = new HashMap<>();
+		Map<String, Object> result = new HashMap<String, Object>();
 		try {
 			LocalDateTime fiveMinutesAgo = LocalDateTime.now().minusMinutes(5);
 			long onlineCount = userActivityRepository.countDistinctActiveUsersSince(fiveMinutesAgo);
@@ -402,7 +402,7 @@ public class SoundWrappedController {
 	 */
 	@GetMapping("/similar-artists")
 	public Map<String, Object> getSimilarArtists(@RequestParam String artist, @RequestParam(defaultValue = "10") int limit) {
-		Map<String, Object> result = new HashMap<>();
+		Map<String, Object> result = new HashMap<String, Object>();
 		try {
 			List<Map<String, Object>> similarArtists = similarArtistsService.getSimilarArtists(artist, limit);
 			result.put("artist", artist);
@@ -413,7 +413,7 @@ public class SoundWrappedController {
 			System.err.println("Error fetching similar artists: " + e.getMessage());
 			e.printStackTrace();
 			result.put("artist", artist);
-			result.put("similarArtists", new ArrayList<>());
+			result.put("similarArtists", new ArrayList<Map<String, Object>>());
 			result.put("error", e.getMessage());
 			return result;
 		}
@@ -440,7 +440,7 @@ public class SoundWrappedController {
 			org.springframework.http.ResponseEntity<List<Map<String, Object>>> response = 
 				restTemplate.exchange(testUrl, org.springframework.http.HttpMethod.GET, request, typeRef);
 			
-			Map<String, Object> result = new HashMap<>();
+			Map<String, Object> result = new HashMap<String, Object>();
 			result.put("status", "success");
 			result.put("httpStatus", response.getStatusCode().toString());
 			result.put("tracksReturned", response.getBody() != null ? response.getBody().size() : 0);
@@ -450,7 +450,7 @@ public class SoundWrappedController {
 			}
 			return result;
 		} catch (Exception e) {
-			Map<String, Object> result = new HashMap<>();
+			Map<String, Object> result = new HashMap<String, Object>();
 			result.put("status", "error");
 			result.put("error", e.getMessage());
 			result.put("errorType", e.getClass().getSimpleName());
@@ -462,7 +462,7 @@ public class SoundWrappedController {
 	// Debug endpoint to check token status
 	@GetMapping("/debug/tokens")
 	public Map<String, Object> getTokenStatus() {
-		Map<String, Object> status = new HashMap<>();
+		Map<String, Object> status = new HashMap<String, Object>();
 		status.put("hasAccessToken", soundWrappedService.getTokenStore().getAccessToken() != null);
 		status.put("hasRefreshToken", soundWrappedService.getTokenStore().getRefreshToken() != null);
 		status.put("accessTokenLength", soundWrappedService.getTokenStore().getAccessToken() != null ? 
@@ -489,7 +489,7 @@ public class SoundWrappedController {
 	 */
 	@PostMapping("/refresh-token")
 	public Map<String, Object> refreshToken() {
-		Map<String, Object> result = new HashMap<>();
+		Map<String, Object> result = new HashMap<String, Object>();
 		try {
 			String refreshToken = soundWrappedService.getTokenStore().getRefreshToken();
 			if (refreshToken == null || refreshToken.isBlank()) {
@@ -514,7 +514,7 @@ public class SoundWrappedController {
 	// Test OAuth URL generation
 	@GetMapping("/debug/oauth-url")
 	public Map<String, Object> getOAuthUrl() {
-		Map<String, Object> result = new HashMap<>();
+		Map<String, Object> result = new HashMap<String, Object>();
 		String clientId = "5pRC171gW1jxprhKPRMUJ5mpsCLRfmaM";
 		String redirectUri = "http://localhost:8080/callback";
 		String scope = "";

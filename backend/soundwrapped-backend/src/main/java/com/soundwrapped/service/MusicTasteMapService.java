@@ -39,7 +39,7 @@ public class MusicTasteMapService {
             String currentUserId = String.valueOf(userProfile.getOrDefault("id", ""));
             
             if (currentUserId.isEmpty() || currentUserId.equals("null")) {
-                return new ArrayList<>();
+                return new ArrayList<Map<String, Object>>();
             }
             
             // Get current user's tracks and genres for similarity calculation
@@ -50,11 +50,11 @@ public class MusicTasteMapService {
             List<Object[]> citiesWithCounts = locationRepository.getCitiesWithUserCounts();
             
             if (citiesWithCounts.isEmpty()) {
-                return new ArrayList<>();
+                return new ArrayList<Map<String, Object>>();
             }
             
             // For each city, calculate similarity with users in that city
-            List<Map<String, Object>> locations = new ArrayList<>();
+            List<Map<String, Object>> locations = new ArrayList<Map<String, Object>>();
             
             for (Object[] cityData : citiesWithCounts) {
                 String city = (String) cityData[0];
@@ -81,8 +81,8 @@ public class MusicTasteMapService {
                 }
                 
                 // Calculate average similarity with users in this city
-                List<Double> similarities = new ArrayList<>();
-                Map<String, Long> genreCounts = new HashMap<>();
+                List<Double> similarities = new ArrayList<Double>();
+                Map<String, Long> genreCounts = new HashMap<String, Long>();
                 int apiCallCount = 0;
                 int maxApiCallsPerCity = 10; // Safety limit
                 
@@ -144,7 +144,7 @@ public class MusicTasteMapService {
                     .collect(Collectors.toList());
                 
                 // Create location entry
-                Map<String, Object> location = new HashMap<>();
+                Map<String, Object> location = new HashMap<String, Object>();
                 location.put("city", city);
                 location.put("country", country);
                 location.put("similarity", avgSimilarity);
@@ -170,12 +170,12 @@ public class MusicTasteMapService {
         } catch (Exception e) {
             System.out.println("Error generating music taste map: " + e.getMessage());
             e.printStackTrace();
-            return new ArrayList<>();
+            return new ArrayList<Map<String, Object>>();
         }
     }
     
     private Set<String> extractGenres(List<Map<String, Object>> tracks) {
-        Set<String> genres = new HashSet<>();
+        Set<String> genres = new HashSet<String>();
         for (Map<String, Object> track : tracks) {
             Object genreObj = track.get("genre");
             if (genreObj != null && !genreObj.toString().isEmpty()) {
@@ -190,10 +190,10 @@ public class MusicTasteMapService {
             return 0.0;
         }
         
-        Set<String> intersection = new HashSet<>(genres1);
+        Set<String> intersection = new HashSet<String>(genres1);
         intersection.retainAll(genres2);
         
-        Set<String> union = new HashSet<>(genres1);
+        Set<String> union = new HashSet<String>(genres1);
         union.addAll(genres2);
         
         return union.isEmpty() ? 0.0 : (double) intersection.size() / union.size();
@@ -212,7 +212,7 @@ public class MusicTasteMapService {
                 List<Map<String, Object>> tracks = (List<Map<String, Object>>) collection;
                 return tracks;
             }
-            return new ArrayList<>();
+            return new ArrayList<Map<String, Object>>();
         } catch (Exception e) {
             // If that fails, try to get their favorites (may be private)
             try {
@@ -225,12 +225,11 @@ public class MusicTasteMapService {
                     List<Map<String, Object>> tracks = (List<Map<String, Object>>) collection;
                     return tracks;
                 }
-                return new ArrayList<>();
+                return new ArrayList<Map<String, Object>>();
             } catch (Exception e2) {
                 // Both failed - user's tracks/favorites may be private
-                return new ArrayList<>();
+                return new ArrayList<Map<String, Object>>();
             }
         }
     }
 }
-

@@ -80,7 +80,7 @@ class SoundWrappedServiceIntegrationTest {
 		tokenStore.saveTokens(accessToken, refreshToken);
 
 		Map<String, Object> fakeProfile = Map.of("username", "testuser");
-		ResponseEntity<Map<String, Object>> responseEntity = new ResponseEntity<>(fakeProfile, HttpStatus.OK);
+		ResponseEntity<Map<String, Object>> responseEntity = new ResponseEntity<Map<String, Object>>(fakeProfile, HttpStatus.OK);
 
 		when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class),
 				any(ParameterizedTypeReference.class))).thenReturn(responseEntity);
@@ -103,14 +103,14 @@ class SoundWrappedServiceIntegrationTest {
 
 		// Mock new token response from OAuth refresh
 		String uniqueNewAccessToken = "newAccess_" + UUID.randomUUID();
-		ResponseEntity<Map<String, Object>> newTokenResponse = new ResponseEntity<>(
+		ResponseEntity<Map<String, Object>> newTokenResponse = new ResponseEntity<Map<String, Object>>(
 				Map.of("access_token", uniqueNewAccessToken, "refresh_token", uniqueRefreshToken), // same refresh token
 				HttpStatus.OK);
 
 		// GET returns 401 first, then succeeds after refresh
 		when(restTemplate.exchange(contains("/me"), eq(HttpMethod.GET), any(HttpEntity.class),
 				any(ParameterizedTypeReference.class))).thenThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED))
-				.thenReturn(new ResponseEntity<>(fakeProfile, HttpStatus.OK));
+				.thenReturn(new ResponseEntity<Map<String, Object>>(fakeProfile, HttpStatus.OK));
 
 		// POST to token endpoint for refresh
 		when(restTemplate.exchange(eq("https://api.soundcloud.com/oauth2/token"), eq(HttpMethod.POST),
@@ -142,7 +142,7 @@ class SoundWrappedServiceIntegrationTest {
 
 		when(restTemplate.exchange(eq("https://api.soundcloud.com/oauth2/token"), eq(HttpMethod.POST),
 				any(HttpEntity.class), any(ParameterizedTypeReference.class)))
-				.thenReturn(new ResponseEntity<>(fakeTokenResponse, HttpStatus.OK));
+				.thenReturn(new ResponseEntity<Map<String, Object>>(fakeTokenResponse, HttpStatus.OK));
 
 		Map<String, Object> response = soundWrappedService.exchangeAuthorizationCode("dummyCode");
 		assertEquals(fakeTokenResponse.get("access_token"), response.get("access_token"));
@@ -166,23 +166,23 @@ class SoundWrappedServiceIntegrationTest {
 
 		// Mock all GET endpoints used by getFullWrappedSummary
 		when(restTemplate.exchange(contains("/me"), eq(HttpMethod.GET), any(HttpEntity.class),
-				any(ParameterizedTypeReference.class))).thenReturn(new ResponseEntity<>(profile, HttpStatus.OK));
+				any(ParameterizedTypeReference.class))).thenReturn(new ResponseEntity<Map<String, Object>>(profile, HttpStatus.OK));
 
 		when(restTemplate.exchange(contains("/me/favorites"), eq(HttpMethod.GET), any(HttpEntity.class),
 				any(ParameterizedTypeReference.class)))
-				.thenReturn(new ResponseEntity<>(Map.of("collection", List.of()), HttpStatus.OK));
+				.thenReturn(new ResponseEntity<Map<String, Object>>(Map.of("collection", List.of()), HttpStatus.OK));
 
 		when(restTemplate.exchange(contains("/me/playlists"), eq(HttpMethod.GET), any(HttpEntity.class),
 				any(ParameterizedTypeReference.class)))
-				.thenReturn(new ResponseEntity<>(Map.of("collection", List.of()), HttpStatus.OK));
+				.thenReturn(new ResponseEntity<Map<String, Object>>(Map.of("collection", List.of()), HttpStatus.OK));
 
 		when(restTemplate.exchange(contains("/me/followers"), eq(HttpMethod.GET), any(HttpEntity.class),
 				any(ParameterizedTypeReference.class)))
-				.thenReturn(new ResponseEntity<>(Map.of("collection", List.of()), HttpStatus.OK));
+				.thenReturn(new ResponseEntity<Map<String, Object>>(Map.of("collection", List.of()), HttpStatus.OK));
 
 		when(restTemplate.exchange(contains("/me/tracks"), eq(HttpMethod.GET), any(HttpEntity.class),
 				any(ParameterizedTypeReference.class)))
-				.thenReturn(new ResponseEntity<>(Map.of("collection", List.of()), HttpStatus.OK));
+				.thenReturn(new ResponseEntity<Map<String, Object>>(Map.of("collection", List.of()), HttpStatus.OK));
 
 		Map<String, Object> wrapped = soundWrappedService.getFullWrappedSummary();
 

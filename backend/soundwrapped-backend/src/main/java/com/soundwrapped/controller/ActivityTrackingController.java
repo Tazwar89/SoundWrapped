@@ -41,12 +41,12 @@ public class ActivityTrackingController {
             
             activityTrackingService.trackPlay(userId, trackId, durationMs != null ? durationMs : 0L);
             
-            Map<String, Object> response = new HashMap<>();
+            Map<String, Object> response = new HashMap<String, Object>();
             response.put("success", true);
             response.put("message", "Play event tracked");
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            Map<String, Object> error = new HashMap<>();
+            Map<String, Object> error = new HashMap<String, Object>();
             error.put("success", false);
             error.put("message", "Failed to track play event: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
@@ -64,12 +64,12 @@ public class ActivityTrackingController {
             
             activityTrackingService.trackLike(userId, trackId);
             
-            Map<String, Object> response = new HashMap<>();
+            Map<String, Object> response = new HashMap<String, Object>();
             response.put("success", true);
             response.put("message", "Like event tracked");
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            Map<String, Object> error = new HashMap<>();
+            Map<String, Object> error = new HashMap<String, Object>();
             error.put("success", false);
             error.put("message", "Failed to track like event: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
@@ -87,12 +87,12 @@ public class ActivityTrackingController {
             
             activityTrackingService.trackRepost(userId, trackId);
             
-            Map<String, Object> response = new HashMap<>();
+            Map<String, Object> response = new HashMap<String, Object>();
             response.put("success", true);
             response.put("message", "Repost event tracked");
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            Map<String, Object> error = new HashMap<>();
+            Map<String, Object> error = new HashMap<String, Object>();
             error.put("success", false);
             error.put("message", "Failed to track repost event: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);

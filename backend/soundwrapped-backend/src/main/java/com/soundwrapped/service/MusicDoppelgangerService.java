@@ -58,7 +58,7 @@ public class MusicDoppelgangerService {
             }
             
             // Compare with each followed user
-            List<Map<String, Object>> similarityScores = new ArrayList<>();
+            List<Map<String, Object>> similarityScores = new ArrayList<Map<String, Object>>();
             
             for (Map<String, Object> following : followings) {
                 try {
@@ -92,7 +92,7 @@ public class MusicDoppelgangerService {
                     );
                     
                     if (similarity > 0) {
-                        Map<String, Object> score = new HashMap<>();
+                        Map<String, Object> score = new HashMap<String, Object>();
                         score.put("userId", followingId);
                         score.put("username", followingUsername);
                         score.put("fullName", following.getOrDefault("full_name", followingUsername));
@@ -128,7 +128,7 @@ public class MusicDoppelgangerService {
             }
             
             // Format response
-            Map<String, Object> doppelgangerData = new HashMap<>();
+            Map<String, Object> doppelgangerData = new HashMap<String, Object>();
             doppelgangerData.put("userId", doppelganger.get("userId"));
             doppelgangerData.put("username", doppelganger.get("username"));
             doppelgangerData.put("fullName", doppelganger.get("fullName"));
@@ -138,7 +138,7 @@ public class MusicDoppelgangerService {
             doppelgangerData.put("sharedArtists", doppelganger.get("sharedArtists"));
             doppelgangerData.put("sharedGenres", doppelganger.get("sharedGenres"));
             
-            Map<String, Object> result = new HashMap<>();
+            Map<String, Object> result = new HashMap<String, Object>();
             result.put("found", true);
             result.put("doppelganger", doppelgangerData);
             result.put("totalCompared", similarityScores.size());
@@ -168,7 +168,7 @@ public class MusicDoppelgangerService {
                 List<Map<String, Object>> tracks = (List<Map<String, Object>>) collection;
                 return tracks;
             }
-            return new ArrayList<>();
+            return new ArrayList<Map<String, Object>>();
         } catch (Exception e) {
             // If that fails, try to get their favorites (may be private)
             try {
@@ -181,10 +181,10 @@ public class MusicDoppelgangerService {
                     List<Map<String, Object>> tracks = (List<Map<String, Object>>) collection;
                     return tracks;
                 }
-                return new ArrayList<>();
+                return new ArrayList<Map<String, Object>>();
             } catch (Exception e2) {
                 // Both failed - user's tracks/favorites may be private
-                return new ArrayList<>();
+                return new ArrayList<Map<String, Object>>();
             }
         }
     }
@@ -193,7 +193,7 @@ public class MusicDoppelgangerService {
      * Extract artist names from tracks
      */
     private Set<String> extractArtists(List<Map<String, Object>> tracks) {
-        Set<String> artists = new HashSet<>();
+        Set<String> artists = new HashSet<String>();
         for (Map<String, Object> track : tracks) {
             Object userObj = track.get("user");
             if (userObj instanceof Map<?, ?>) {
@@ -210,7 +210,7 @@ public class MusicDoppelgangerService {
      * Extract genres from tracks
      */
     private Set<String> extractGenres(List<Map<String, Object>> tracks) {
-        Set<String> allGenres = new HashSet<>();
+        Set<String> allGenres = new HashSet<String>();
         for (Map<String, Object> track : tracks) {
             Set<String> trackGenres = genreAnalysisService.extractGenresFromTrack(track);
             allGenres.addAll(trackGenres);
@@ -265,10 +265,10 @@ public class MusicDoppelgangerService {
             return 0.0;
         }
         
-        Set<String> intersection = new HashSet<>(set1);
+        Set<String> intersection = new HashSet<String>(set1);
         intersection.retainAll(set2);
         
-        Set<String> union = new HashSet<>(set1);
+        Set<String> union = new HashSet<String>(set1);
         union.addAll(set2);
         
         return union.isEmpty() ? 0.0 : (double) intersection.size() / union.size();
@@ -278,16 +278,15 @@ public class MusicDoppelgangerService {
      * Count shared items between two sets
      */
     private int countShared(Set<String> set1, Set<String> set2) {
-        Set<String> intersection = new HashSet<>(set1);
+        Set<String> intersection = new HashSet<String>(set1);
         intersection.retainAll(set2);
         return intersection.size();
     }
 
     private Map<String, Object> createNoDataResponse(String message) {
-        Map<String, Object> result = new HashMap<>();
+        Map<String, Object> result = new HashMap<String, Object>();
         result.put("found", false);
         result.put("message", message);
         return result;
     }
 }
-

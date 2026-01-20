@@ -36,7 +36,7 @@ public class ArtistAnalyticsService {
      * @return Artist analytics data
      */
     public Map<String, Object> getArtistAnalytics(String soundcloudUserId) {
-        Map<String, Object> analytics = new HashMap<>();
+        Map<String, Object> analytics = new HashMap<String, Object>();
         
         try {
             // Get user's uploaded tracks
@@ -84,7 +84,7 @@ public class ArtistAnalyticsService {
                     ((Number) a.getOrDefault("playback_count", 0)).longValue()))
                 .limit(5)
                 .map(track -> {
-                    Map<String, Object> trackData = new HashMap<>();
+                    Map<String, Object> trackData = new HashMap<String, Object>();
                     trackData.put("id", track.get("id"));
                     trackData.put("title", track.get("title"));
                     trackData.put("playbackCount", track.get("playback_count"));
@@ -106,7 +106,7 @@ public class ArtistAnalyticsService {
                 })
                 .limit(5)
                 .map(track -> {
-                    Map<String, Object> trackData = new HashMap<>();
+                    Map<String, Object> trackData = new HashMap<String, Object>();
                     trackData.put("id", track.get("id"));
                     trackData.put("title", track.get("title"));
                     trackData.put("playbackCount", track.get("playback_count"));
@@ -154,7 +154,7 @@ public class ArtistAnalyticsService {
                 .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
                 .limit(5)
                 .map(entry -> {
-                    Map<String, Object> listener = new HashMap<>();
+                    Map<String, Object> listener = new HashMap<String, Object>();
                     listener.put("userId", entry.getKey());
                     listener.put("playCount", entry.getValue());
                     return listener;
@@ -200,7 +200,7 @@ public class ArtistAnalyticsService {
             List<Map<String, Object>> relatedTracks = soundWrappedService.getRelatedTracks(trackId);
             
             // Extract unique artists from related tracks
-            Map<String, Map<String, Object>> artists = new LinkedHashMap<>();
+            Map<String, Map<String, Object>> artists = new LinkedHashMap<String, Map<String, Object>>();
             
             for (Map<String, Object> track : relatedTracks) {
                 Object userObj = track.get("user");
@@ -211,7 +211,7 @@ public class ArtistAnalyticsService {
                     String username = (String) user.getOrDefault("username", "");
                     
                     if (!userId.isEmpty() && !userId.equals("null") && !artists.containsKey(userId)) {
-                        Map<String, Object> artist = new HashMap<>();
+                        Map<String, Object> artist = new HashMap<String, Object>();
                         artist.put("userId", userId);
                         artist.put("username", username);
                         artist.put("fullName", user.getOrDefault("full_name", username));
@@ -223,12 +223,11 @@ public class ArtistAnalyticsService {
                 }
             }
             
-            return new ArrayList<>(artists.values());
+            return new ArrayList<Map<String, Object>>(artists.values());
             
         } catch (Exception e) {
             System.err.println("Error getting artist recommendations: " + e.getMessage());
-            return new ArrayList<>();
+            return new ArrayList<Map<String, Object>>();
         }
     }
 }
-
