@@ -17,6 +17,11 @@ interface GenreConnection {
   strength: number
 }
 
+type ScreenNode = GenreNode & {
+  screenX: number
+  screenY: number
+}
+
 interface GenreConstellationProps {
   genres: Array<{
     genre: string
@@ -249,12 +254,12 @@ const GenreConstellation: React.FC<GenreConstellationProps> = ({
       const mouseY = e.clientY - rect.top
 
       // Find closest node
-      let closestNode: GenreNode | null = null
+      let closestNode: ScreenNode | null = null
       let minDistance = Infinity
 
-      const currentNodes = nodesRef.current.map(node => {
+      const currentNodes: ScreenNode[] = nodesRef.current.map(node => {
         const [x, y] = project3D(node.x, node.y, node.z, cameraZ)
-        return { ...node, screenX: x, screenY: y } as GenreNode & { screenX: number; screenY: number }
+        return { ...node, screenX: x, screenY: y }
       })
 
       currentNodes.forEach(node => {
@@ -271,7 +276,7 @@ const GenreConstellation: React.FC<GenreConstellationProps> = ({
       setHoveredNode(closestNode?.id || null)
     }
 
-    const handleClick = (e: MouseEvent) => {
+    const handleClick = () => {
       if (hoveredNode) {
         setSelectedNode(selectedNode === hoveredNode ? null : hoveredNode)
       }

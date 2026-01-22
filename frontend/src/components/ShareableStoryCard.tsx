@@ -20,6 +20,35 @@ interface CardCustomization {
   fontSize: FontSize
 }
 
+const getGradientClasses = (theme: ColorTheme): string => {
+  switch (theme) {
+    case 'orange':
+      return 'bg-gradient-to-br from-orange-500 to-pink-500'
+    case 'blue':
+      return 'bg-gradient-to-br from-blue-500 to-indigo-500'
+    case 'purple':
+      return 'bg-gradient-to-br from-purple-500 to-pink-500'
+    case 'green':
+      return 'bg-gradient-to-br from-green-500 to-blue-500'
+    case 'red':
+      return 'bg-gradient-to-br from-red-500 to-orange-500'
+    case 'pink':
+      return 'bg-gradient-to-br from-pink-500 to-purple-500'
+    default:
+      return 'bg-gradient-to-br from-gray-500 to-gray-800'
+  }
+}
+
+const getFontSizeClasses = (size: FontSize, type: 'title' | 'subtitle' | 'body'): string => {
+  if (type === 'title') {
+    return size === 'small' ? 'text-2xl' : size === 'medium' ? 'text-4xl' : 'text-6xl'
+  }
+  if (type === 'subtitle') {
+    return size === 'small' ? 'text-lg' : size === 'medium' ? 'text-2xl' : 'text-3xl'
+  }
+  return size === 'small' ? 'text-sm' : size === 'medium' ? 'text-base' : 'text-lg'
+}
+
 const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, onClose }) => {
   const cardRef = useRef<HTMLDivElement>(null)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -28,6 +57,11 @@ const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, on
     colorTheme: 'orange',
     fontSize: 'medium'
   })
+  const totalListeningHours = wrappedData.stats?.totalListeningHours ?? 0
+  const likesGiven = wrappedData.stats?.likesGiven ?? 0
+  const topTrackTitle = wrappedData.topTracks[0]?.title ?? 'Unknown Track'
+  const topTrackArtist = wrappedData.topTracks[0]?.artist ?? 'Unknown Artist'
+  const topArtistName = wrappedData.topArtists[0]?.artist ?? 'Unknown Artist'
 
   const downloadCard = async () => {
     if (!cardRef.current) return
@@ -202,10 +236,10 @@ const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, on
                       <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                         <div className="text-slate-300 text-xs mb-1 uppercase tracking-wider">Top Track</div>
                         <div className="text-white font-bold text-lg leading-tight">
-                          {wrappedData.topTracks[0].title}
+                          {topTrackTitle}
                         </div>
                         <div className="text-slate-400 text-sm mt-1">
-                          by {wrappedData.topTracks[0].artist}
+                          by {topTrackArtist}
                         </div>
                       </div>
                     )}
@@ -213,13 +247,13 @@ const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, on
                     <div className="grid grid-cols-2 gap-3">
                       <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center border border-white/20">
                         <div className="text-4xl font-black text-orange-400 mb-1" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-                          {wrappedData.stats.totalListeningHours.toFixed(2).replace(/\.?0+$/, '')}
+                          {totalListeningHours.toFixed(2).replace(/\.?0+$/, '')}
                         </div>
                         <div className="text-slate-300 text-xs uppercase tracking-wider">Hours</div>
                       </div>
                       <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center border border-white/20">
                         <div className="text-4xl font-black text-orange-400 mb-1" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-                          {formatNumber(wrappedData.stats.likesGiven)}
+                          {formatNumber(likesGiven)}
                         </div>
                         <div className="text-slate-300 text-xs uppercase tracking-wider">Likes</div>
                       </div>
@@ -247,7 +281,7 @@ const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, on
                 <div className={`absolute inset-0 ${getGradientClasses(customization.colorTheme)}`} />
                 <div className="relative z-10 flex flex-col h-full justify-center items-center text-center">
                   <div className={`${getFontSizeClasses(customization.fontSize, 'title')} font-black text-white mb-4`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-                    {wrappedData.stats.totalListeningHours.toFixed(2).replace(/\.?0+$/, '')}
+                    {totalListeningHours.toFixed(2).replace(/\.?0+$/, '')}
                   </div>
                   <div className={`${getFontSizeClasses(customization.fontSize, 'subtitle')} font-bold text-white mb-8`}>Hours Listening</div>
                   <div className={`${getFontSizeClasses(customization.fontSize, 'body')} text-white/80`}>Your Year in Music</div>
@@ -262,9 +296,9 @@ const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, on
                 <div className="relative z-10 flex flex-col h-full justify-center items-center text-center px-6">
                   <div className={`${getFontSizeClasses(customization.fontSize, 'body')} text-white/80 mb-4 uppercase tracking-widest`}>Top Track</div>
                   <div className={`${getFontSizeClasses(customization.fontSize, 'subtitle')} font-black text-white mb-3 leading-tight`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-                    {wrappedData.topTracks[0].title}
+                    {topTrackTitle}
                   </div>
-                  <div className={`${getFontSizeClasses(customization.fontSize, 'subtitle')} text-white/90 mb-8`}>by {wrappedData.topTracks[0].artist}</div>
+                  <div className={`${getFontSizeClasses(customization.fontSize, 'subtitle')} text-white/90 mb-8`}>by {topTrackArtist}</div>
                   <div className="text-white/60 text-xs">soundwrapped.app</div>
                 </div>
               </>
@@ -276,7 +310,7 @@ const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, on
                 <div className="relative z-10 flex flex-col h-full justify-center items-center text-center px-6">
                   <div className={`${getFontSizeClasses(customization.fontSize, 'body')} text-white/80 mb-4 uppercase tracking-widest`}>Top Artist</div>
                   <div className={`${getFontSizeClasses(customization.fontSize, 'title')} font-black text-white mb-8`} style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-                    {wrappedData.topArtists[0].artist}
+                    {topArtistName}
                   </div>
                   <div className="text-white/60 text-xs">soundwrapped.app</div>
                 </div>

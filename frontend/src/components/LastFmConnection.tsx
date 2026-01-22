@@ -10,6 +10,13 @@ interface LastFmStatus {
   lastSyncAt?: string
 }
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+  return fallback
+}
+
 const LastFmConnection: React.FC = () => {
   const [status, setStatus] = useState<LastFmStatus | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -67,7 +74,7 @@ const LastFmConnection: React.FC = () => {
       setIsLoading(true)
       const response = await api.get('/lastfm/status')
       setStatus(response.data)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to check Last.fm status:', error)
       setStatus({ connected: false })
     } finally {
@@ -199,21 +206,23 @@ const LastFmConnection: React.FC = () => {
                     } else {
                       console.error('[LastFmConnection] ❌ Popup stuck on about:blank - Last.fm redirect failed')
                     }
-                  } catch (e) {
+                  } catch (e: unknown) {
                     // Window might be closed or cross-origin
                   }
                 }, 2000)
               }
             }
-          } catch (e) {
+          } catch (e: unknown) {
             // Cross-origin error is expected when on Last.fm domain
             // This is normal and not an error - it means we're on Last.fm's domain
             // Only log if it's not the expected cross-origin error
-            if (!e.message || !e.message.includes('cross-origin')) {
-              console.log('[LastFmConnection] Popup check (cross-origin expected):', e.message || 'Unknown error')
+            if (e instanceof Error) {
+              if (!e.message || !e.message.includes('cross-origin')) {
+                console.log('[LastFmConnection] Popup check (cross-origin expected):', e.message || 'Unknown error')
+              }
             }
           }
-        } catch (error) {
+        } catch (error: unknown) {
           // Window might be closed
           console.error('[LastFmConnection] Error polling window:', error)
         }
@@ -228,9 +237,9 @@ const LastFmConnection: React.FC = () => {
         setIsConnecting(false)
       }, 300000) // 5 minutes
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to initiate Last.fm connection:', error)
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to connect Last.fm account'
+      const errorMessage = getErrorMessage(error, 'Failed to connect Last.fm account')
       toast.error(errorMessage, { icon: '❌' })
       setIsConnecting(false)
     }
@@ -241,9 +250,9 @@ const LastFmConnection: React.FC = () => {
       await api.post('/lastfm/disconnect')
       setStatus({ connected: false })
       toast.success('Last.fm disconnected')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to disconnect Last.fm:', error)
-      toast.error('Failed to disconnect Last.fm account')
+      toast.error(getErrorMessage(error, 'Failed to disconnect Last.fm account'))
     }
   }
 
@@ -253,9 +262,9 @@ const LastFmConnection: React.FC = () => {
       await api.post('/lastfm/sync')
       toast.success('Sync triggered! Your listening data will be updated shortly.')
       await checkConnectionStatus()
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to trigger sync:', error)
-      toast.error('Failed to trigger sync')
+      toast.error(getErrorMessage(error, 'Failed to trigger sync'))
     } finally {
       setIsSyncing(false)
     }
