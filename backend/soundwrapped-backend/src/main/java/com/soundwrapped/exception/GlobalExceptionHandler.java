@@ -1,7 +1,6 @@
 package com.soundwrapped.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -35,13 +34,7 @@ public class GlobalExceptionHandler {
 				path,
 				stackTrace);
 
-		// Add CORS headers to all error responses
-		HttpHeaders headers = new HttpHeaders();
-		headers.set("Access-Control-Allow-Origin", "*");
-		headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-		headers.set("Access-Control-Allow-Headers", "*");
-
-		return new ResponseEntity<ErrorResponse>(body, headers, status);
+		return new ResponseEntity<ErrorResponse>(body, status);
 	}
 
 	@ExceptionHandler(TokenExchangeException.class)

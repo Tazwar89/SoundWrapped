@@ -1991,7 +1991,7 @@ public class SoundWrappedService {
 				"trip hop", "deep house", "tropical house", "bitpop", "synthpop",
 				"indie pop", "progressive house", "progressive metal", "funk",
 				"grunge", "melodic death metal", "moombahton", "trance",
-				"stoner rock", "new wave", "trap"
+				"stoner rock", "new wave", "trap", "shoegaze"
 			);
 			
 			// Use date-based seed for deterministic but daily-changing selection
@@ -2432,7 +2432,7 @@ public class SoundWrappedService {
 		}
 		
 		// 2. Fallback to hardcoded descriptions for well-known genres
-		Map<String, String> genreDescriptions = new HashMap<Map<String, String>>();
+		Map<String, String> genreDescriptions = new HashMap<String, String>();
 		genreDescriptions.put("wave", "Wave is a subgenre of electronic music characterized by its atmospheric, ethereal soundscapes and emotional melodies. Often featuring reverb-drenched synths and haunting vocals, wave music creates a dreamy, introspective listening experience.");
 		genreDescriptions.put("electronic", "Electronic music encompasses a wide range of genres that primarily use electronic instruments and technology. From ambient soundscapes to high-energy dance tracks, electronic music continues to evolve and influence modern music culture.");
 		genreDescriptions.put("hip-hop", "Hip-hop is a cultural movement and music genre that emerged in the 1970s. Characterized by rhythmic speech (rapping), DJing, breakdancing, and graffiti art, hip-hop has become one of the most influential music genres worldwide.");
@@ -3246,7 +3246,7 @@ public class SoundWrappedService {
 			
 			// Build request body for Groq Chat API (simple chat completion, no function calling)
 			// Using llama-3.3-70b-versatile (llama-3.1-70b-versatile was decommissioned)
-			Map<String, Object> requestBody = new HashMap<Map<String, Object>>();
+			Map<String, Object> requestBody = new HashMap<String, Object>();
 			requestBody.put("model", "llama-3.3-70b-versatile");
 			List<Map<String, Object>> messages = new ArrayList<Map<String, Object>>();
 			Map<String, Object> userMessage = new HashMap<String, Object>();

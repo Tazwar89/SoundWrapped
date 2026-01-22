@@ -150,7 +150,7 @@ public class LastFmController {
                     .queryParam("api_key", lastFmApiKey)
                     .queryParam("token", requestToken)
                     .queryParam("cb", callbackUrl);
-            String authUrl = authUrlBuilder.toUriString();
+            String authUrl = authUrlBuilder.build().encode().toUriString();
             System.out.println("[LastFmController] ========================================");
             System.out.println("[LastFmController] Generated auth URL: " + authUrl);
             System.out.println("[LastFmController] Callback URL configured: " + callbackUrl);
