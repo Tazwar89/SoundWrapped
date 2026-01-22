@@ -9,9 +9,13 @@ import com.soundwrapped.repository.TokenRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockitoAnnotations;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.mockito.ArgumentMatchers;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.test.context.ActiveProfiles;
@@ -35,28 +39,65 @@ class SoundWrappedServiceIntegrationTest {
 
 	private TokenStore tokenStore;
 
-	@MockBean
+	@Autowired
 	private RestTemplate restTemplate;
 
-	@MockBean
+	@Autowired
 	private GenreAnalysisService genreAnalysisService;
 
-	@MockBean
+	@Autowired
 	private com.soundwrapped.repository.UserActivityRepository userActivityRepository;
 
-	@MockBean
+	@Autowired
 	private com.soundwrapped.service.ActivityTrackingService activityTrackingService;
 	
-	@MockBean
+	@Autowired
 	private com.soundwrapped.service.LyricsService lyricsService;
 	
-	@MockBean
+	@Autowired
 	private com.soundwrapped.service.EnhancedArtistService enhancedArtistService;
 	
-	@MockBean
-	private com.soundwrapped.service.SimilarArtistsService similarArtistsService;
 
 	private SoundWrappedService soundWrappedService;
+
+	@TestConfiguration
+	static class TestBeansConfig {
+		@Bean
+		@Primary
+		RestTemplate restTemplate() {
+			return Mockito.mock(RestTemplate.class);
+		}
+
+		@Bean
+		@Primary
+		GenreAnalysisService genreAnalysisService() {
+			return Mockito.mock(GenreAnalysisService.class);
+		}
+
+		@Bean
+		@Primary
+		com.soundwrapped.repository.UserActivityRepository userActivityRepository() {
+			return Mockito.mock(com.soundwrapped.repository.UserActivityRepository.class);
+		}
+
+		@Bean
+		@Primary
+		com.soundwrapped.service.ActivityTrackingService activityTrackingService() {
+			return Mockito.mock(com.soundwrapped.service.ActivityTrackingService.class);
+		}
+
+		@Bean
+		@Primary
+		com.soundwrapped.service.LyricsService lyricsService() {
+			return Mockito.mock(com.soundwrapped.service.LyricsService.class);
+		}
+
+		@Bean
+		@Primary
+		com.soundwrapped.service.EnhancedArtistService enhancedArtistService() {
+			return Mockito.mock(com.soundwrapped.service.EnhancedArtistService.class);
+		}
+	}
 
 	@BeforeEach
 	void setUp() {
@@ -65,7 +106,7 @@ class SoundWrappedServiceIntegrationTest {
 		
 		MockitoAnnotations.openMocks(this);
 		tokenStore = new TokenStore(tokenRepository);
-		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate, genreAnalysisService, userActivityRepository, activityTrackingService, lyricsService, enhancedArtistService, similarArtistsService);
+		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate, genreAnalysisService, userActivityRepository, activityTrackingService, lyricsService, enhancedArtistService);
 
 		// Inject dummy SoundCloud API values
 		ReflectionTestUtils.setField(soundWrappedService, "soundCloudApiBaseUrl", "https://api.soundcloud.com");
@@ -82,8 +123,9 @@ class SoundWrappedServiceIntegrationTest {
 		Map<String, Object> fakeProfile = Map.of("username", "testuser");
 		ResponseEntity<Map<String, Object>> responseEntity = new ResponseEntity<Map<String, Object>>(fakeProfile, HttpStatus.OK);
 
-		when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class),
-				any(ParameterizedTypeReference.class))).thenReturn(responseEntity);
+		when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), ArgumentMatchers.<HttpEntity<?>>any(),
+				ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+				.thenReturn(responseEntity);
 
 		Map<String, Object> result = soundWrappedService.getUserProfile();
 		assertEquals("testuser", result.get("username"));
@@ -108,13 +150,16 @@ class SoundWrappedServiceIntegrationTest {
 				HttpStatus.OK);
 
 		// GET returns 401 first, then succeeds after refresh
-		when(restTemplate.exchange(contains("/me"), eq(HttpMethod.GET), any(HttpEntity.class),
-				any(ParameterizedTypeReference.class))).thenThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED))
+		when(restTemplate.exchange(contains("/me"), eq(HttpMethod.GET), ArgumentMatchers.<HttpEntity<?>>any(),
+				ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+				.thenThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED))
 				.thenReturn(new ResponseEntity<Map<String, Object>>(fakeProfile, HttpStatus.OK));
 
 		// POST to token endpoint for refresh
 		when(restTemplate.exchange(eq("https://api.soundcloud.com/oauth2/token"), eq(HttpMethod.POST),
-				any(HttpEntity.class), any(ParameterizedTypeReference.class))).thenReturn(newTokenResponse);
+				ArgumentMatchers.<HttpEntity<?>>any(),
+				ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+				.thenReturn(newTokenResponse);
 
 		// Execute
 		Map<String, Object> result = soundWrappedService.getUserProfile();
@@ -141,7 +186,8 @@ class SoundWrappedServiceIntegrationTest {
 				"refresh_token", "refreshFromCode_" + UUID.randomUUID());
 
 		when(restTemplate.exchange(eq("https://api.soundcloud.com/oauth2/token"), eq(HttpMethod.POST),
-				any(HttpEntity.class), any(ParameterizedTypeReference.class)))
+				ArgumentMatchers.<HttpEntity<?>>any(),
+				ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
 				.thenReturn(new ResponseEntity<Map<String, Object>>(fakeTokenResponse, HttpStatus.OK));
 
 		Map<String, Object> response = soundWrappedService.exchangeAuthorizationCode("dummyCode");
@@ -165,23 +211,24 @@ class SoundWrappedServiceIntegrationTest {
 				entry("created_at", "2013/03/23 14:58:27 +0000"));
 
 		// Mock all GET endpoints used by getFullWrappedSummary
-		when(restTemplate.exchange(contains("/me"), eq(HttpMethod.GET), any(HttpEntity.class),
-				any(ParameterizedTypeReference.class))).thenReturn(new ResponseEntity<Map<String, Object>>(profile, HttpStatus.OK));
+		when(restTemplate.exchange(contains("/me"), eq(HttpMethod.GET), ArgumentMatchers.<HttpEntity<?>>any(),
+				ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+				.thenReturn(new ResponseEntity<Map<String, Object>>(profile, HttpStatus.OK));
 
-		when(restTemplate.exchange(contains("/me/favorites"), eq(HttpMethod.GET), any(HttpEntity.class),
-				any(ParameterizedTypeReference.class)))
+		when(restTemplate.exchange(contains("/me/favorites"), eq(HttpMethod.GET), ArgumentMatchers.<HttpEntity<?>>any(),
+				ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
 				.thenReturn(new ResponseEntity<Map<String, Object>>(Map.of("collection", List.of()), HttpStatus.OK));
 
-		when(restTemplate.exchange(contains("/me/playlists"), eq(HttpMethod.GET), any(HttpEntity.class),
-				any(ParameterizedTypeReference.class)))
+		when(restTemplate.exchange(contains("/me/playlists"), eq(HttpMethod.GET), ArgumentMatchers.<HttpEntity<?>>any(),
+				ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
 				.thenReturn(new ResponseEntity<Map<String, Object>>(Map.of("collection", List.of()), HttpStatus.OK));
 
-		when(restTemplate.exchange(contains("/me/followers"), eq(HttpMethod.GET), any(HttpEntity.class),
-				any(ParameterizedTypeReference.class)))
+		when(restTemplate.exchange(contains("/me/followers"), eq(HttpMethod.GET), ArgumentMatchers.<HttpEntity<?>>any(),
+				ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
 				.thenReturn(new ResponseEntity<Map<String, Object>>(Map.of("collection", List.of()), HttpStatus.OK));
 
-		when(restTemplate.exchange(contains("/me/tracks"), eq(HttpMethod.GET), any(HttpEntity.class),
-				any(ParameterizedTypeReference.class)))
+		when(restTemplate.exchange(contains("/me/tracks"), eq(HttpMethod.GET), ArgumentMatchers.<HttpEntity<?>>any(),
+				ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
 				.thenReturn(new ResponseEntity<Map<String, Object>>(Map.of("collection", List.of()), HttpStatus.OK));
 
 		Map<String, Object> wrapped = soundWrappedService.getFullWrappedSummary();

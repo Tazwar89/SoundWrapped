@@ -64,7 +64,6 @@ public class SoundWrappedService {
 	private final ActivityTrackingService activityTrackingService;
 	private final LyricsService lyricsService;
 	private final EnhancedArtistService enhancedArtistService;
-	private final SimilarArtistsService similarArtistsService;
 	
 	// Daily cache for "Genre of the Day"
 	private static Map<String, Object> cachedGenreOfTheDay = null;
@@ -85,8 +84,7 @@ public class SoundWrappedService {
 			UserActivityRepository userActivityRepository,
 			ActivityTrackingService activityTrackingService,
 			LyricsService lyricsService,
-			EnhancedArtistService enhancedArtistService,
-			SimilarArtistsService similarArtistsService) {
+			EnhancedArtistService enhancedArtistService) {
 		this.tokenStore = tokenStore;
 		this.restTemplate = restTemplate;
 		this.genreAnalysisService = genreAnalysisService;
@@ -94,7 +92,6 @@ public class SoundWrappedService {
 		this.activityTrackingService = activityTrackingService;
 		this.lyricsService = lyricsService;
 		this.enhancedArtistService = enhancedArtistService;
-		this.similarArtistsService = similarArtistsService;
 	}
 	
 	/**
@@ -1024,6 +1021,7 @@ public class SoundWrappedService {
 	 * @param playlistUrl Full SoundCloud playlist URL (e.g., "https://soundcloud.com/music-charts-us/sets/all-music-genres")
 	 * @return List of tracks from the playlist, or empty list if fetch fails
 	 */
+	@SuppressWarnings("unused")
 	private List<Map<String, Object>> getTracksFromPlaylist(String playlistUrl) {
 		try {
 			String accessToken = getAccessTokenForRequest();
@@ -1038,8 +1036,8 @@ public class SoundWrappedService {
 			String username = null;
 			String setName = null;
 			try {
-				java.net.URL url = new java.net.URL(playlistUrl);
-				String path = url.getPath();
+				java.net.URI uri = java.net.URI.create(playlistUrl);
+				String path = uri.getPath();
 				// Remove leading slash and split
 				String[] parts = path.startsWith("/") ? path.substring(1).split("/") : path.split("/");
 				if (parts.length >= 3 && parts[1].equals("sets")) {
@@ -1072,6 +1070,10 @@ public class SoundWrappedService {
 					
 					if (playlistsResponse.getStatusCode().is2xxSuccessful() && playlistsResponse.getBody() != null) {
 						Map<String, Object> playlistsBody = playlistsResponse.getBody();
+						if (playlistsBody == null) {
+							System.err.println("Playlists response body is null");
+							return new ArrayList<Map<String, Object>>();
+						}
 						@SuppressWarnings("unchecked")
 						List<Map<String, Object>> playlists = (List<Map<String, Object>>) playlistsBody.get("collection");
 						
@@ -1221,6 +1223,10 @@ public class SoundWrappedService {
 				
 				if (tracksResponse.getStatusCode().is2xxSuccessful() && tracksResponse.getBody() != null) {
 					Map<String, Object> responseBody = tracksResponse.getBody();
+					if (responseBody == null) {
+						System.err.println("Tracks response body is null for playlist " + playlistId);
+						break;
+					}
 					System.out.println("Tracks response body keys: " + responseBody.keySet());
 					
 					// Check if tracks are in a "collection" field (paginated response)
@@ -1669,8 +1675,12 @@ public class SoundWrappedService {
 				new ParameterizedTypeReference<Map<String, Object>>(){}
 			);
 			
-			if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+			if (response.getStatusCode().is2xxSuccessful()) {
 				Map<String, Object> responseBody = response.getBody();
+				if (responseBody == null) {
+					System.err.println("Discovery tracks response body is null");
+					return new ArrayList<Map<String, Object>>();
+				}
 				@SuppressWarnings("unchecked")
 				List<Map<String, Object>> tracks = (List<Map<String, Object>>) responseBody.get("collection");
 				
@@ -2074,8 +2084,11 @@ public class SoundWrappedService {
 				new ParameterizedTypeReference<Map<String, Object>>(){}
 			);
 			
-			if (resolveResponse.getStatusCode().is2xxSuccessful() && resolveResponse.getBody() != null) {
+			if (resolveResponse.getStatusCode().is2xxSuccessful()) {
 				Map<String, Object> resolved = resolveResponse.getBody();
+				if (resolved == null) {
+					System.out.println("Resolved tag response body is null");
+				} else {
 				Object kind = resolved.get("kind");
 				if ("playlist".equals(kind) || "system-playlist".equals(kind)) {
 					// If it resolves to a playlist, get tracks from the playlist
@@ -2084,6 +2097,7 @@ public class SoundWrappedService {
 						url = soundCloudApiBaseUrl + "/playlists/" + playlistId + "/tracks?limit=" + (limit * 10) + "&linked_partitioning=true";
 						System.out.println("Resolved to playlist, using URL: " + url);
 					}
+				}
 				}
 			}
 		} catch (Exception e) {
@@ -2427,39 +2441,13 @@ public class SoundWrappedService {
 		if (groqDescription != null && !groqDescription.trim().isEmpty()) {
 			System.out.println("✓ Successfully got Groq description for genre: " + genreName);
 			return groqDescription;
-		} else {
-			System.out.println("✗ Groq description failed for genre: " + genreName + ", falling back to hardcoded");
 		}
-		
-		// 2. Fallback to hardcoded descriptions for well-known genres
-		Map<String, String> genreDescriptions = new HashMap<String, String>();
-		genreDescriptions.put("wave", "Wave is a subgenre of electronic music characterized by its atmospheric, ethereal soundscapes and emotional melodies. Often featuring reverb-drenched synths and haunting vocals, wave music creates a dreamy, introspective listening experience.");
-		genreDescriptions.put("electronic", "Electronic music encompasses a wide range of genres that primarily use electronic instruments and technology. From ambient soundscapes to high-energy dance tracks, electronic music continues to evolve and influence modern music culture.");
-		genreDescriptions.put("hip-hop", "Hip-hop is a cultural movement and music genre that emerged in the 1970s. Characterized by rhythmic speech (rapping), DJing, breakdancing, and graffiti art, hip-hop has become one of the most influential music genres worldwide.");
-		genreDescriptions.put("indie", "Indie music, short for independent, refers to music produced independently from major commercial record labels. Indie artists often explore creative freedom, resulting in diverse and innovative sounds across various subgenres.");
-		genreDescriptions.put("rock", "Rock music is a broad genre of popular music that originated in the 1950s. Characterized by a strong beat, electric guitars, and powerful vocals, rock has spawned countless subgenres and remains a dominant force in music.");
-		genreDescriptions.put("pop", "Pop music is a genre of popular music that originated in its modern form during the mid-1950s. Known for its catchy melodies, accessible lyrics, and broad appeal, pop music dominates mainstream charts and radio.");
-		genreDescriptions.put("house", "House music is a genre of electronic dance music that originated in Chicago in the early 1980s. Characterized by repetitive 4/4 beats, synthesized basslines, and soulful vocals, house music is a foundation of modern dance culture.");
-		genreDescriptions.put("techno", "Techno is a form of electronic dance music that emerged in Detroit in the mid-1980s. Known for its repetitive, mechanical beats and futuristic soundscapes, techno emphasizes rhythm and texture over melody.");
-		genreDescriptions.put("dubstep", "Dubstep is a genre of electronic dance music that originated in South London in the early 2000s. Characterized by heavy basslines, syncopated rhythms, and sparse, minimal arrangements, dubstep has influenced many modern electronic genres.");
-		genreDescriptions.put("ambient", "Ambient music is a genre that emphasizes tone and atmosphere over traditional musical structure. Often instrumental and minimal, ambient music creates immersive soundscapes perfect for relaxation and contemplation.");
-		genreDescriptions.put("jazz", "Jazz is a music genre that originated in African American communities in New Orleans. Known for its improvisation, syncopation, and swing rhythms, jazz has evolved into many subgenres and remains a vital form of musical expression.");
-		genreDescriptions.put("r&b", "R&B (Rhythm and Blues) is a genre of popular music that originated in African American communities in the 1940s. Combining elements of jazz, gospel, and blues, R&B has influenced countless artists and continues to evolve.");
-		genreDescriptions.put("alternative", "Alternative rock is a genre of rock music that emerged in the 1980s as an alternative to mainstream rock. Known for its diverse sounds, experimental approaches, and independent spirit, alternative rock has produced many influential artists.");
-		genreDescriptions.put("folk", "Folk music is a genre that encompasses traditional music passed down through generations, as well as contemporary music inspired by these traditions. Characterized by acoustic instruments and storytelling lyrics, folk music connects listeners to cultural heritage.");
-		genreDescriptions.put("country", "Country music is a genre that originated in the rural Southern United States. Known for its storytelling lyrics, twangy guitars, and themes of love, loss, and everyday life, country music has a rich history and devoted fanbase.");
-		genreDescriptions.put("metal", "Metal is a genre of rock music characterized by heavy, distorted guitars, powerful vocals, and aggressive rhythms. With numerous subgenres ranging from classic heavy metal to extreme forms, metal has a passionate global following.");
-		genreDescriptions.put("punk", "Punk rock is a music genre that emerged in the mid-1970s as a reaction against mainstream rock. Known for its fast tempos, short songs, and anti-establishment lyrics, punk has influenced countless artists and movements.");
-		genreDescriptions.put("reggae", "Reggae is a music genre that originated in Jamaica in the late 1960s. Characterized by its distinctive rhythm, offbeat accents, and socially conscious lyrics, reggae has spread worldwide and influenced many other genres.");
-		
-		// Check hardcoded descriptions first
-		String hardcoded = genreDescriptions.get(genreName.toLowerCase());
-		if (hardcoded != null) {
-			return hardcoded;
-		}
-		
+
+		System.out.println("✗ Groq description failed for genre: " + genreName + ", using generic fallback");
+
 		// Final fallback: generic description
-		return genreName.substring(0, 1).toUpperCase() + genreName.substring(1) + " is a diverse and evolving music genre with a rich history and dedicated fanbase.";
+		return genreName.substring(0, 1).toUpperCase() + genreName.substring(1)
+				+ " is a diverse and evolving music genre with a rich history and dedicated fanbase.";
 	}
 	
 	/**
@@ -2488,7 +2476,6 @@ public class SoundWrappedService {
 		
 		String username = (String) artist.getOrDefault("username", "");
 		String fullName = (String) artist.getOrDefault("full_name", "");
-		String descriptionText = (String) artist.getOrDefault("description", "");
 		Object followersCountObj = artist.get("followers_count");
 		long followersCount = followersCountObj instanceof Number ? ((Number) followersCountObj).longValue() : 0;
 		Object trackCountObj = artist.get("track_count");
@@ -2528,8 +2515,6 @@ public class SoundWrappedService {
 		
 		// Always try OpenAI - let it decide if it can generate a description
 		// SerpAPI will provide comprehensive web search results even for obscure artists
-		boolean shouldTryOpenAI = true;
-		
 		System.out.println("  ✓ Proceeding with OpenAI description generation for artist");
 		System.out.println("  - Followers: " + followersCount);
 		System.out.println("  - Has Wikipedia: " + hasWikipediaEntry);
@@ -2730,6 +2715,7 @@ public class SoundWrappedService {
 	 * @param text The text to extract sentences from
 	 * @return The first two sentences, or null if less than two sentences found
 	 */
+	@SuppressWarnings("unused")
 	private String extractFirstTwoSentences(String text) {
 		if (text == null || text.trim().isEmpty()) {
 			return null;
@@ -3597,8 +3583,12 @@ public class SoundWrappedService {
 			
 			System.out.println("Resolve response status: " + resolveResponse.getStatusCode());
 			
-			if (resolveResponse.getStatusCode().is2xxSuccessful() && resolveResponse.getBody() != null) {
+			if (resolveResponse.getStatusCode().is2xxSuccessful()) {
 				Map<String, Object> resolved = resolveResponse.getBody();
+				if (resolved == null) {
+					System.err.println("Resolved popular-tracks response body is null");
+					return new ArrayList<Map<String, Object>>();
+				}
 				Object kind = resolved.get("kind");
 				System.out.println("Resolved kind: " + kind);
 				
@@ -3635,8 +3625,12 @@ public class SoundWrappedService {
 						
 						System.out.println("Tracks API response status: " + response.getStatusCode());
 						
-						if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+						if (response.getStatusCode().is2xxSuccessful()) {
 							Map<String, Object> responseBody = response.getBody();
+							if (responseBody == null) {
+								System.err.println("Tracks response body is null for playlist URL: " + tracksUrl);
+								return new ArrayList<Map<String, Object>>();
+							}
 							System.out.println("Tracks response body keys: " + responseBody.keySet());
 							@SuppressWarnings("unchecked")
 							List<Map<String, Object>> tracks = (List<Map<String, Object>>) responseBody.get("collection");
@@ -3704,8 +3698,12 @@ public class SoundWrappedService {
 				
 				System.out.println("Tracks API response status: " + response.getStatusCode());
 				
-				if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+				if (response.getStatusCode().is2xxSuccessful()) {
 					Map<String, Object> responseBody = response.getBody();
+					if (responseBody == null) {
+						System.err.println("Tracks response body is null for user ID: " + userId);
+						return new ArrayList<Map<String, Object>>();
+					}
 					System.out.println("Response body keys: " + responseBody.keySet());
 					@SuppressWarnings("unchecked")
 					List<Map<String, Object>> tracks = (List<Map<String, Object>>) responseBody.get("collection");
@@ -3801,8 +3799,12 @@ public class SoundWrappedService {
 			
 			System.out.println("Fallback: Resolve response status: " + resolveResponse.getStatusCode());
 			
-			if (resolveResponse.getStatusCode().is2xxSuccessful() && resolveResponse.getBody() != null) {
+			if (resolveResponse.getStatusCode().is2xxSuccessful()) {
 				Map<String, Object> resolved = resolveResponse.getBody();
+				if (resolved == null) {
+					System.err.println("Fallback: Resolved artist profile response body is null");
+					return new ArrayList<Map<String, Object>>();
+				}
 				Object kind = resolved.get("kind");
 				System.out.println("Fallback: Resolved kind: " + kind);
 				
@@ -3837,8 +3839,12 @@ public class SoundWrappedService {
 							
 							System.out.println("Fallback: Approach 1 - Tracks API response status: " + response.getStatusCode());
 							
-							if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+							if (response.getStatusCode().is2xxSuccessful()) {
 								Map<String, Object> responseBody = response.getBody();
+								if (responseBody == null) {
+									System.err.println("Fallback: Tracks response body is null for artist: " + artistPermalink);
+									return new ArrayList<Map<String, Object>>();
+								}
 								System.out.println("Fallback: Approach 1 - Response body keys: " + responseBody.keySet());
 								@SuppressWarnings("unchecked")
 								List<Map<String, Object>> tracks = (List<Map<String, Object>>) responseBody.get("collection");
@@ -3888,8 +3894,12 @@ public class SoundWrappedService {
 							
 							System.out.println("Fallback: Approach 2 - Search response status: " + searchResponse.getStatusCode());
 							
-							if (searchResponse.getStatusCode().is2xxSuccessful() && searchResponse.getBody() != null) {
+							if (searchResponse.getStatusCode().is2xxSuccessful()) {
 								Map<String, Object> searchBody = searchResponse.getBody();
+								if (searchBody == null) {
+									System.err.println("Fallback: Search response body is null for artist: " + artistPermalink);
+									return new ArrayList<Map<String, Object>>();
+								}
 								System.out.println("Fallback: Approach 2 - Search response body keys: " + searchBody.keySet());
 								@SuppressWarnings("unchecked")
 								List<Map<String, Object>> searchTracks = (List<Map<String, Object>>) searchBody.get("collection");

@@ -5,12 +5,11 @@ import com.soundwrapped.service.SoundWrappedService;
 import com.soundwrapped.service.GenreAnalysisService;
 import com.soundwrapped.service.LyricsService;
 import com.soundwrapped.service.EnhancedArtistService;
-import com.soundwrapped.service.SimilarArtistsService;
-import com.soundwrapped.service.ActivityTrackingService;
 import com.soundwrapped.exception.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.core.ParameterizedTypeReference;
@@ -45,8 +44,6 @@ class SoundWrappedServiceTests {
 	@Mock
 	private EnhancedArtistService enhancedArtistService;
 	
-	@Mock
-	private SimilarArtistsService similarArtistsService;
 
 	private SoundWrappedService soundWrappedService;
 
@@ -54,8 +51,8 @@ class SoundWrappedServiceTests {
 	void setUp() {
 		MockitoAnnotations.openMocks(this);
 		// Reset mocks to ensure clean state between tests
-		reset(tokenStore, restTemplate, genreAnalysisService, userActivityRepository, activityTrackingService, lyricsService, enhancedArtistService, similarArtistsService);
-		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate, genreAnalysisService, userActivityRepository, activityTrackingService, lyricsService, enhancedArtistService, similarArtistsService);
+		reset(tokenStore, restTemplate, genreAnalysisService, userActivityRepository, activityTrackingService, lyricsService, enhancedArtistService);
+		soundWrappedService = new SoundWrappedService(tokenStore, restTemplate, genreAnalysisService, userActivityRepository, activityTrackingService, lyricsService, enhancedArtistService);
 		// Inject a non-null base URL to avoid "null/me"
 		ReflectionTestUtils.setField(soundWrappedService, "soundCloudApiBaseUrl", "https://api.soundcloud.com");
 		ReflectionTestUtils.setField(soundWrappedService, "clientId", "testClientId");
@@ -74,14 +71,15 @@ class SoundWrappedServiceTests {
 		when(tokenStore.getRefreshToken()).thenReturn(refreshToken);
 
 		// Mock GET request to profileUrl
-		when(restTemplate.exchange(eq(profileUrl), eq(HttpMethod.GET), any(HttpEntity.class),
-				any(ParameterizedTypeReference.class))).thenThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED))
+		when(restTemplate.exchange(eq(profileUrl), eq(HttpMethod.GET), ArgumentMatchers.<HttpEntity<?>>any(),
+				ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+				.thenThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED))
 				.thenReturn(new ResponseEntity<Map<String, Object>>(Map.of("username", "testuser"), HttpStatus.OK));
 
 		// POST to refresh token → return new access token
 		Map<String, Object> tokenResponse = Map.of("access_token", newAccessToken);
-		when(restTemplate.exchange(eq(tokenUrl), eq(HttpMethod.POST), any(HttpEntity.class),
-				any(ParameterizedTypeReference.class)))
+		when(restTemplate.exchange(eq(tokenUrl), eq(HttpMethod.POST), ArgumentMatchers.<HttpEntity<?>>any(),
+				ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
 				.thenReturn(new ResponseEntity<Map<String, Object>>(tokenResponse, HttpStatus.OK));
 
 		// Execute service method
@@ -92,12 +90,14 @@ class SoundWrappedServiceTests {
 		verify(tokenStore).saveTokens(eq(newAccessToken), eq(refreshToken), any());
 
 		// Optional: capture the GET request to check Authorization header
-		ArgumentCaptor<HttpEntity> captor = ArgumentCaptor.forClass(HttpEntity.class);
+		ArgumentCaptor<HttpEntity<?>> captor = ArgumentCaptor.forClass(HttpEntity.class);
 		verify(restTemplate, atLeastOnce()).exchange(eq(profileUrl), eq(HttpMethod.GET), captor.capture(),
-				any(ParameterizedTypeReference.class));
+				ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any());
 
-		HttpEntity capturedRequest = captor.getValue();
-		assertTrue(capturedRequest.getHeaders().getFirst(HttpHeaders.AUTHORIZATION).contains("Bearer"));
+		HttpEntity<?> capturedRequest = captor.getValue();
+		String authHeader = capturedRequest.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+		assertNotNull(authHeader);
+		assertTrue(authHeader.contains("Bearer"));
 	}
 
 	@Test
@@ -121,7 +121,7 @@ class SoundWrappedServiceTests {
 		Map<String, Object> fakeResponse = Map.of("access_token", "access123", "refresh_token", "refresh123");
 
 		when(restTemplate.exchange(eq("https://api.soundcloud.com/oauth2/token"), eq(HttpMethod.POST),
-				any(HttpEntity.class), any(ParameterizedTypeReference.class)))
+				ArgumentMatchers.<HttpEntity<?>>any(), ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
 				.thenReturn(new ResponseEntity<Map<String, Object>>(fakeResponse, HttpStatus.OK));
 
 		Map<String, Object> result = soundWrappedService.exchangeAuthorizationCode(authCode);
@@ -142,13 +142,14 @@ class SoundWrappedServiceTests {
 		when(tokenStore.getRefreshToken()).thenReturn(refreshToken);
 
 		// GET throws 401 (unauthorized)
-		when(restTemplate.exchange(eq(profileUrl), eq(HttpMethod.GET), any(HttpEntity.class),
-				any(ParameterizedTypeReference.class)))
+		when(restTemplate.exchange(eq(profileUrl), eq(HttpMethod.GET), ArgumentMatchers.<HttpEntity<?>>any(),
+				ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
 				.thenThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED));
 
 		// POST refresh token fails (returns 400 Bad Request)
-		when(restTemplate.exchange(eq(tokenUrl), eq(HttpMethod.POST), any(HttpEntity.class),
-				any(ParameterizedTypeReference.class))).thenThrow(new HttpClientErrorException(HttpStatus.BAD_REQUEST));
+		when(restTemplate.exchange(eq(tokenUrl), eq(HttpMethod.POST), ArgumentMatchers.<HttpEntity<?>>any(),
+				ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+				.thenThrow(new HttpClientErrorException(HttpStatus.BAD_REQUEST));
 
 		// The exception should be wrapped in ApiRequestException
 		ApiRequestException exception = assertThrows(ApiRequestException.class,
@@ -166,8 +167,9 @@ class SoundWrappedServiceTests {
 		when(tokenStore.getAccessToken()).thenReturn(accessToken);
 
 		Map<String, Object> profile = Map.of("username", "user1");
-		when(restTemplate.exchange(eq(profileUrl), eq(HttpMethod.GET), any(HttpEntity.class),
-				any(ParameterizedTypeReference.class))).thenReturn(new ResponseEntity<Map<String, Object>>(profile, HttpStatus.OK));
+		when(restTemplate.exchange(eq(profileUrl), eq(HttpMethod.GET), ArgumentMatchers.<HttpEntity<?>>any(),
+				ArgumentMatchers.<ParameterizedTypeReference<Map<String, Object>>>any()))
+				.thenReturn(new ResponseEntity<Map<String, Object>>(profile, HttpStatus.OK));
 
 		Map<String, Object> result = soundWrappedService.getUserProfile();
 

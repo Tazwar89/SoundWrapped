@@ -14,9 +14,7 @@ spring:
     url: jdbc:h2:file:./data/soundwrapped;AUTO_SERVER=TRUE
     username: sa
     password: 
-    driver-class-name: org.h2.Driver
   jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
       # Use 'update' instead of 'create-drop' to preserve data across restarts
       # 'create-drop' drops all tables on shutdown, losing all tokens

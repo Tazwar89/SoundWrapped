@@ -442,11 +442,12 @@ public class SoundWrappedController {
 			
 			Map<String, Object> result = new HashMap<String, Object>();
 			result.put("status", "success");
+			List<Map<String, Object>> body = response.getBody();
 			result.put("httpStatus", response.getStatusCode().toString());
-			result.put("tracksReturned", response.getBody() != null ? response.getBody().size() : 0);
+			result.put("tracksReturned", body != null ? body.size() : 0);
 			result.put("clientIdConfigured", clientId != null && !clientId.isEmpty());
-			if (response.getBody() != null && !response.getBody().isEmpty()) {
-				result.put("sampleTrack", response.getBody().get(0));
+			if (body != null && !body.isEmpty()) {
+				result.put("sampleTrack", body.get(0));
 			}
 			return result;
 		} catch (Exception e) {

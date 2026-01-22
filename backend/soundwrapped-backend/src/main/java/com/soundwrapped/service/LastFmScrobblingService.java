@@ -187,7 +187,7 @@ public class LastFmScrobblingService {
             params.put("sk", sessionKey); // Session key
 
             // Build URL
-            UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(LASTFM_API_BASE_URL);
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(LASTFM_API_BASE_URL);
             params.forEach(builder::queryParam);
 
             HttpHeaders headers = new HttpHeaders();
@@ -284,9 +284,9 @@ public class LastFmScrobblingService {
                 new org.springframework.core.ParameterizedTypeReference<List<Map<String, Object>>>(){}
             );
 
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+            if (response.getStatusCode().is2xxSuccessful()) {
                 List<Map<String, Object>> tracks = response.getBody();
-                if (!tracks.isEmpty()) {
+                if (tracks != null && !tracks.isEmpty()) {
                     // Return first match (could be improved with better matching logic)
                     Map<String, Object> track = tracks.get(0);
                     Object id = track.get("id");

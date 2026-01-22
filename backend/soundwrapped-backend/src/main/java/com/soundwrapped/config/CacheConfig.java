@@ -7,6 +7,8 @@ import org.springframework.cache.support.SimpleCacheManager;
 import org.springframework.cache.Cache;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
+import org.springframework.lang.Nullable;
 
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
@@ -25,29 +27,35 @@ class CaffeineCache implements Cache {
 	}
 
 	@Override
+	@NonNull
 	public String getName() {
 		return name;
 	}
 
 	@Override
+	@NonNull
 	public Object getNativeCache() {
 		return cache;
 	}
 
 	@Override
-	public Cache.ValueWrapper get(Object key) {
+	@Nullable
+	public Cache.ValueWrapper get(@NonNull Object key) {
 		Object value = cache.getIfPresent(key);
 		return value != null ? new SimpleValueWrapper(value) : null;
 	}
 
 	@Override
-	public <T> T get(Object key, Class<T> type) {
+	@Nullable
+	public <T> T get(@NonNull Object key, @Nullable Class<T> type) {
 		Object value = cache.getIfPresent(key);
-		return value != null && type.isInstance(value) ? type.cast(value) : null;
+		return type != null && value != null && type.isInstance(value) ? type.cast(value) : null;
 	}
 
 	@Override
-	public <T> T get(Object key, java.util.concurrent.Callable<T> valueLoader) {
+	@SuppressWarnings("unchecked")
+	@NonNull
+	public <T> T get(@NonNull Object key, @NonNull java.util.concurrent.Callable<T> valueLoader) {
 		try {
 			return (T) cache.get(key, k -> {
 				try {
@@ -62,12 +70,12 @@ class CaffeineCache implements Cache {
 	}
 
 	@Override
-	public void put(Object key, Object value) {
+	public void put(@NonNull Object key, @Nullable Object value) {
 		cache.put(key, value);
 	}
 
 	@Override
-	public void evict(Object key) {
+	public void evict(@NonNull Object key) {
 		cache.invalidate(key);
 	}
 

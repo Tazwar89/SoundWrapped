@@ -13,19 +13,13 @@ import java.util.stream.Collectors;
 public class MusicTasteMapService {
     
     private final SoundWrappedService soundWrappedService;
-    private final GenreAnalysisService genreAnalysisService;
     private final UserLocationRepository locationRepository;
-    private final MusicDoppelgangerService musicDoppelgangerService;
     
     public MusicTasteMapService(
             SoundWrappedService soundWrappedService,
-            GenreAnalysisService genreAnalysisService,
-            UserLocationRepository locationRepository,
-            MusicDoppelgangerService musicDoppelgangerService) {
+            UserLocationRepository locationRepository) {
         this.soundWrappedService = soundWrappedService;
-        this.genreAnalysisService = genreAnalysisService;
         this.locationRepository = locationRepository;
-        this.musicDoppelgangerService = musicDoppelgangerService;
     }
     
     /**

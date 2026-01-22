@@ -1,6 +1,5 @@
 package com.soundwrapped.integration_tests;
 
-import com.soundwrapped.config.PostgresTestContainerConfig;
 import com.soundwrapped.entity.Token;
 import com.soundwrapped.repository.TokenRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,7 +13,7 @@ import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest(classes = { PostgresTestContainerConfig.class })
+@SpringBootTest
 @ActiveProfiles("test")
 @Transactional
 class TokenRepositoryIntegrationTest {

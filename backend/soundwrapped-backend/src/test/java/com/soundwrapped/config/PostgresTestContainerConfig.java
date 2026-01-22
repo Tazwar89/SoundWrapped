@@ -11,16 +11,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers
 public class PostgresTestContainerConfig {
 	@Container
-	static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15")
+	@SuppressWarnings("resource")
+	static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15")
 		.withDatabaseName("soundwrapped")
 		.withUsername("postgres")
 		.withPassword("postgres");
 	
-	//START container explicitly before Spring tries to resolve properties
-    static {
-        postgres.start();
-    }
-
 	@DynamicPropertySource
 	static void configureTestDatabase(DynamicPropertyRegistry registry) {
 		registry.add("spring.datasource.url", postgres::getJdbcUrl);

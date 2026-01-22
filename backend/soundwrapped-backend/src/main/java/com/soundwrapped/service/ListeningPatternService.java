@@ -8,7 +8,6 @@ import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.Year;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Service for analyzing listening patterns from tracked activity data.
@@ -140,25 +139,7 @@ public class ListeningPatternService {
             .orElse(12);
         
         // Calculate average listening time by time period
-        long morningListening = 0L; // 6-11
-        long afternoonListening = 0L; // 12-17
-        long eveningListening = 0L; // 18-23
-        long nightListening = 0L; // 0-5
-        
-        for (Map.Entry<Integer, Long> entry : hourListeningMs.entrySet()) {
-            int hour = entry.getKey();
-            long ms = entry.getValue();
-            
-            if (hour >= 6 && hour < 12) {
-                morningListening += ms;
-            } else if (hour >= 12 && hour < 18) {
-                afternoonListening += ms;
-            } else if (hour >= 18 && hour < 24) {
-                eveningListening += ms;
-            } else {
-                nightListening += ms;
-            }
-        }
+        // No need to compute per-period listening totals since persona is based on peakHour.
         
         // Determine persona based on peak listening time
         if (peakHour >= 6 && peakHour < 12) {

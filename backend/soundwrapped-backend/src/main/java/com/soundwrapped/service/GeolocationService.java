@@ -47,11 +47,11 @@ public class GeolocationService {
             headers.set("Accept", "application/json");
             HttpEntity<String> request = new HttpEntity<String>(headers);
             
-            ResponseEntity<Map> response = restTemplate.exchange(
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 url,
                 HttpMethod.GET,
                 request,
-                Map.class
+                new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {}
             );
             
             Map<String, Object> data = response.getBody();
@@ -89,11 +89,11 @@ public class GeolocationService {
             headers.set("Accept", "application/json");
             HttpEntity<String> request = new HttpEntity<String>(headers);
             
-            ResponseEntity<Map> response = restTemplate.exchange(
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 url,
                 HttpMethod.GET,
                 request,
-                Map.class
+                new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {}
             );
             
             Map<String, Object> data = response.getBody();

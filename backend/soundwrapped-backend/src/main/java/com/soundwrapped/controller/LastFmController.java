@@ -77,7 +77,7 @@ public class LastFmController {
             params.put("api_sig", signature);
 
             // Build URL
-            UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(LASTFM_API_BASE_URL);
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(LASTFM_API_BASE_URL);
             params.forEach(builder::queryParam);
 
             HttpHeaders requestHeaders = new HttpHeaders();
@@ -91,10 +91,11 @@ public class LastFmController {
                 new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>(){}
             );
 
-            if (!tokenResponse.getStatusCode().is2xxSuccessful() || tokenResponse.getBody() == null) {
+            Map<String, Object> tokenBody = tokenResponse.getBody();
+            if (!tokenResponse.getStatusCode().is2xxSuccessful() || tokenBody == null) {
                 String errorDetails = "HTTP " + tokenResponse.getStatusCode();
-                if (tokenResponse.getBody() != null) {
-                    errorDetails += " - " + tokenResponse.getBody().toString();
+                if (tokenBody != null) {
+                    errorDetails += " - " + tokenBody.toString();
                 }
                 System.err.println("[LastFmController] Failed to get request token from Last.fm: " + errorDetails);
                 response.put("error", "Failed to get request token from Last.fm. Please check your API keys and ensure the callback URL (http://localhost:8080/api/lastfm/callback) is configured in your Last.fm app settings.");
@@ -104,12 +105,11 @@ public class LastFmController {
 
             // Extract token from response
             // Last.fm API returns: { "token": "..." } or { "lfm": { "token": "..." } }
-            Map<String, Object> body = tokenResponse.getBody();
+            Map<String, Object> body = tokenBody;
             String requestToken = null;
             
             // Try nested format first: { "lfm": { "token": "..." } }
-            @SuppressWarnings("unchecked")
-            Map<String, Object> lfmObj = (Map<String, Object>) body.get("lfm");
+            Map<String, Object> lfmObj = castToStringObjectMap(body.get("lfm"));
             if (lfmObj != null) {
                 requestToken = (String) lfmObj.get("token");
             }
@@ -146,7 +146,7 @@ public class LastFmController {
             }
             // Use UriComponentsBuilder to properly construct the URL
             // Note: UriComponentsBuilder will automatically URL-encode the callback URL
-            UriComponentsBuilder authUrlBuilder = UriComponentsBuilder.fromHttpUrl(LASTFM_AUTH_URL)
+            UriComponentsBuilder authUrlBuilder = UriComponentsBuilder.fromUriString(LASTFM_AUTH_URL)
                     .queryParam("api_key", lastFmApiKey)
                     .queryParam("token", requestToken)
                     .queryParam("cb", callbackUrl);
@@ -319,7 +319,7 @@ public class LastFmController {
             params.put("api_sig", signature);
 
             // Build URL
-            UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(LASTFM_API_BASE_URL);
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(LASTFM_API_BASE_URL);
             params.forEach(builder::queryParam);
 
             HttpHeaders headers = new HttpHeaders();
@@ -336,15 +336,13 @@ public class LastFmController {
             Map<String, Object> body = response.getBody();
             if (response.getStatusCode().is2xxSuccessful() && body != null) {
                 // Last.fm API returns: { "session": { "key": "...", "name": "..." } } or { "lfm": { "session": { ... } } }
-                @SuppressWarnings("unchecked")
-                Map<String, Object> sessionObj = (Map<String, Object>) body.get("session");
+                Map<String, Object> sessionObj = castToStringObjectMap(body.get("session"));
                 
                 // Try nested format: { "lfm": { "session": { ... } } }
                 if (sessionObj == null) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> lfmObj = (Map<String, Object>) body.get("lfm");
+                    Map<String, Object> lfmObj = castToStringObjectMap(body.get("lfm"));
                     if (lfmObj != null) {
-                        sessionObj = (Map<String, Object>) lfmObj.get("session");
+                        sessionObj = castToStringObjectMap(lfmObj.get("session"));
                     }
                 }
                 
@@ -383,7 +381,7 @@ public class LastFmController {
             params.put("api_sig", signature);
 
             // Build URL
-            UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(LASTFM_API_BASE_URL);
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(LASTFM_API_BASE_URL);
             params.forEach(builder::queryParam);
 
             HttpHeaders headers = new HttpHeaders();
@@ -400,15 +398,13 @@ public class LastFmController {
             Map<String, Object> body = response.getBody();
             if (response.getStatusCode().is2xxSuccessful() && body != null) {
                 // Last.fm API returns: { "user": { "name": "..." } } or { "lfm": { "user": { ... } } }
-                @SuppressWarnings("unchecked")
-                Map<String, Object> userObj = (Map<String, Object>) body.get("user");
+                Map<String, Object> userObj = castToStringObjectMap(body.get("user"));
                 
                 // Try nested format: { "lfm": { "user": { ... } } }
                 if (userObj == null) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> lfmObj = (Map<String, Object>) body.get("lfm");
+                    Map<String, Object> lfmObj = castToStringObjectMap(body.get("lfm"));
                     if (lfmObj != null) {
-                        userObj = (Map<String, Object>) lfmObj.get("user");
+                        userObj = castToStringObjectMap(lfmObj.get("user"));
                     }
                 }
                 
@@ -434,6 +430,19 @@ public class LastFmController {
     /**
      * Generate API signature for Last.fm requests.
      */
+    private Map<String, Object> castToStringObjectMap(Object obj) {
+        if (!(obj instanceof Map<?, ?> rawMap)) {
+            return null;
+        }
+        Map<String, Object> safeMap = new HashMap<String, Object>();
+        for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+            if (entry.getKey() instanceof String key) {
+                safeMap.put(key, entry.getValue());
+            }
+        }
+        return safeMap;
+    }
+
     private String generateSignature(Map<String, String> params) {
         // Sort parameters alphabetically
         List<String> sortedKeys = new ArrayList<String>(params.keySet());
