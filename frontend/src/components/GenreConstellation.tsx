@@ -273,7 +273,7 @@ const GenreConstellation: React.FC<GenreConstellationProps> = ({
         }
       })
 
-      setHoveredNode(closestNode?.id || null)
+      setHoveredNode((closestNode as ScreenNode | null)?.id || null)
     }
 
     const handleClick = () => {
@@ -302,6 +302,8 @@ const GenreConstellation: React.FC<GenreConstellationProps> = ({
     )
   }
 
+  const selectedGenre = genres.find(genreItem => genreItem.genre === selectedNode)
+
   return (
     <div className="relative w-full h-full">
       <canvas
@@ -316,13 +318,13 @@ const GenreConstellation: React.FC<GenreConstellationProps> = ({
           className="absolute bottom-4 left-4 right-4 bg-black/80 backdrop-blur-sm rounded-lg p-4 border border-orange-500/30"
         >
           <h4 className="text-orange-400 font-semibold mb-2">{selectedNode}</h4>
-          {genres.find(g => g.genre === selectedNode) && (
+          {selectedGenre && (
             <div className="text-sm text-white/80 space-y-1">
-              {genres.find(g => g.genre === selectedNode)?.trackCount && (
-                <p>Tracks: {genres.find(g => g.genre === selectedNode)?.trackCount}</p>
+              {selectedGenre.trackCount !== undefined && (
+                <p>Tracks: {selectedGenre.trackCount}</p>
               )}
-              {genres.find(g => g.genre === selectedNode)?.listeningHours && (
-                <p>Hours: {genres.find(g => g.genre === selectedNode)?.listeningHours.toFixed(1)}</p>
+              {selectedGenre.listeningHours !== undefined && (
+                <p>Hours: {selectedGenre.listeningHours.toFixed(1)}</p>
               )}
             </div>
           )}
