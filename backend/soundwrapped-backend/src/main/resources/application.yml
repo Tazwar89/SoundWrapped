@@ -70,12 +70,30 @@ spring:
     url: jdbc:tc:postgresql:15:///soundwrapped
     username: postgres
     password: postgres
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
   jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: create-drop
     show-sql: true
     properties:
       hibernate.format_sql: true
+
+# ----------------------------
+# Docker profile (PostgreSQL)
+# ----------------------------
+---
+spring:
+  config:
+    activate:
+      on-profile: docker
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db:5432/soundwrapped}
+    username: ${SPRING_DATASOURCE_USERNAME:soundwrapped_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:your_secure_password}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
 
 logging:
   level:
