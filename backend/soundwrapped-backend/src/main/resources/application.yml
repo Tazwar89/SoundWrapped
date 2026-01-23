@@ -1,7 +1,7 @@
 # application.yml
 
 # ----------------------------
-# Default profile (development/production)
+# Default profile (PostgreSQL)
 # ----------------------------
 spring:
   application:
@@ -9,12 +9,12 @@ spring:
   server:
     port: 8080
   datasource:
-    # Use file-based H2 database for persistence across restarts
-    # Change to jdbc:h2:mem:testdb for in-memory (data lost on restart)
-    url: jdbc:h2:file:./data/soundwrapped;AUTO_SERVER=TRUE
-    username: sa
-    password: 
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/soundwrapped}
+    username: ${SPRING_DATASOURCE_USERNAME:soundwrapped_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:your_secure_password}
+    driver-class-name: org.postgresql.Driver
   jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       # Use 'update' instead of 'create-drop' to preserve data across restarts
       # 'create-drop' drops all tables on shutdown, losing all tokens
@@ -22,9 +22,6 @@ spring:
     show-sql: true
     properties:
       hibernate.format_sql: true
-  h2:
-    console:
-      enabled: true
 
 logging:
   level:
@@ -87,6 +84,8 @@ spring:
   config:
     activate:
       on-profile: docker
+  server:
+    port: 8081
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db:5432/soundwrapped}
     username: ${SPRING_DATASOURCE_USERNAME:soundwrapped_user}
