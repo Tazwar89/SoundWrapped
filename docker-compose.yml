@@ -31,10 +31,12 @@ services:
     container_name: soundwrapped-backend
     restart: unless-stopped
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-soundwrapped}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-soundwrapped_user}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-your_secure_password}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SOUNDCLOUD_CLIENT_ID: ${SOUNDCLOUD_CLIENT_ID}
