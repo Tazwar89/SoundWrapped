@@ -141,10 +141,13 @@ jobs:
       run: |
         docker compose -f docker-compose.yml up -d --build
 
+    - name: Print backend logs (startup)
+      run: docker compose logs backend
+
     - name: Wait for services to be ready
       run: |
         echo "Waiting for backend to be ready..."
-        timeout 180 bash -c 'until curl -f http://localhost:8081/api/soundcloud/debug/tokens > /dev/null 2>&1; do sleep 5; done'
+        timeout 300 bash -c 'until curl -f http://localhost:8081/api/soundcloud/debug/tokens > /dev/null 2>&1; do sleep 5; done'
 
     - name: Dump backend logs if failed
       if: failure()
