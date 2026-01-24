@@ -151,6 +151,13 @@ jobs:
         echo "Waiting for backend to be ready..."
         timeout 300 bash -c 'until curl -f http://localhost:8081/api/soundcloud/debug/tokens > /dev/null 2>&1; do sleep 5; done'
 
+    - name: Dump service logs if readiness fails
+      if: failure()
+      run: |
+        docker compose ps
+        docker compose logs backend
+        docker compose logs db
+
     - name: Dump backend logs if failed
       if: failure()
       run: docker compose logs backend
