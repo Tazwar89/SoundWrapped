@@ -3,11 +3,11 @@
 # ----------------------------
 # Default profile (PostgreSQL)
 # ----------------------------
+server:
+  port: 8080
 spring:
   application:
     name: SoundWrapped
-  server:
-    port: 8080
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/soundwrapped}
     username: ${SPRING_DATASOURCE_USERNAME:soundwrapped_user}
@@ -84,8 +84,6 @@ spring:
   config:
     activate:
       on-profile: docker
-  server:
-    port: 8081
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db:5432/soundwrapped}
     username: ${SPRING_DATASOURCE_USERNAME:soundwrapped_user}
@@ -93,6 +91,8 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
+server:
+  port: 8081
 
 logging:
   level:
