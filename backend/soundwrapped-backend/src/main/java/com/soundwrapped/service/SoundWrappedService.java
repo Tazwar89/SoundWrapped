@@ -2001,7 +2001,8 @@ public class SoundWrappedService {
 				"trip hop", "deep house", "tropical house", "bitpop", "synthpop",
 				"indie pop", "progressive house", "progressive metal", "funk",
 				"grunge", "melodic death metal", "moombahton", "trance",
-				"stoner rock", "new wave", "trap", "shoegaze"
+				"stoner rock", "new wave", "trap", "cloud rap", "nightcore",
+				"witch house", "chopped & screwed", "slowed & reverb", "screamo"
 			);
 			
 			// Use date-based seed for deterministic but daily-changing selection

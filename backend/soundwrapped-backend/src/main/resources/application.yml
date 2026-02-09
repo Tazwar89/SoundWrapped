@@ -9,9 +9,9 @@ spring:
   application:
     name: SoundWrapped
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/soundwrapped}
-    username: ${SPRING_DATASOURCE_USERNAME:soundwrapped_user}
-    password: ${SPRING_DATASOURCE_PASSWORD:your_secure_password}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/soundwrapped_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
@@ -85,9 +85,9 @@ spring:
     activate:
       on-profile: docker
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db:5432/soundwrapped}
-    username: ${SPRING_DATASOURCE_USERNAME:soundwrapped_user}
-    password: ${SPRING_DATASOURCE_PASSWORD:your_secure_password}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db:5432/soundwrapped_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect

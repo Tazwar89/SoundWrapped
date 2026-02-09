@@ -7,9 +7,9 @@ services:
     container_name: soundwrapped-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-soundwrapped}
-      POSTGRES_USER: ${POSTGRES_USER:-soundwrapped_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-soundwrapped_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "5432:5432"
     volumes:
@@ -32,9 +32,9 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-soundwrapped}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-soundwrapped_user}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-your_secure_password}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-soundwrapped_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
       SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.PostgreSQLDialect
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}

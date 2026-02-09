@@ -34,6 +34,9 @@ public class LastFmController {
     @Value("${lastfm.api-secret:}")
     private String lastFmApiSecret;
 
+    @Value("${app.frontend-base-url:http://localhost:3000}")
+    private String frontendBaseUrl;
+
     private static final String LASTFM_API_BASE_URL = "https://ws.audioscrobbler.com/2.0";
     private static final String LASTFM_AUTH_URL = "https://www.last.fm/api/auth/"; // Note: trailing slash per Last.fm docs
 
@@ -189,10 +192,14 @@ public class LastFmController {
     @GetMapping("/callback/test")
     public ResponseEntity<Map<String, Object>> testCallback() {
         Map<String, Object> response = new HashMap<String, Object>();
+        String callbackUrl = System.getenv("LASTFM_CALLBACK_URL");
+        if (callbackUrl == null || callbackUrl.isEmpty()) {
+            callbackUrl = "http://localhost:8080/api/lastfm/callback";
+        }
         response.put("status", "success");
         response.put("message", "Callback endpoint is accessible");
         response.put("timestamp", java.time.LocalDateTime.now().toString());
-        response.put("expectedCallbackUrl", "http://localhost:8080/api/lastfm/callback");
+        response.put("expectedCallbackUrl", callbackUrl);
         response.put("instructions", "Ensure this exact URL is set in your Last.fm app settings at https://www.last.fm/api/account/create");
         System.out.println("[LastFmController] ✅ Test callback endpoint hit at " + java.time.LocalDateTime.now());
         return ResponseEntity.ok().body(response);
@@ -214,7 +221,7 @@ public class LastFmController {
             if (token == null || token.isEmpty()) {
                 System.err.println("[LastFmController] Callback missing token parameter");
                 return ResponseEntity.status(HttpStatus.FOUND)
-                        .header("Location", "http://localhost:3000/lastfm/callback?lastfm_connected=false&error=missing_token")
+                        .header("Location", frontendBaseUrl + "/lastfm/callback?lastfm_connected=false&error=missing_token")
                         .build();
             }
 
@@ -223,7 +230,7 @@ public class LastFmController {
             if (sessionKey == null) {
                 System.err.println("[LastFmController] Failed to get session key from Last.fm for token: " + token);
                 return ResponseEntity.status(HttpStatus.FOUND)
-                        .header("Location", "http://localhost:3000/lastfm/callback?lastfm_connected=false&error=session_key_failed")
+                        .header("Location", frontendBaseUrl + "/lastfm/callback?lastfm_connected=false&error=session_key_failed")
                         .build();
             }
 
@@ -232,7 +239,7 @@ public class LastFmController {
             if (username == null) {
                 System.err.println("[LastFmController] Failed to get username from Last.fm session key");
                 return ResponseEntity.status(HttpStatus.FOUND)
-                        .header("Location", "http://localhost:3000/lastfm/callback?lastfm_connected=false&error=username_failed")
+                        .header("Location", frontendBaseUrl + "/lastfm/callback?lastfm_connected=false&error=username_failed")
                         .build();
             }
 
@@ -241,7 +248,7 @@ public class LastFmController {
             if (profile == null || profile.isEmpty()) {
                 System.err.println("[LastFmController] getUserProfile returned null or empty");
                 return ResponseEntity.status(HttpStatus.FOUND)
-                        .header("Location", "http://localhost:3000/lastfm/callback?lastfm_connected=false&error=user_not_logged_in")
+                        .header("Location", frontendBaseUrl + "/lastfm/callback?lastfm_connected=false&error=user_not_logged_in")
                         .build();
             }
             
@@ -249,7 +256,7 @@ public class LastFmController {
             if ("unknown".equals(soundcloudUserId) || soundcloudUserId == null) {
                 System.err.println("[LastFmController] Could not extract user ID from profile: " + profile);
                 return ResponseEntity.status(HttpStatus.FOUND)
-                        .header("Location", "http://localhost:3000/lastfm/callback?lastfm_connected=false&error=invalid_user_id")
+                        .header("Location", frontendBaseUrl + "/lastfm/callback?lastfm_connected=false&error=invalid_user_id")
                         .build();
             }
 
@@ -285,7 +292,7 @@ public class LastFmController {
 
             System.out.println("[LastFmController] ✅ Last.fm account connected successfully for user: " + username);
             return ResponseEntity.status(HttpStatus.FOUND)
-                    .header("Location", "http://localhost:3000/lastfm/callback?lastfm_connected=true&username=" + java.net.URLEncoder.encode(username, "UTF-8"))
+                    .header("Location", frontendBaseUrl + "/lastfm/callback?lastfm_connected=true&username=" + java.net.URLEncoder.encode(username, "UTF-8"))
                     .build();
 
         } catch (Exception e) {
@@ -293,11 +300,11 @@ public class LastFmController {
             e.printStackTrace();
             try {
                 return ResponseEntity.status(HttpStatus.FOUND)
-                        .header("Location", "http://localhost:3000/lastfm/callback?lastfm_connected=false&error=" + java.net.URLEncoder.encode(e.getMessage(), "UTF-8"))
+                        .header("Location", frontendBaseUrl + "/lastfm/callback?lastfm_connected=false&error=" + java.net.URLEncoder.encode(e.getMessage(), "UTF-8"))
                         .build();
             } catch (Exception encodingError) {
                 return ResponseEntity.status(HttpStatus.FOUND)
-                        .header("Location", "http://localhost:3000/lastfm/callback?lastfm_connected=false&error=unknown")
+                        .header("Location", frontendBaseUrl + "/lastfm/callback?lastfm_connected=false&error=unknown")
                         .build();
             }
         }

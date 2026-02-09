@@ -5,14 +5,14 @@ REDIRECT_URI=http://localhost:8080/callback
 
 # Database Configuration
 POSTGRES_DB=soundwrapped_db
-POSTGRES_USER=soundwrapped_user
-POSTGRES_PASSWORD=supersecretpassword
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
 
 # Spring Boot Configuration (PostgreSQL)
 SPRING_PROFILES_ACTIVE=default
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/soundwrapped_db
-SPRING_DATASOURCE_USERNAME=soundwrapped_user
-SPRING_DATASOURCE_PASSWORD=supersecretpassword
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=postgres
 SPRING_JPA_HIBERNATE_DDL_AUTO=update
 SPRING_JPA_SHOW_SQL=false
 
@@ -32,5 +32,8 @@ SERPAPI_API_KEY=your_serpapi_api_key_here
 THEAUDIODB_API_KEY=your_theaudiodb_api_key_here
 
 # Last.fm API Configuration (Similar Artists & Scrobbling)
-LASTFM_API_KEY=your_lastfm_api_key_here
-LASTFM_API_SECRET=your_lastfm_api_secret_here
+LASTFM_API_KEY=7f8f8a603a92fcb664f136304d5a02e7
+LASTFM_API_SECRET=fc6b00d615146ceb667b8e4d9630a788
+LASTFM_CALLBACK_URL=http://localhost:8080/api/lastfm/callback
+APP_FRONTEND_BASE_URL=http://localhost:3000
+VITE_LASTFM_CALLBACK_URL=http://localhost:8080/api/lastfm/callback

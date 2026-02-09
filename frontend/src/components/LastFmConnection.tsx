@@ -95,7 +95,7 @@ const LastFmConnection: React.FC = () => {
       }
       
       const authUrl = response.data.authUrl
-      const callbackUrl = response.data.callbackUrl
+      const callbackUrl = response.data.callbackUrl || import.meta.env.VITE_LASTFM_CALLBACK_URL
       
       if (!authUrl) {
         toast.error('No authorization URL received from server', { icon: '❌' })
@@ -108,7 +108,8 @@ const LastFmConnection: React.FC = () => {
       console.log('[LastFmConnection] 🔗 Opening Last.fm auth URL')
       console.log('[LastFmConnection] Full URL:', authUrl)
       console.log('[LastFmConnection] Callback URL from backend:', callbackUrl || 'not provided')
-      console.log('[LastFmConnection] Expected callback URL: http://localhost:8080/api/lastfm/callback')
+      const expectedCallbackUrl = callbackUrl || 'http://localhost:8080/api/lastfm/callback'
+      console.log('[LastFmConnection] Expected callback URL:', expectedCallbackUrl)
       
       // Verify callback URL is in the auth URL
       if (authUrl.includes('cb=')) {
@@ -116,9 +117,9 @@ const LastFmConnection: React.FC = () => {
         if (cbMatch) {
           const decodedCb = decodeURIComponent(cbMatch[1])
           console.log('[LastFmConnection] ✅ Callback URL in auth URL (decoded):', decodedCb)
-          if (decodedCb !== 'http://localhost:8080/api/lastfm/callback') {
+          if (decodedCb !== expectedCallbackUrl) {
             console.error('[LastFmConnection] ❌ CALLBACK URL MISMATCH!')
-            console.error('[LastFmConnection] Expected: http://localhost:8080/api/lastfm/callback')
+            console.error('[LastFmConnection] Expected:', expectedCallbackUrl)
             console.error('[LastFmConnection] Got:', decodedCb)
             console.error('[LastFmConnection] ⚠️ This MUST match exactly in Last.fm app settings!')
           } else {
