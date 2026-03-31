@@ -1,0 +1,100 @@
+# application.yml
+
+# ----------------------------
+# Default profile (PostgreSQL)
+# ----------------------------
+server:
+  port: 8080
+spring:
+  application:
+    name: SoundWrapped
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:}
+    username: ${SPRING_DATASOURCE_USERNAME:}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      # Use 'update' instead of 'create-drop' to preserve data across restarts
+      # 'create-drop' drops all tables on shutdown, losing all tokens
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate.format_sql: true
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+soundcloud:
+  client-id: ${SOUNDCLOUD_CLIENT_ID:}
+  client-secret: ${SOUNDCLOUD_CLIENT_SECRET:}
+  api:
+    base-url: https://api.soundcloud.com
+
+google:
+  knowledge-graph:
+    api-key: ${GOOGLE_KNOWLEDGE_GRAPH_API_KEY:}
+
+openai:
+  api-key: ${OPENAI_API_KEY:}
+
+groq:
+  api-key: ${GROQ_API_KEY:}
+  base-url: https://api.groq.com/openai/v1
+
+serpapi:
+  api-key: ${SERPAPI_API_KEY:}
+
+theaudiodb:
+  api-key: ${THEAUDIODB_API_KEY:}
+
+lastfm:
+  api-key: ${LASTFM_API_KEY:}
+  api-secret: ${LASTFM_API_SECRET:}
+
+# ----------------------------
+# Test profile (Testcontainers)
+# ----------------------------
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:}
+    username: ${SPRING_DATASOURCE_USERNAME:}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate.format_sql: true
+
+# ----------------------------
+# Docker profile (PostgreSQL)
+# ----------------------------
+---
+spring:
+  config:
+    activate:
+      on-profile: docker
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:}
+    username: ${SPRING_DATASOURCE_USERNAME:}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+server:
+  port: 8081
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
