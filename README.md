@@ -5,7 +5,7 @@ A comprehensive music analytics platform that provides personalized insights fro
 ## ✨ Features
 
 ### 🏠 Homepage - Daily Featured Content
-![home](https://github.com/user-attachments/assets/53a99428-b0c3-4f15-9979-904f23f123d0)
+![home](https://github.com/user-attachments/assets/df0bfcb0-3a8a-4ad2-982a-1766367fe507)
 
 The homepage showcases three daily rotating features that persist throughout the day using time-seed based caching:
 
