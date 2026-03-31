@@ -5,6 +5,7 @@ A comprehensive music analytics platform that provides personalized insights fro
 ## ✨ Features
 
 ### 🏠 Homepage - Daily Featured Content
+![home](https://github.com/user-attachments/assets/53a99428-b0c3-4f15-9979-904f23f123d0)
 
 The homepage showcases three daily rotating features that persist throughout the day using time-seed based caching:
 
@@ -17,9 +18,10 @@ The homepage showcases three daily rotating features that persist throughout the
     3. **Genre of the Day Tracks**: Fallback to tracks from featured genre
   - Uses date-based seed (`LocalDate.now().toEpochDay()`) for deterministic daily selection
   - Cached for 24 hours to ensure consistency
-  - Embeds SoundCloud player for direct playback
 
 #### 🎤 Artist of the Day
+<img width="1149" height="516" alt="artist of the day" src="https://github.com/user-attachments/assets/3993eda9-20e3-43b3-a537-0ed82b3657a8" />
+
 - **Feature**: Highlights a featured artist with their popular tracks and biography
 - **Technical Implementation**:
   - **Artist Selection**: Extracts unique artists from popular tracks, calculates trending scores, and uses time-seed to select from top 10 artists
@@ -39,6 +41,8 @@ The homepage showcases three daily rotating features that persist throughout the
   - Cached for 24 hours using date-based seed
 
 #### 🎸 Genre of the Day
+<img width="1147" height="508" alt="genre of the day" src="https://github.com/user-attachments/assets/1ecf2b0b-01b1-4ab4-9cd9-adaa71fe6269" />
+
 - **Feature**: Features a music genre with popular tracks and description
 - **Technical Implementation**:
   - **Genre Selection**: Randomly selects from 18 popular genres using time-seed
@@ -55,6 +59,8 @@ The homepage showcases three daily rotating features that persist throughout the
   - Cached for 24 hours using date-based seed
 
 #### 🔥 Popular Now
+<img width="1149" height="480" alt="popular now" src="https://github.com/user-attachments/assets/1ee63981-0fd5-4144-882a-48efb3161952" />
+
 - **Feature**: Displays the first 5 tracks from the US Top 50 charts playlist
 - **Technical Implementation**:
   - Fetches tracks from SoundCloud playlist URN `1714689261` (US Top 50: `https://soundcloud.com/music-charts-us/sets/all-music-genres`)
@@ -138,6 +144,7 @@ For users who upload tracks:
 - **Recommendations**: Artist recommendations based on track analysis
 
 ### 🎵 Last.fm Scrobbling Integration
+<img width="1280" height="535" alt="last fm connection" src="https://github.com/user-attachments/assets/807546d7-ede8-4789-a577-b74b35687cd3" />
 
 Integrates with Last.fm via Web Auth OAuth to pull long-term listening history beyond SoundCloud limits.
 
@@ -546,7 +553,7 @@ SoundWrapped/
 - **Spring Boot 3.5.5**: Application framework
 - **Spring Data JPA**: Database abstraction
 - **Spring Cache + Caffeine**: In-memory caching with configurable TTLs
-- **PostgreSQL 15**: Primary database (H2 available for local dev)
+- **PostgreSQL 18**: Database
 - **RestTemplate**: HTTP client for API calls
 - **Maven**: Build tool
 - **Docker**: Containerization with multi-stage builds
@@ -603,4 +610,3 @@ See [LICENSE](LICENSE) file for details.
 - [Last.fm Scrobbling](docs/LASTFM_SCROBBLING.md) - Last.fm scrobbling integration guide
 - [Last.fm API Setup](docs/LASTFM_API_SETUP.md) - Last.fm API key and callback configuration
 - [Deployment](docs/DEPLOYMENT.md) - Deployment guide
-- [OpenAI Implementation](docs/OPENAI_IMPLEMENTATION.md) - Legacy OpenAI documentation (migrated to Groq)
