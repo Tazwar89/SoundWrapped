@@ -4,34 +4,82 @@ This document provides comprehensive information about the SoundWrapped REST API
 
 ## 📋 Base Information
 
-- **Base URL**: `http://localhost:8081/api` (development)
+- **Base URL**: `http://localhost:8080/api` (development), `http://localhost:8081/api` (Docker)
 - **Content Type**: `application/json`
-- **Authentication**: Bearer Token (OAuth2)
+- **Authentication**: Bearer Token (SoundCloud OAuth2 access token)
 
 ## 🔐 Authentication
 
-### OAuth2 Flow
+### SoundCloud OAuth2 Flow
 
-#### 1. SoundCloud Authentication
+#### 1. SoundCloud Authorization Callback
 ```
 GET /callback?code={authorization_code}
 ```
 
-**Description**: Exchanges SoundCloud authorization code for access and refresh tokens.
+Exchanges SoundCloud authorization code for access and refresh tokens. Redirects to frontend with access token.
 
-**Parameters**:
-- `code` (string, required): Authorization code from SoundCloud
+#### 2. Proactive Token Refresh
+```
+POST /api/soundcloud/refresh-token
+```
+
+Manually triggers a token refresh. Backend also auto-refreshes via `TokenRefreshScheduler`.
+
+### Last.fm Web Auth Flow
+
+#### Get Authorization URL
+```
+GET /api/lastfm/auth-url
+```
+
+Returns the Last.fm Web Auth URL using only `api_key` + `cb` (no request token).
 
 **Response**:
 ```json
 {
-  "accessToken": "string",
-  "refreshToken": "string"
+  "authUrl": "https://www.last.fm/api/auth?api_key=...&cb=http://localhost:8080/api/lastfm/callback",
+  "message": "Visit this URL to authorize SoundWrapped with Last.fm"
 }
 ```
 
-#### 2. Token Refresh
-The API automatically handles token refresh when access tokens expire.
+#### OAuth Callback
+```
+GET /api/lastfm/callback?token={token}
+```
+
+Handles Last.fm callback — exchanges token for session key via `auth.getSession`, redirects to frontend.
+
+#### Test Callback Accessibility
+```
+GET /api/lastfm/callback/test
+```
+
+#### Connection Status
+```
+GET /api/lastfm/status
+```
+
+**Response**:
+```json
+{
+  "connected": true,
+  "username": "user123",
+  "lastSyncAt": "2025-01-15T09:00:00"
+}
+```
+
+#### Disconnect Last.fm
+```
+POST /api/lastfm/disconnect
+```
+
+#### Manual Scrobble Sync
+```
+POST /api/lastfm/sync
+```
+
+Triggers an immediate sync. Default automatic sync occurs every 15 minutes.
 
 ## 📊 User Data Endpoints
 
@@ -204,12 +252,161 @@ GET /soundcloud/wrapped/full
 GET /soundcloud/tracks/{track_urn}/related
 ```
 
-**Description**: Retrieves tracks related to a specific track.
-
 **Parameters**:
 - `track_urn` (string, required): SoundCloud track URN
 
 **Response**: Array of related track objects
+
+## 🎯 Featured Content
+
+### Song of the Day
+```
+GET /api/soundcloud/featured/track
+```
+
+Returns the daily featured track with lyrics (if available via Lyrics.ovh). Includes embedded SoundCloud player.
+
+### Artist of the Day
+```
+GET /api/soundcloud/featured/artist?forceRefresh={boolean}
+```
+
+Returns daily artist with AI-generated description (Groq), enhanced info (TheAudioDB), and top tracks.
+
+### Genre of the Day
+```
+GET /api/soundcloud/featured/genre
+```
+
+Returns daily genre with AI-generated description and sample tracks.
+
+### Popular Now
+```
+GET /api/soundcloud/popular/tracks?limit={limit}
+```
+
+Returns tracks from the US Top 50 charts playlist in original order. Default limit: 4.
+
+### Buzzing Track
+```
+GET /api/soundcloud/buzzing
+```
+
+Returns a daily buzzing track from SoundCloud's buzzing playlists, deterministically selected via date-based seed. Includes `buzzing_label: "Artist to watch out for"`.
+
+### Clear Featured Cache
+```
+POST /api/soundcloud/featured/clear-cache
+```
+
+### Similar Artists
+```
+GET /api/soundcloud/similar-artists?artist={name}&limit={limit}
+```
+
+Returns similar artists via Last.fm API with match scores and percentages.
+
+## 📈 Analytics
+
+### Full Wrapped Summary
+```
+GET /api/soundcloud/wrapped/full
+```
+
+Comprehensive Wrapped summary including: profile, top tracks/artists, stats, stories, underground support %, year-in-review poetry, trendsetter score, repost score, and sonic archetype.
+
+### Dashboard Analytics
+```
+GET /api/soundcloud/dashboard/analytics
+```
+
+Combined analytics including genre analysis (discovery count, top genres, distribution) and listening patterns (peak hour/day, persona, distributions).
+
+### Music Doppelgänger
+```
+GET /api/soundcloud/music-doppelganger
+```
+
+### Artist Analytics
+```
+GET /api/soundcloud/artist/analytics
+```
+
+### Artist Recommendations
+```
+GET /api/soundcloud/artist/recommendations?trackId={trackId}
+```
+
+### Music Taste Map
+```
+GET /api/soundcloud/music-taste-map
+```
+
+### Recent Activity
+```
+GET /api/soundcloud/recent-activity?limit={limit}
+```
+
+### Online Users
+```
+GET /api/soundcloud/online-users
+```
+
+## 🎮 Activity Tracking
+
+### Track Play
+```
+POST /api/activity/track/play?trackId={trackId}&durationMs={durationMs}
+```
+
+### Track Like
+```
+POST /api/activity/track/like?trackId={trackId}
+```
+
+### Track Repost
+```
+POST /api/activity/track/repost?trackId={trackId}
+```
+
+### System Playback (Desktop/Extension)
+```
+POST /api/tracking/system-playback
+Body: { "trackId": "...", "title": "...", "artist": "...", "durationMs": 180000 }
+```
+
+### System Like
+```
+POST /api/tracking/system-like?trackId={trackId}
+```
+
+### Update Location
+```
+POST /api/tracking/update-location
+```
+
+## 🐛 Debug Endpoints
+
+```
+GET /api/soundcloud/debug/test-api     — Test SoundCloud API connection
+GET /api/soundcloud/debug/tokens       — Token status
+GET /api/soundcloud/debug/oauth-url    — Generate OAuth URL
+```
+
+## 📊 Caching
+
+### Caffeine In-Memory Caches
+
+| Cache | TTL | Max Size | Purpose |
+|-------|-----|----------|---------|
+| `groqDescriptions` | 1 hour | 1,000 | AI-generated descriptions |
+| `enhancedArtists` | 24 hours | 500 | TheAudioDB artist info |
+| `similarArtists` | 12 hours | 500 | Last.fm similar artists |
+| `lyrics` | 7 days | 2,000 | Lyrics.ovh results |
+| `popularTracks` | 30 min | 10 | SoundCloud popular tracks |
+| `soundcloudTrackSearch` | 24 hours | 5,000 | Last.fm → SoundCloud track mapping |
+
+Daily featured content (Song, Artist, Genre, Buzzing) uses in-memory field caching with date-based seeds.
 
 ## ⚠️ Error Handling
 
@@ -329,117 +526,47 @@ mvn test -Dtest=SoundWrappedServiceIntegrationTest
 
 ## 🔧 Configuration
 
-### Application Properties
-```yaml
-# application.yml
-soundcloud:
-  client-id: your_client_id
-  client-secret: your_client_secret
-  api:
-    base-url: https://api.soundcloud.com
+### Application Profiles
 
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/soundwrapped
-    username: postgres
-    password: postgres
-```
+| Profile | Database | Port | Use |
+|---------|----------|------|-----|
+| `default` | PostgreSQL (localhost:5432) | 8080 | Local development |
+| `test` | Testcontainers | — | Automated tests |
+| `docker` | PostgreSQL (db:5432) | 8081 | Docker deployment |
 
-### Environment Variables
-```bash
-# Database
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/soundwrapped
-SPRING_DATASOURCE_USERNAME=postgres
-SPRING_DATASOURCE_PASSWORD=postgres
+### Required Environment Variables
 
-# SoundCloud
-SOUNDCLOUD_CLIENT_ID=your_client_id
-SOUNDCLOUD_CLIENT_SECRET=your_client_secret
-```
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `SOUNDCLOUD_CLIENT_ID` | Yes | SoundCloud OAuth |
+| `SOUNDCLOUD_CLIENT_SECRET` | Yes | SoundCloud OAuth |
+| `GROQ_API_KEY` | Recommended | AI descriptions, poetry, archetypes |
+| `LASTFM_API_KEY` | Recommended | Similar artists, scrobbling |
+| `LASTFM_API_SECRET` | Recommended | Last.fm session auth signatures |
+| `GOOGLE_KNOWLEDGE_GRAPH_API_KEY` | Optional | Entity descriptions |
+| `SERPAPI_API_KEY` | Optional | Web search context |
+| `THEAUDIODB_API_KEY` | Optional | Enhanced artist profiles |
 
 ## 📱 Frontend Integration
 
-### API Client Setup
 ```typescript
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'http://localhost:8081/api',
-  headers: {
-    'Content-Type': 'application/json',
-  }
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
+  headers: { 'Content-Type': 'application/json' }
 })
 
-// Add auth token to requests
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
+  if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 ```
 
-### Example Usage
-```typescript
-// Get user profile
-const profile = await api.get('/soundcloud/profile')
+## 🔒 Security
 
-// Get wrapped data
-const wrapped = await api.get('/soundcloud/wrapped/full')
-
-// Get user tracks
-const tracks = await api.get('/soundcloud/tracks')
-```
-
-## 🔒 Security Considerations
-
-### Authentication
-- OAuth2 Bearer tokens
-- Automatic token refresh
-- Secure token storage
-
-### Data Protection
-- Input validation
-- SQL injection prevention
-- XSS protection
-- CORS configuration
-
-### Rate Limiting
-- Request throttling
-- API quota management
-- Error handling
-
-## 📈 Performance
-
-### Optimization Features
-- Connection pooling
-- Caching strategies
-- Pagination support
-- Async processing
-
-### Monitoring
-- Request logging
-- Performance metrics
-- Error tracking
-- Health checks
-
-## 🚀 Deployment
-
-### Docker Support
-```bash
-# Build image
-docker build -t soundwrapped-backend .
-
-# Run container
-docker run -p 8081:8081 soundwrapped-backend
-```
-
-### Environment Configuration
-- Development: `application.yml`
-- Production: Environment variables
-- Testing: `application-test.yml`
-
----
-
-**For more information, visit the [GitHub Repository](https://github.com/your-username/SoundWrapped) or contact the development team.**
+- OAuth2 Bearer tokens stored server-side; frontend never sees client secrets
+- Automatic token refresh on 401 responses
+- CORS restricted to trusted frontend origins
+- Input validation and SQL injection prevention via JPA parameterized queries

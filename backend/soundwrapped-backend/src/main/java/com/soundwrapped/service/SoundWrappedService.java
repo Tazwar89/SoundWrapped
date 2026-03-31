@@ -19,6 +19,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.Arrays;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import jakarta.annotation.PostConstruct;
 
@@ -4166,38 +4167,50 @@ public class SoundWrappedService {
 			profile.put("created_at", "2024/01/01 00:00:00 +0000");
 		}
 		
-		// Add delays between API calls to avoid rate limiting (SoundCloud has strict rate limits)
-		List<Map<String, Object>> likes = new ArrayList<Map<String, Object>>();
-		try {
-			Thread.sleep(500); // 500ms delay
-			likes = getUserLikes();
-		} catch (Exception e) {
-			System.out.println("Failed to fetch likes: " + e.getMessage());
-		}
-		
-		List<Map<String, Object>> tracks = new ArrayList<Map<String, Object>>();
-		try {
-			Thread.sleep(500); // 500ms delay
-			tracks = getUserTracks();
-		} catch (Exception e) {
-			System.out.println("Failed to fetch tracks: " + e.getMessage());
-		}
-		
-		List<Map<String, Object>> playlists = new ArrayList<Map<String, Object>>();
-		try {
-			Thread.sleep(500); // 500ms delay
-			playlists = getUserPlaylists();
-		} catch (Exception e) {
-			System.out.println("Failed to fetch playlists: " + e.getMessage());
-		}
-		
-		List<Map<String, Object>> followers = new ArrayList<Map<String, Object>>();
-		try {
-			Thread.sleep(500); // 500ms delay
-			followers = getUserFollowers();
-		} catch (Exception e) {
-			System.out.println("Failed to fetch followers: " + e.getMessage());
-		}
+		// Fetch likes, tracks, playlists, and followers in parallel using CompletableFuture
+		CompletableFuture<List<Map<String, Object>>> likesFuture = CompletableFuture.supplyAsync(() -> {
+			try {
+				return getUserLikes();
+			} catch (Exception e) {
+				System.out.println("Failed to fetch likes: " + e.getMessage());
+				return new ArrayList<Map<String, Object>>();
+			}
+		});
+
+		CompletableFuture<List<Map<String, Object>>> tracksFuture = CompletableFuture.supplyAsync(() -> {
+			try {
+				return getUserTracks();
+			} catch (Exception e) {
+				System.out.println("Failed to fetch tracks: " + e.getMessage());
+				return new ArrayList<Map<String, Object>>();
+			}
+		});
+
+		CompletableFuture<List<Map<String, Object>>> playlistsFuture = CompletableFuture.supplyAsync(() -> {
+			try {
+				return getUserPlaylists();
+			} catch (Exception e) {
+				System.out.println("Failed to fetch playlists: " + e.getMessage());
+				return new ArrayList<Map<String, Object>>();
+			}
+		});
+
+		CompletableFuture<List<Map<String, Object>>> followersFuture = CompletableFuture.supplyAsync(() -> {
+			try {
+				return getUserFollowers();
+			} catch (Exception e) {
+				System.out.println("Failed to fetch followers: " + e.getMessage());
+				return new ArrayList<Map<String, Object>>();
+			}
+		});
+
+		// Wait for all parallel fetches to complete
+		CompletableFuture.allOf(likesFuture, tracksFuture, playlistsFuture, followersFuture).join();
+
+		List<Map<String, Object>> likes = likesFuture.join();
+		List<Map<String, Object>> tracks = tracksFuture.join();
+		List<Map<String, Object>> playlists = playlistsFuture.join();
+		List<Map<String, Object>> followers = followersFuture.join();
 
 		//Profile-level statistics
 		wrapped.put("username", profile.get("username"));

@@ -61,6 +61,16 @@ The homepage showcases three daily rotating features that persist throughout the
   - Returns tracks in their original playlist order (no sorting) to show the actual top 5
   - Uses `/playlists/{id}/tracks` endpoint with pagination support
 
+#### 🐝 Buzzing
+- **Feature**: Highlights an up-and-coming artist/track daily from SoundCloud's buzzing playlists
+- **Technical Implementation**:
+  - Fetches playlists from SoundCloud user `buzzing-playlists` (`/users/buzzing-playlists/playlists?limit=50`)
+  - Aggregates all tracks across all buzzing playlists into a single pool
+  - Uses date-based seed (`year*10000 + month*100 + day`) with `java.util.Random` for deterministic daily selection
+  - Same track shown all day, changes at midnight
+  - Labels track with "Artist to watch out for"
+  - Manual in-memory field caching (not Caffeine-managed)
+
 ### 📊 Dashboard Analytics
 
 Comprehensive analytics dashboard showing:
@@ -69,6 +79,9 @@ Comprehensive analytics dashboard showing:
 - **Listening Statistics**: Total hours, likes given, tracks uploaded
 - **Activity Timeline**: Recent likes, uploads, and follows
 - **Interactive Charts**: Visual representations using Chart.js
+- **Genre Discovery**: Top genres explored with discovery count
+- **Listening Patterns**: Peak hours, peak days, and listening persona (Early Bird, Afternoon Listener, Evening Vibes, Night Owl)
+- **Genre Constellation**: Interactive 3D visualization of genre relationships (HTML5 Canvas)
 
 ### 🎁 SoundCloud Wrapped
 
@@ -89,6 +102,16 @@ A Spotify Wrapped-style summary featuring:
 - **The Trendsetter (Early Adopter) Score**: Measures how early users discovered tracks compared to when they were created, with badges (Visionary, Trendsetter, Early Adopter, Explorer, Listener)
 - **The Repost King/Queen**: Tracks how many reposted tracks became trending, with success rate and badges (Repost Royalty, Repost King/Queen, Repost Enthusiast, Repost Supporter)
 - **The Sonic Archetype**: AI-generated musical persona (e.g., "The 3 AM Lo-Fi Scholar", "The High-Octane Bass Hunter") based on listening patterns, genres, and artists
+
+#### Phase 3 Features 🎯
+- **Lyrics Integration**: Automatic lyrics fetching for Song of the Day via Lyrics.ovh (no auth required), with collapsible display
+- **Enhanced Artist Profiles**: Rich artist information from TheAudioDB — high-quality artwork, discography, biographies, music videos
+- **Similar Artists Discovery**: Last.fm-powered "If you like X, you might like Y" recommendations with match scores
+- **Interactive Genre Constellation**: 3D Canvas visualization of genre relationships with hover/click interaction, node sizes based on listening time
+- **Dynamic Mood Background**: WebGL background colors adapt to track energy (high → reds/oranges, medium → warm oranges, low → blues/purples)
+- **Story Card Customization**: 6 color themes (Orange, Blue, Purple, Green, Red, Pink), 3 font sizes, live preview for all 8 card types
+- **Error Boundary & Retry**: React error boundaries for graceful crash handling, exponential backoff retry hook for failed API calls
+- **Caffeine Caching**: In-memory caching for Groq descriptions (1h), enhanced artists (24h), similar artists (12h), lyrics (7d), popular tracks (30m), SoundCloud track search (24h)
 
 ### 🗺️ Music Taste Map
 
@@ -115,18 +138,26 @@ For users who upload tracks:
 - **Recommendations**: Artist recommendations based on track analysis
 
 ### 🎵 Last.fm Scrobbling Integration
-User → Connects Last.fm (OAuth)
-     → You store session key
-     → Poll user.getRecentTracks every ~15 min
-     → Store as UserActivity
-     → Map to SoundCloud tracks
-     → Run analytics
 
-Web Auth → Get API credentials (key + secret)
-         → Redirect user to authorize (login + approve)
-         → Handle callback and get token
-         → Exchange token for session
-         → Store session (username + session key)
+Integrates with Last.fm via Web Auth OAuth to pull long-term listening history beyond SoundCloud limits.
+
+**How It Works:**
+1. User installs [Web Scrobbler](https://webscrobbler.com) browser extension (SoundCloud is a built-in connector)
+2. Web Scrobbler sends play events to Last.fm: `SoundCloud Play → Web Scrobbler → Last.fm`
+3. User connects Last.fm account in SoundWrapped Dashboard (OAuth Web Auth flow)
+4. Backend polls Last.fm API every 15 minutes for new scrobbles
+5. Scrobbles are fuzzy-matched to SoundCloud tracks and stored as `UserActivity` records
+
+**Architecture:**
+- `LastFmService`: Consolidated REST API client — handles auth URL generation, token exchange, session management, API signature generation, and recent tracks fetching
+- `LastFmScrobblingService`: Scheduled sync job (every 15 min) — polls `user.getRecentTracks`, fuzzy-matches to SoundCloud tracks via search, creates `UserActivity` entries with `source=LASTFM`
+- `LastFmController`: REST endpoints for OAuth flow (`/api/lastfm/auth-url`, `/callback`, `/status`, `/disconnect`, `/sync`)
+- OAuth uses Web Auth mode (only `api_key` + `cb` callback URL — no request token in auth URL)
+
+**Data Enrichment:**
+- `UserActivity` entity tracks `source` (INAPP/LASTFM), `matchedSoundCloudTrackId`, `lastFmArtist`, `lastFmTrack`
+- Unmatched Last.fm scrobbles are still stored for analytics
+- Uses `soundcloudTrackSearch` Caffeine cache (5000 entries, 24h TTL) to avoid redundant search API calls
 
 ## 🏗️ Technical Architecture
 
@@ -138,12 +169,23 @@ SoundWrapped follows a **Model-View-Controller (MVC)** architectural pattern, pr
 - **Entities** (`entity/`): JPA entities representing database tables (e.g., `Token`, `UserActivity`)
 - **Repositories** (`repository/`): Data access layer using Spring Data JPA for database operations
 - **Services** (`service/`): Business logic layer containing core functionality:
-  - `SoundWrappedService`: Main service for SoundCloud API integration
+  - `SoundWrappedService`: Main service for SoundCloud API integration, featured content, Wrapped summary, Buzzing track
   - `AnalyticsService`: Music analytics and statistics calculations
+  - `GenreAnalysisService`: Genre extraction, normalization, and distribution analysis
+  - `ListeningPatternService`: Time-of-day and day-of-week listening analysis
   - `MusicDoppelgangerService`: Music taste matching algorithms
   - `ArtistAnalyticsService`: Artist performance metrics
   - `MusicTasteMapService`: Geographic taste visualization
+  - `LyricsService`: Lyrics fetching via Lyrics.ovh API
+  - `EnhancedArtistService`: Rich artist profiles via TheAudioDB
+  - `SimilarArtistsService`: Similar artists via Last.fm API
+  - `LastFmService`: Last.fm REST API client (auth, session, recent tracks, signatures)
+  - `LastFmScrobblingService`: Scheduled Last.fm scrobble sync (every 15 min)
+  - `ActivityTrackingService`: In-app play/like/repost event tracking
+  - `GeolocationService`: IP-based location resolution
+  - `UserLocationService`: User location storage and city/country queries
   - `TokenStore`: OAuth2 token management
+  - `TokenRefreshScheduler`: Automatic token refresh
 
 #### **View Layer** (Frontend Presentation)
 - **React Components** (`frontend/src/components/`): Reusable UI components
@@ -153,10 +195,11 @@ SoundWrapped follows a **Model-View-Controller (MVC)** architectural pattern, pr
 
 #### **Controller Layer** (Request Handling)
 - **REST Controllers** (`controller/`): Spring Boot `@RestController` classes handling HTTP requests:
-  - `SoundWrappedController`: Main API endpoints for music data
-  - `OAuthCallbackController`: OAuth2 authentication flow
-  - `LastFmController`: Last.fm OAuth and scrobbling management
-  - `LastFmScrobblingService`: Syncs Last.fm scrobbles to UserActivity database
+  - `SoundWrappedController`: Main API endpoints for music data, featured content, analytics, Wrapped
+  - `OAuthCallbackController`: SoundCloud OAuth2 code exchange
+  - `LastFmController`: Last.fm Web Auth OAuth flow and scrobble management
+  - `ActivityTrackingController`: In-app play/like/repost event tracking (`/api/activity`)
+  - `SystemPlaybackController`: System-level playback tracking from desktop/extension (`/api/tracking`)
 - **Request Mapping**: RESTful endpoints with proper HTTP methods (GET, POST, etc.)
 - **Response Handling**: JSON responses with appropriate status codes
 
@@ -187,9 +230,16 @@ SoundWrapped follows a **Model-View-Controller (MVC)** architectural pattern, pr
 - **Token Management**: Automatic refresh, secure storage in H2/PostgreSQL database
 
 #### Caching Strategy
+- **Caffeine In-Memory Cache**: Spring Cache with Caffeine for expensive external API calls:
+  - `groqDescriptions`: 1h TTL, 1000 entries (AI-generated descriptions)
+  - `enhancedArtists`: 24h TTL, 500 entries (TheAudioDB artist info)
+  - `similarArtists`: 12h TTL, 500 entries (Last.fm similar artists)
+  - `lyrics`: 7d TTL, 2000 entries (Lyrics.ovh)
+  - `popularTracks`: 30m TTL, 10 entries (SoundCloud popular tracks)
+  - `soundcloudTrackSearch`: 24h TTL, 5000 entries (Last.fm → SoundCloud track ID mapping)
 - **Time-Seed Based Caching**: Uses `LocalDate.now().toEpochDay()` as seed for `Random` class
-- **Daily Persistence**: Featured content (Song, Artist, Genre) cached for 24 hours
-- **Cache Invalidation**: Cleared on application startup via `@PostConstruct`
+- **Daily Persistence**: Featured content (Song, Artist, Genre, Buzzing) cached for 24 hours via in-memory fields
+- **Cache Invalidation**: Via `POST /api/soundcloud/featured/clear-cache` endpoint or application startup `@PostConstruct`
 
 #### Data Processing
 - **Pagination Handling**: Supports SoundCloud's `linked_partitioning` for large datasets
@@ -206,14 +256,29 @@ SoundWrapped follows a **Model-View-Controller (MVC)** architectural pattern, pr
 
 #### State Management
 - **React Context**: `AuthContext` for authentication, `MusicDataContext` for music data
-- **Custom Hooks**: Reusable hooks for data fetching and state management
+- **React Query**: Request deduplication, client-side caching, and prefetching via `useMusicQueries` hooks
+- **Custom Hooks**: `useMusicQueries.ts` (data fetching), `useRetry.ts` (exponential backoff)
 
 #### Components
 - **StatCard**: Reusable card component for displaying statistics
-- **Charts**: Interactive charts using Chart.js
-- **Animated Background**: WebGL and particle-based backgrounds
-- **ShareableStoryCard**: Downloadable story cards for social media (9:16 aspect ratio, multiple card types)
+- **Charts**: Interactive charts using Chart.js (`TopTracksChart`, `TopArtistsChart`)
+- **GenreConstellation**: 3D Canvas visualization of genre relationships
+- **DynamicMoodBackground**: Energy-reactive WebGL background
+- **WebGLBackground**: Configurable WebGL background with dynamic color props
+- **ShareableStoryCard**: Downloadable story cards with 6 color themes, 3 font sizes, 8 card types
+- **LastFmConnection**: Last.fm connect/disconnect UI with sync status
+- **ErrorBoundary**: Graceful React error handling with dev-mode details
+- **AnimatedParticleBackground**: Particle-based background animation
+- **RecentActivity**: Activity feed component
 - **Responsive Design**: Mobile-first approach with breakpoints
+
+#### Pages
+- **HomePage**: Landing page with Song/Artist/Genre of the Day, Popular Now, Buzzing
+- **DashboardPage**: Authenticated analytics dashboard with genre constellation
+- **WrappedPage**: Wrapped summary experience with story slides
+- **ProfilePage**: User profile and settings
+- **MusicTasteMapPage**: Interactive geographic taste visualization
+- **LastFmCallbackPage**: Last.fm OAuth callback handler
 
 ## 🚀 Getting Started
 
@@ -360,39 +425,77 @@ VITE_SOUNDCLOUD_CLIENT_ID=YOUR_SOUNDCLOUD_CLIENT_ID
 ## 📡 API Endpoints
 
 ### User Data
-- `GET /api/soundcloud/profile` - User profile
-- `GET /api/soundcloud/tracks` - User tracks
-- `GET /api/soundcloud/likes` - Liked tracks
-- `GET /api/soundcloud/playlists` - User playlists
-- `GET /api/soundcloud/followers` - User followers
+- `GET /api/soundcloud/profile` — User profile
+- `GET /api/soundcloud/tracks` — User top tracks (by tracked plays)
+- `GET /api/soundcloud/likes` — Liked tracks
+- `GET /api/soundcloud/playlists` — User playlists
+- `GET /api/soundcloud/followers` — User followers
 
 ### Featured Content
-- `GET /api/soundcloud/featured/track` - Song of the Day
-- `GET /api/soundcloud/featured/artist` - Artist of the Day
-- `GET /api/soundcloud/featured/genre` - Genre of the Day
-- `GET /api/soundcloud/popular/tracks?limit=5` - Popular Now (first 5 from Top 50)
+- `GET /api/soundcloud/featured/track` — Song of the Day (with lyrics if available)
+- `GET /api/soundcloud/featured/artist?forceRefresh=` — Artist of the Day (with enhanced info)
+- `GET /api/soundcloud/featured/genre` — Genre of the Day
+- `GET /api/soundcloud/popular/tracks?limit=4` — Popular Now (from Top 50)
+- `GET /api/soundcloud/buzzing` — Buzzing track of the day
+- `POST /api/soundcloud/featured/clear-cache` — Clear daily featured cache
+- `GET /api/soundcloud/similar-artists?artist=&limit=10` — Similar artists via Last.fm
 
 ### Analytics
-- `GET /api/soundcloud/wrapped/full` - Complete Wrapped summary
-- `GET /api/soundcloud/dashboard/analytics` - Dashboard analytics
-- `GET /api/soundcloud/music-doppelganger` - Music taste matching
-- `GET /api/soundcloud/artist/analytics` - Artist performance metrics
-- `GET /api/soundcloud/music-taste-map` - Geographic taste visualization
-- `GET /api/soundcloud/recent-activity?limit=10` - Recent activity feed
+- `GET /api/soundcloud/wrapped/full` — Complete Wrapped summary
+- `GET /api/soundcloud/dashboard/analytics` — Dashboard analytics (genres, listening patterns)
+- `GET /api/soundcloud/music-doppelganger` — Music taste matching
+- `GET /api/soundcloud/artist/analytics` — Artist performance metrics
+- `GET /api/soundcloud/artist/recommendations?trackId=` — Artist recommendations
+- `GET /api/soundcloud/music-taste-map` — Geographic taste visualization
+- `GET /api/soundcloud/recent-activity?limit=10` — Recent activity feed
+- `GET /api/soundcloud/online-users` — Count users active in last 5 min
 
-### Authentication
-- `GET /callback?code={auth_code}` - OAuth2 callback
-- `POST /api/soundcloud/refresh-token` - Manual token refresh
+### Activity Tracking
+- `POST /api/activity/track/play?trackId=&durationMs=` — Track play event
+- `POST /api/activity/track/like?trackId=` — Track like event
+- `POST /api/activity/track/repost?trackId=` — Track repost event
+- `POST /api/tracking/system-playback` — System-level playback (desktop/extension)
+- `POST /api/tracking/system-like?trackId=` — System-level like event
+- `POST /api/tracking/update-location` — IP-based location update
 
-## 🔐 Authentication Flow
+### SoundCloud Authentication
+- `GET /callback?code={auth_code}` — SoundCloud OAuth2 callback
+- `POST /api/soundcloud/refresh-token` — Proactive token refresh
 
+### Last.fm Integration
+- `GET /api/lastfm/auth-url` — Get Last.fm Web Auth authorization URL
+- `GET /api/lastfm/callback?token=` — Last.fm OAuth callback (exchanges token for session, redirects to frontend)
+- `GET /api/lastfm/callback/test` — Test callback endpoint accessibility
+- `GET /api/lastfm/status` — Last.fm connection status
+- `POST /api/lastfm/disconnect` — Disconnect Last.fm account
+- `POST /api/lastfm/sync` — Manually trigger scrobble sync
+
+### Debug
+- `GET /api/soundcloud/debug/test-api` — Test SoundCloud API connection
+- `GET /api/soundcloud/debug/tokens` — Token status
+- `GET /api/soundcloud/debug/oauth-url` — Generate OAuth URL
+
+## 🔐 Authentication Flows
+
+### SoundCloud OAuth2
 1. User clicks "Connect SoundCloud" on homepage
 2. Redirected to SoundCloud OAuth2 authorization page
 3. User authorizes application
 4. SoundCloud redirects to `/callback?code={auth_code}`
 5. Backend exchanges code for access and refresh tokens
 6. Tokens stored securely in database
-7. Automatic token refresh when access token expires
+7. Automatic token refresh when access token expires (via `TokenRefreshScheduler`)
+
+### Last.fm Web Auth
+1. User clicks "Connect Last.fm" on the Dashboard
+2. Frontend fetches auth URL from `GET /api/lastfm/auth-url`
+3. Auth URL uses Web Auth mode: `https://www.last.fm/api/auth?api_key=KEY&cb=CALLBACK`
+4. User authorizes on Last.fm, which redirects to `GET /api/lastfm/callback?token=TOKEN`
+5. Backend exchanges token for a session key via `auth.getSession` (with API signature)
+6. Session key and username stored in `LastFmToken` entity
+7. Scrobble sync begins automatically every 15 minutes
+
+**Note**: Last.fm Web Auth uses only `api_key` + `cb` (callback URL) in the auth URL — no request token is included, which ensures Last.fm uses its Web Auth flow and properly redirects back to the application.
 
 ## 🧪 Testing
 
@@ -417,21 +520,24 @@ SoundWrapped/
 ├── backend/
 │   └── soundwrapped-backend/
 │       ├── src/main/java/com/soundwrapped/
-│       │   ├── controller/      # REST controllers
-│       │   ├── service/         # Business logic
-│       │   ├── entity/          # JPA entities
-│       │   ├── repository/      # Data access
+│       │   ├── config/          # CacheConfig, etc.
+│       │   ├── controller/      # REST controllers (SoundWrapped, LastFm, Activity, SystemPlayback, OAuth)
+│       │   ├── service/         # Business logic (16+ services)
+│       │   ├── entity/          # JPA entities (Token, UserActivity, LastFmToken, UserLocation)
+│       │   ├── repository/      # Data access (Spring Data JPA)
 │       │   └── exception/       # Custom exceptions
 │       └── src/main/resources/
-│           └── application.yml  # Configuration
+│           └── application.yml  # Configuration (profiles: default, test, docker)
 ├── frontend/
 │   └── src/
-│       ├── components/          # React components
-│       ├── pages/               # Page components
-│       ├── contexts/            # React contexts
-│       ├── services/            # API services
+│       ├── components/          # React components (15+ including GenreConstellation, ShareableStoryCard, etc.)
+│       ├── pages/               # Page components (Home, Dashboard, Wrapped, Profile, MusicTasteMap, LastFmCallback)
+│       ├── contexts/            # React contexts (Auth, MusicData)
+│       ├── hooks/               # Custom hooks (useMusicQueries, useRetry)
+│       ├── services/            # API client (Axios with interceptors)
 │       └── utils/               # Utility functions
-└── docs/                        # Documentation
+├── docs/                        # Documentation
+└── docker-compose.yml           # Docker orchestration (frontend, backend, postgres)
 ```
 
 ## 🛠️ Technologies Used
@@ -439,7 +545,8 @@ SoundWrapped/
 ### Backend
 - **Spring Boot 3.5.5**: Application framework
 - **Spring Data JPA**: Database abstraction
-- **H2/PostgreSQL**: Database (H2 for local dev, PostgreSQL for production/CI)
+- **Spring Cache + Caffeine**: In-memory caching with configurable TTLs
+- **PostgreSQL 15**: Primary database (H2 available for local dev)
 - **RestTemplate**: HTTP client for API calls
 - **Maven**: Build tool
 - **Docker**: Containerization with multi-stage builds
@@ -447,18 +554,23 @@ SoundWrapped/
 ### Frontend
 - **React 18**: UI library
 - **TypeScript**: Type-safe JavaScript
-- **Vite**: Build tool
+- **Vite 7.3**: Build tool with HMR
 - **Tailwind CSS**: Styling
 - **Framer Motion**: Animations
 - **Chart.js**: Data visualization
 - **React Router**: Navigation
+- **React Query**: Server state management, caching, and prefetching
+- **html2canvas**: Story card image generation
 
 ### External APIs
-- **SoundCloud API**: Music data and authentication
+- **SoundCloud API**: Music data, authentication, and OAuth2
+- **Last.fm API**: Similar artists, Web Auth OAuth, scrobble syncing
 - **Wikipedia REST API**: Artist biographies
 - **Google Knowledge Graph API**: Entity descriptions
-- **Groq API**: AI-powered descriptions and poetry generation (free tier)
-- **SerpAPI**: Web search for additional context (optional)
+- **Groq API**: AI-powered descriptions and poetry generation using `llama-3.3-70b-versatile` (free tier)
+- **SerpAPI**: Comprehensive web search for additional context (optional)
+- **TheAudioDB API**: Enhanced artist profiles, artwork, discographies (optional)
+- **Lyrics.ovh**: Lyrics fetching (free, no auth required)
 
 ## 📝 License
 
@@ -472,13 +584,23 @@ See [LICENSE](LICENSE) file for details.
 
 - Inspired by Spotify Wrapped, SoundCloud Playback 2025, and volt.fm
 - SoundCloud API for music data
+- Last.fm for scrobbling and similar artists
 - Wikipedia and Google Knowledge Graph for rich descriptions
 - Groq API for AI-powered content generation (free tier)
 - SerpAPI for comprehensive web search
+- TheAudioDB for enhanced artist profiles
+- Lyrics.ovh for lyrics data
 
 ## 📚 Additional Documentation
 
-- [Phase 1 & 2 Features](docs/PHASE_1_2_FEATURES.md) - Detailed documentation of Phase 1 & 2 implementations
-- [Groq API Implementation](docs/GROQ_IMPLEMENTATION.md) - AI-powered features using Groq
-- [Phase 1 & 2 Implementation](docs/PHASE_1_2_IMPLEMENTATION.md) - Original Phase 1 & 2 implementation notes
+- [API Documentation](docs/API.md) - Full REST API reference
+- [API Keys Setup](docs/API_KEYS_SETUP.md) - How to obtain and configure API keys
+- [Features Technical Overview](docs/FEATURES_TECHNICAL_OVERVIEW.md) - Interview-ready feature and architecture guide (includes Groq, Last.fm, SerpAPI details)
+- [Performance Analysis](PERFORMANCE_ANALYSIS.md) - Codebase performance analysis and optimizations
+- [Phase 1 & 2 Features](docs/PHASE_1_2_FEATURES.md) - Phase 1 & 2 feature implementations
+- [Phase 1 & 2 Implementation](docs/PHASE_1_2_IMPLEMENTATION.md) - Phase 1 & 2 implementation notes
+- [Phase 3 Complete](docs/PHASE_3_COMPLETE.md) - Phase 3 implementation summary
+- [Last.fm Scrobbling](docs/LASTFM_SCROBBLING.md) - Last.fm scrobbling integration guide
+- [Last.fm API Setup](docs/LASTFM_API_SETUP.md) - Last.fm API key and callback configuration
+- [Deployment](docs/DEPLOYMENT.md) - Deployment guide
 - [OpenAI Implementation](docs/OPENAI_IMPLEMENTATION.md) - Legacy OpenAI documentation (migrated to Groq)

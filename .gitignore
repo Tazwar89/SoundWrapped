@@ -1,9 +1,10 @@
 .env
+.vscode
+.cursorignore
 backend/.env
 node_modules/
 build/
 dist/
-docs/
 
 # macOS system files
 .DS_Store

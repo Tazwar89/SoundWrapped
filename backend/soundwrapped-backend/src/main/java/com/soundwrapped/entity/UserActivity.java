@@ -12,7 +12,9 @@ import java.time.LocalDateTime;
 @Table(name = "user_activities", indexes = {
     @Index(name = "idx_user_track", columnList = "soundcloudUserId,trackId"),
     @Index(name = "idx_activity_type_date", columnList = "activityType,createdAt"),
-    @Index(name = "idx_source", columnList = "source")
+    @Index(name = "idx_source", columnList = "source"),
+    @Index(name = "idx_created_at", columnList = "createdAt"),
+    @Index(name = "idx_user_type_date", columnList = "soundcloudUserId,activityType,createdAt")
 })
 public class UserActivity {
 
