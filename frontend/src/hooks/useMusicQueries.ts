@@ -12,6 +12,7 @@ export const musicQueryKeys = {
   featuredArtist: ['featured', 'artist'] as const,
   featuredGenre: ['featured', 'genre'] as const,
   popularTracks: (limit: number) => ['popular', 'tracks', limit] as const,
+  buzzingTrack: ['buzzing', 'track'] as const,
 }
 
 // Types
@@ -277,6 +278,18 @@ export const usePopularTracks = (limit: number = 5) => {
       return Array.isArray(response.data) && response.data.length > 0 ? response.data : []
     },
     staleTime: 15 * 60 * 1000, // 15 minutes
+    retry: 1,
+  })
+}
+
+export const useBuzzingTrack = () => {
+  return useQuery({
+    queryKey: musicQueryKeys.buzzingTrack,
+    queryFn: async () => {
+      const response = await api.get('/soundcloud/buzzing')
+      return response.data && response.data.title ? response.data : null
+    },
+    staleTime: 60 * 60 * 1000, // 1 hour (same track all day)
     retry: 1,
   })
 }

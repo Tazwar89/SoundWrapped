@@ -33,7 +33,8 @@ public interface UserLocationRepository extends JpaRepository<UserLocation, Long
     @Query("SELECT ul.city, ul.country, ul.latitude, ul.longitude, COUNT(ul) as userCount " +
            "FROM UserLocation ul " +
            "GROUP BY ul.city, ul.country, ul.latitude, ul.longitude " +
-           "ORDER BY userCount DESC")
+           // JPQL doesn't reliably allow ordering by a SELECT alias, so order by COUNT(ul) directly.
+           "ORDER BY COUNT(ul) DESC")
     List<Object[]> getCitiesWithUserCounts();
     
     /**

@@ -115,13 +115,18 @@ For users who upload tracks:
 - **Recommendations**: Artist recommendations based on track analysis
 
 ### 🎵 Last.fm Scrobbling Integration
+User → Connects Last.fm (OAuth)
+     → You store session key
+     → Poll user.getRecentTracks every ~15 min
+     → Store as UserActivity
+     → Map to SoundCloud tracks
+     → Run analytics
 
-Automatic tracking via Last.fm scrobbling (replaces browser extension):
-- **Cross-Browser Support**: Works on Chrome, Firefox, Safari, Edge via [Web Scrobbler](https://webscrobbler.com) extension
-- **Automatic Syncing**: Polls Last.fm API every 15 minutes to sync scrobbles
-- **OAuth Integration**: Secure Last.fm authentication flow
-- **Track Matching**: Automatically matches Last.fm scrobbles to SoundCloud tracks
-- **User Dashboard**: Connection status and manual sync trigger in Dashboard
+Web Auth → Get API credentials (key + secret)
+         → Redirect user to authorize (login + approve)
+         → Handle callback and get token
+         → Exchange token for session
+         → Store session (username + session key)
 
 ## 🏗️ Technical Architecture
 
@@ -282,11 +287,42 @@ SoundWrapped supports configuration through both `application.yml` and environme
 Create a `.env` file in `backend/soundwrapped-backend/`:
 
 ```env
+# SoundCloud API Configuration
 SOUNDCLOUD_CLIENT_ID=your_soundcloud_client_id_here
 SOUNDCLOUD_CLIENT_SECRET=your_soundcloud_client_secret_here
+REDIRECT_URI=http://localhost:8080/callback
+
+# Database Configuration
+POSTGRES_DB=postgres
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+
+# Spring Boot Configuration (PostgreSQL)
+SPRING_PROFILES_ACTIVE=default
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/postgres
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=postgres
+SPRING_JPA_HIBERNATE_DDL_AUTO=update
+SPRING_JPA_SHOW_SQL=false
+
+# Google Knowledge Graph API Configuration (Artist descriptions)
 GOOGLE_KNOWLEDGE_GRAPH_API_KEY=your_google_api_key_here
+
+# Groq API Configuration (LLM)
 GROQ_API_KEY=your_groq_api_key_here
-SERPAPI_API_KEY=your_serpapi_key_here  # Optional
+
+# SerpAPI Configuration (Web search)
+SERPAPI_API_KEY=your_serpapi_api_key_here
+
+# TheAudioDB API Configuration (Enhanced artist info)
+THEAUDIODB_API_KEY=your_theaudiodb_api_key_here
+
+# Last.fm API Configuration (Similar artists & scrobbling)
+LASTFM_API_KEY=7f8f8a603a92fcb664f136304d5a02e7
+LASTFM_API_SECRET=fc6b00d615146ceb667b8e4d9630a788
+LASTFM_CALLBACK_URL=http://localhost:8080/api/lastfm/callback
+APP_FRONTEND_BASE_URL=http://localhost:3000
+VITE_LASTFM_CALLBACK_URL=http://localhost:8080/api/lastfm/callback
 ```
 
 Then export them or use a tool like `dotenv` to load them.
@@ -446,4 +482,3 @@ See [LICENSE](LICENSE) file for details.
 - [Groq API Implementation](docs/GROQ_IMPLEMENTATION.md) - AI-powered features using Groq
 - [Phase 1 & 2 Implementation](docs/PHASE_1_2_IMPLEMENTATION.md) - Original Phase 1 & 2 implementation notes
 - [OpenAI Implementation](docs/OPENAI_IMPLEMENTATION.md) - Legacy OpenAI documentation (migrated to Groq)
-

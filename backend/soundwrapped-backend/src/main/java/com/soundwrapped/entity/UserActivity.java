@@ -11,7 +11,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "user_activities", indexes = {
     @Index(name = "idx_user_track", columnList = "soundcloudUserId,trackId"),
-    @Index(name = "idx_activity_type_date", columnList = "activityType,createdAt")
+    @Index(name = "idx_activity_type_date", columnList = "activityType,createdAt"),
+    @Index(name = "idx_source", columnList = "source")
 })
 public class UserActivity {
 
@@ -32,12 +33,27 @@ public class UserActivity {
     @Column
     private Long playDurationMs; // For play events, duration in milliseconds
 
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private ActivitySource source = ActivitySource.INAPP;
+
+    @Column
+    private String matchedSoundCloudTrackId; // SoundCloud track ID when source is LASTFM
+
+    @Column
+    private String lastFmArtist; // Original artist name from Last.fm
+
+    @Column
+    private String lastFmTrack; // Original track name from Last.fm
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
     }
 
     // Getters and Setters
@@ -89,10 +105,47 @@ public class UserActivity {
         this.createdAt = createdAt;
     }
 
+    public ActivitySource getSource() {
+        return source;
+    }
+
+    public void setSource(ActivitySource source) {
+        this.source = source;
+    }
+
+    public String getMatchedSoundCloudTrackId() {
+        return matchedSoundCloudTrackId;
+    }
+
+    public void setMatchedSoundCloudTrackId(String matchedSoundCloudTrackId) {
+        this.matchedSoundCloudTrackId = matchedSoundCloudTrackId;
+    }
+
+    public String getLastFmArtist() {
+        return lastFmArtist;
+    }
+
+    public void setLastFmArtist(String lastFmArtist) {
+        this.lastFmArtist = lastFmArtist;
+    }
+
+    public String getLastFmTrack() {
+        return lastFmTrack;
+    }
+
+    public void setLastFmTrack(String lastFmTrack) {
+        this.lastFmTrack = lastFmTrack;
+    }
+
     public enum ActivityType {
-        PLAY,       // User played a track in-app
-        LIKE,       // User liked a track (in-app)
-        REPOST,     // User reposted a track (in-app)
-        SHARE       // User shared a track (in-app)
+        PLAY,
+        LIKE,
+        REPOST,
+        SHARE
+    }
+
+    public enum ActivitySource {
+        INAPP,   // Activity tracked via the SoundWrapped app or browser extension
+        LASTFM   // Activity synced from Last.fm scrobbles
     }
 }

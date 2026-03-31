@@ -18,7 +18,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/tracking")
-@CrossOrigin(origins = "*", allowCredentials = "false") // Allow browser extension requests
 public class SystemPlaybackController {
 
     private final ActivityTrackingService activityTrackingService;

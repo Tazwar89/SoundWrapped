@@ -44,7 +44,8 @@ public interface UserActivityRepository extends JpaRepository<UserActivity, Long
            "WHERE u.soundcloudUserId = :userId AND u.activityType = 'PLAY' " +
            "AND u.createdAt BETWEEN :startDate AND :endDate " +
            "GROUP BY u.trackId " +
-           "ORDER BY playCount DESC")
+           // JPQL doesn't reliably allow ordering by a SELECT alias, so order by COUNT(u) directly.
+           "ORDER BY COUNT(u) DESC")
     List<Object[]> getMostPlayedTracks(@Param("userId") String userId,
                                         @Param("startDate") LocalDateTime startDate,
                                         @Param("endDate") LocalDateTime endDate);

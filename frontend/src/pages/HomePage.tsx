@@ -12,7 +12,7 @@ import {
   Radio
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { useFeaturedTrack, useFeaturedArtist, useFeaturedGenre, usePopularTracks } from '../hooks/useMusicQueries'
+import { useFeaturedTrack, useFeaturedArtist, useFeaturedGenre, usePopularTracks, useBuzzingTrack } from '../hooks/useMusicQueries'
 import { api } from '../services/api'
 
 const HomePage: React.FC = () => {
@@ -25,6 +25,7 @@ const HomePage: React.FC = () => {
   const { data: featuredArtist } = useFeaturedArtist()
   const { data: featuredGenre } = useFeaturedGenre()
   const { data: trendingTracks = [] } = usePopularTracks(5)
+  const { data: buzzingTrack } = useBuzzingTrack()
 
   useEffect(() => {
     const authStatus = searchParams.get('auth')
@@ -424,6 +425,54 @@ const HomePage: React.FC = () => {
               )}
             </div>
           </motion.div>
+
+          {/* Buzzing Section */}
+          {buzzingTrack && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.6 }}
+              className="max-w-6xl mx-auto mb-12"
+            >
+              <div className="stat-card border border-orange-500/20 bg-gradient-to-r from-orange-500/5 to-yellow-500/5">
+                <div className="text-left mb-4">
+                  <h3 className="text-sm font-semibold text-yellow-400 uppercase tracking-wide mb-1">Buzzing</h3>
+                  <p className="text-xs text-white/60">Artist to watch out for</p>
+                </div>
+
+                <a
+                  href={buzzingTrack.permalink_url || `https://soundcloud.com${buzzingTrack.uri?.replace('soundcloud:', '') || ''}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center space-x-4 p-4 bg-black/10 rounded-lg border border-yellow-500/10 hover:border-yellow-500/30 hover:bg-black/20 transition-all group"
+                >
+                  {buzzingTrack.artwork_url ? (
+                    <img
+                      src={buzzingTrack.artwork_url}
+                      alt={buzzingTrack.title || 'Track'}
+                      className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 bg-gradient-to-r from-yellow-500/20 to-orange-600/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Radio className="h-10 w-10 text-yellow-400" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h6 className="text-white font-semibold text-lg truncate group-hover:text-yellow-400 transition-colors">
+                      {buzzingTrack.title || 'Untitled Track'}
+                    </h6>
+                    <p className="text-sm text-white/70 truncate">
+                      {buzzingTrack.user?.username || 'Unknown Artist'}
+                    </p>
+                    <p className="text-xs text-yellow-400/80 mt-1 font-medium">
+                      {buzzingTrack.buzzing_label || 'Artist to watch out for'}
+                    </p>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-white/50 group-hover:text-yellow-400 group-hover:translate-x-1 transition-all flex-shrink-0" />
+                </a>
+              </div>
+            </motion.div>
+          )}
         </div>
 
         {/* Features Section */}

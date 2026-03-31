@@ -165,12 +165,23 @@ public class CacheConfig {
 				.build()
 		);
 		
+		// Configure cache for SoundCloud track search results (24 hours TTL)
+		// Stores artist+title → SoundCloud track ID mappings from Last.fm track matching
+		Cache soundcloudTrackSearchCache = new CaffeineCache("soundcloudTrackSearch",
+			Caffeine.newBuilder()
+				.maximumSize(5000)
+				.expireAfterWrite(24, TimeUnit.HOURS)
+				.recordStats()
+				.build()
+		);
+		
 		cacheManager.setCaches(Arrays.asList(
 			groqDescriptionsCache,
 			enhancedArtistsCache,
 			similarArtistsCache,
 			lyricsCache,
-			popularTracksCache
+			popularTracksCache,
+			soundcloudTrackSearchCache
 		));
 		
 		return cacheManager;

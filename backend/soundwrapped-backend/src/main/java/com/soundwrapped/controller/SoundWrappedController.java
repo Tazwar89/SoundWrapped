@@ -117,6 +117,17 @@ public class SoundWrappedController {
 		}
 	}
 
+	@GetMapping("/buzzing")
+	public Map<String, Object> getBuzzingTrack() {
+		try {
+			return soundWrappedService.getBuzzingTrack();
+		} catch (Exception e) {
+			System.err.println("Error fetching buzzing track: " + e.getMessage());
+			e.printStackTrace();
+			return new HashMap<String, Object>();
+		}
+	}
+
 	@GetMapping("/featured/track")
 	public Map<String, Object> getFeaturedTrack() {
 		try {

@@ -106,6 +106,8 @@ public class SoundWrappedService {
 		cachedSongDate = null;
 		cachedArtistOfTheDay = null;
 		cachedArtistDate = null;
+		cachedBuzzingTrack = null;
+		cachedBuzzingDate = null;
 	}
 
 	/**
@@ -122,6 +124,8 @@ public class SoundWrappedService {
 		cachedSongDate = null;
 		cachedArtistOfTheDay = null;
 		cachedArtistDate = null;
+		cachedBuzzingTrack = null;
+		cachedBuzzingDate = null;
 		System.out.println("✓ Featured content cache cleared. Next requests will generate fresh descriptions with SerpAPI integration.");
 	}
 
@@ -1502,6 +1506,114 @@ public class SoundWrappedService {
 			System.err.println("Error in fallback method for popular tracks: " + e.getMessage());
 			e.printStackTrace();
 			return new ArrayList<Map<String, Object>>();
+		}
+	}
+
+	// Daily cache for "Buzzing" track
+	private static Map<String, Object> cachedBuzzingTrack = null;
+	private static LocalDate cachedBuzzingDate = null;
+
+	/**
+	 * Gets a daily "Buzzing" track from the buzzing-playlists SoundCloud profile.
+	 * <p>
+	 * Fetches all playlists belonging to https://soundcloud.com/buzzing-playlists,
+	 * aggregates all tracks, then uses a 24-hour timeseed algorithm to pick one
+	 * random track that stays the same for the entire day.
+	 * </p>
+	 *
+	 * @return A track map with an added "buzzing_label" field, or empty map on failure
+	 */
+	public Map<String, Object> getBuzzingTrack() {
+		try {
+			LocalDate today = LocalDate.now();
+			if (cachedBuzzingTrack != null && cachedBuzzingDate != null && cachedBuzzingDate.equals(today)) {
+				System.out.println("Returning cached Buzzing track for " + today);
+				return cachedBuzzingTrack;
+			}
+
+			String accessToken = getAccessTokenForRequest();
+			if (accessToken == null) {
+				System.err.println("[Buzzing] No access token available");
+				return new HashMap<>();
+			}
+
+			// Fetch playlists for the "buzzing-playlists" user
+			String userPlaylistsUrl = soundCloudApiBaseUrl
+				+ "/users/buzzing-playlists/playlists?limit=50&linked_partitioning=true";
+
+			HttpHeaders headers = new HttpHeaders();
+			headers.setBearerAuth(accessToken);
+			headers.set("User-Agent", "SoundWrapped/1.0");
+			headers.set("Accept", "application/json");
+			HttpEntity<String> request = new HttpEntity<>(headers);
+
+			ResponseEntity<Map<String, Object>> playlistsResponse = restTemplate.exchange(
+				userPlaylistsUrl, HttpMethod.GET, request,
+				new ParameterizedTypeReference<Map<String, Object>>() {}
+			);
+
+			if (!playlistsResponse.getStatusCode().is2xxSuccessful() || playlistsResponse.getBody() == null) {
+				System.err.println("[Buzzing] Failed to fetch buzzing-playlists user playlists");
+				return new HashMap<>();
+			}
+
+			// Extract playlist IDs from the paginated response
+			Map<String, Object> body = playlistsResponse.getBody();
+			@SuppressWarnings("unchecked")
+			List<Map<String, Object>> playlists = (List<Map<String, Object>>) body.get("collection");
+			if (playlists == null) {
+				// Try direct list format
+				if (body instanceof List) {
+					@SuppressWarnings("unchecked")
+					List<Map<String, Object>> directPlaylists = (List<Map<String, Object>>) (Object) body;
+					playlists = directPlaylists;
+				}
+			}
+
+			if (playlists == null || playlists.isEmpty()) {
+				System.err.println("[Buzzing] No playlists found for buzzing-playlists user");
+				return new HashMap<>();
+			}
+
+			System.out.println("[Buzzing] Found " + playlists.size() + " playlist(s), collecting tracks...");
+
+			// Aggregate tracks from all playlists
+			List<Map<String, Object>> allTracks = new ArrayList<>();
+			for (Map<String, Object> playlist : playlists) {
+				Object idObj = playlist.get("id");
+				if (idObj == null) continue;
+				String playlistId = String.valueOf(idObj);
+				try {
+					List<Map<String, Object>> tracks = getTracksFromPlaylistById(playlistId, accessToken);
+					allTracks.addAll(tracks);
+				} catch (Exception e) {
+					System.err.println("[Buzzing] Error fetching tracks from playlist " + playlistId + ": " + e.getMessage());
+				}
+			}
+
+			if (allTracks.isEmpty()) {
+				System.err.println("[Buzzing] No tracks found across all buzzing playlists");
+				return new HashMap<>();
+			}
+
+			System.out.println("[Buzzing] Total tracks collected: " + allTracks.size());
+
+			// 24-hour timeseed: deterministic pick that changes daily
+			long seed = (long) today.getYear() * 10000 + today.getMonthValue() * 100 + today.getDayOfMonth();
+			Random rng = new Random(seed);
+			int index = rng.nextInt(allTracks.size());
+
+			Map<String, Object> picked = new HashMap<>(allTracks.get(index));
+			picked.put("buzzing_label", "Artist to watch out for");
+			System.out.println("[Buzzing] Today's buzzing track (#" + index + "): " + picked.get("title"));
+
+			cachedBuzzingTrack = picked;
+			cachedBuzzingDate = today;
+			return picked;
+		} catch (Exception e) {
+			System.err.println("[Buzzing] Error: " + e.getMessage());
+			e.printStackTrace();
+			return new HashMap<>();
 		}
 	}
 
