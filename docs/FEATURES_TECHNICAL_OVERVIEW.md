@@ -1,7 +1,7 @@
 # SoundWrapped Feature Guide (Interview-Ready)
 
 This document summarizes product features, technical implementation details, and integration
-architecture — useful when explaining SoundWrapped during interviews. It consolidates details
+architecture. It consolidates details
 from the Groq, Last.fm, and SerpAPI integration docs.
 
 ## Product Summary
@@ -9,13 +9,13 @@ from the Groq, Last.fm, and SerpAPI integration docs.
   with optional Last.fm scrobbling for richer listening history.
 - Core value: Users see actionable insights (taste, patterns, rankings, location trends)
   instead of raw playback lists.
-- Differentiator: Combines multiple data sources (SoundCloud, Last.fm, AI) into a single
+- Differentiator: Combines multiple data sources (SoundCloud, Last.fm, Groq) into a single
   cohesive experience with daily featured content, Wrapped summaries, and social sharing.
 
 ## Architecture Overview
 - **Frontend**: React 18 + TypeScript + Vite 7.3 (client-side SPA).
 - **Backend**: Spring Boot 3.5.5 REST API (Java 17).
-- **Persistence**: PostgreSQL 15 via Spring Data JPA/Hibernate.
+- **Persistence**: PostgreSQL 18 via Spring Data JPA/Hibernate.
 - **Caching**: Caffeine in-memory caches (6 named caches) + date-seed field caches.
 - **Integrations**: SoundCloud OAuth2, Last.fm Web Auth, Groq AI, Wikipedia, Google Knowledge Graph, SerpAPI, TheAudioDB, Lyrics.ovh.
 
@@ -297,4 +297,3 @@ Impact: 70-90% reduction in external API calls, 100-300x faster cached responses
 - "I designed the system so integrations (SoundCloud, Last.fm, Groq, SerpAPI) are modular — each can be independently configured or disabled."
 - "The AI description pipeline uses a research-first approach: aggregating data from 3 sources before generating a synthesized description with Groq."
 - "Last.fm scrobbling uses Web Auth OAuth and scheduled sync, turning third-party listening data into first-class analytics."
-
