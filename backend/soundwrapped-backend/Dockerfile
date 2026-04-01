@@ -17,7 +17,7 @@ FROM eclipse-temurin:17-jre
 WORKDIR /app
 
 # Copy built jar from builder stage
-COPY --from=builder /app/target/soundwrapped-backend-0.0.1-SNAPSHOT.jar app.jar
+COPY --from=builder /app/target/*.jar app.jar
 
 # Expose the port your app runs on
 EXPOSE 8080
