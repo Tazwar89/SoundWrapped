@@ -11,7 +11,7 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    #database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       # Use 'update' instead of 'create-drop' to preserve data across restarts
       # 'create-drop' drops all tables on shutdown, losing all tokens
