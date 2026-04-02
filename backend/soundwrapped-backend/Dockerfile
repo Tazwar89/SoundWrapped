@@ -19,9 +19,11 @@ WORKDIR /app
 # Copy built jar from builder stage
 COPY --from=builder /app/target/*.jar app.jar
 
-# Expose the port your app runs on
-EXPOSE 8080
+# Expose the port Render expects (default 10000)
+EXPOSE 10000
+
+# JVM tuning + ensure binding to 0.0.0.0 and PORT env
+ENV JAVA_TOOL_OPTIONS="-Xms128m -Xmx400m -XX:TieredStopAtLevel=1 -Dserver.address=0.0.0.0 -Dserver.port=${PORT}"
 
 # Run the JAR file
-# Note: Environment variables should be provided at runtime via docker-compose or --env-file
 ENTRYPOINT ["java","-jar","app.jar"]
