@@ -7,6 +7,8 @@ import com.soundwrapped.service.ArtistAnalyticsService;
 import com.soundwrapped.service.MusicTasteMapService;
 import com.soundwrapped.service.SimilarArtistsService;
 import com.soundwrapped.repository.UserActivityRepository;
+
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.time.LocalDateTime;
@@ -501,6 +503,14 @@ public class SoundWrappedController {
 
 			return result;
 		}
+	}
+
+	/**
+	 * Health check endpoint to verify if the API is running
+	 */
+	@GetMapping("/")
+	public ResponseEntity<String> healthCheck() {
+		return ResponseEntity.ok("SoundWrapped API is running");
 	}
 
 	// Debug endpoint to test SoundCloud API connection
