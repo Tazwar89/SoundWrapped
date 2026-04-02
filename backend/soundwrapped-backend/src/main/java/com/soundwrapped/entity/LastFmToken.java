@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
     @UniqueConstraint(columnNames = {"soundcloud_user_id"})
 })
 public class LastFmToken {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -35,9 +34,9 @@ public class LastFmToken {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        if (lastSyncAt == null) {
+
+        if (lastSyncAt == null)
             lastSyncAt = LocalDateTime.now().minusDays(1); // Start from 1 day ago
-        }
     }
 
     // Getters and Setters
@@ -89,4 +88,3 @@ public class LastFmToken {
         this.lastSyncAt = lastSyncAt;
     }
 }
-

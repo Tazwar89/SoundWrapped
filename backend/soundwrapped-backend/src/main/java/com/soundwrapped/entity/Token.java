@@ -85,20 +85,22 @@ public class Token {
 	 * Check if the token is expired or will expire soon (within 1 hour)
 	 */
 	public boolean isExpiredOrExpiringSoon() {
-		if (expiresAt == null) {
+		if (expiresAt == null)
 			// If no expiration set, assume it might be expired (conservative approach)
 			return true;
-		}
-		return LocalDateTime.now().isAfter(expiresAt.minusHours(1));
+
+		else
+			return LocalDateTime.now().isAfter(expiresAt.minusHours(1));
 	}
 
 	/**
 	 * Check if the token is fully expired
 	 */
 	public boolean isExpired() {
-		if (expiresAt == null) {
+		if (expiresAt == null)
 			return true;
-		}
-		return LocalDateTime.now().isAfter(expiresAt);
+
+		else
+			return LocalDateTime.now().isAfter(expiresAt);
 	}
 }

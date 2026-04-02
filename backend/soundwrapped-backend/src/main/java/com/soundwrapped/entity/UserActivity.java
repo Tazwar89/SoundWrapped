@@ -17,7 +17,6 @@ import java.time.LocalDateTime;
     @Index(name = "idx_user_type_date", columnList = "soundcloudUserId,activityType,createdAt")
 })
 public class UserActivity {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -53,9 +52,8 @@ public class UserActivity {
 
     @PrePersist
     protected void onCreate() {
-        if (createdAt == null) {
+        if (createdAt == null)
             createdAt = LocalDateTime.now();
-        }
     }
 
     // Getters and Setters

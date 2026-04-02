@@ -21,7 +21,6 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/lastfm")
 public class LastFmController {
-
     private final LastFmService lastFmService;
     private final LastFmTokenRepository lastFmTokenRepository;
     private final SoundWrappedService soundWrappedService;
@@ -68,15 +67,16 @@ public class LastFmController {
 
         if (!lastFmService.isConfigured()) {
             response.put("error", "Last.fm API keys not configured");
+
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
         }
 
         try {
             // Build callback URL
             String callbackUrl = System.getenv("LASTFM_CALLBACK_URL");
-            if (callbackUrl == null || callbackUrl.isEmpty()) {
+
+            if (callbackUrl == null || callbackUrl.isEmpty())
                 callbackUrl = "http://localhost:8080/api/lastfm/callback";
-            }
 
             // Web Auth: only api_key + cb — Last.fm generates and passes its
             // own token to the callback URL after the user authorizes.
@@ -91,12 +91,16 @@ public class LastFmController {
             response.put("authUrl", authUrl);
             response.put("callbackUrl", callbackUrl);
             response.put("message", "Visit this URL to authorize SoundWrapped with Last.fm");
+
             return ResponseEntity.ok().body(response);
 
-        } catch (Exception e) {
+        }
+
+        catch (Exception e) {
             System.err.println("[LastFmController] Error getting auth URL: " + e.getMessage());
             e.printStackTrace();
             response.put("error", "Failed to get Last.fm authorization URL: " + e.getMessage());
+
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
@@ -115,15 +119,17 @@ public class LastFmController {
     public ResponseEntity<Map<String, Object>> testCallback() {
         Map<String, Object> response = new HashMap<String, Object>();
         String callbackUrl = System.getenv("LASTFM_CALLBACK_URL");
-        if (callbackUrl == null || callbackUrl.isEmpty()) {
+
+        if (callbackUrl == null || callbackUrl.isEmpty())
             callbackUrl = "http://localhost:8080/api/lastfm/callback";
-        }
+
         response.put("status", "success");
         response.put("message", "Callback endpoint is accessible");
         response.put("timestamp", java.time.LocalDateTime.now().toString());
         response.put("expectedCallbackUrl", callbackUrl);
         response.put("instructions", "Ensure this exact URL is set in your Last.fm app settings at https://www.last.fm/api/account/create");
         System.out.println("[LastFmController] ✅ Test callback endpoint hit at " + java.time.LocalDateTime.now());
+
         return ResponseEntity.ok().body(response);
     }
 
@@ -132,42 +138,41 @@ public class LastFmController {
             @RequestParam(required = false) String token) {
         System.out.println("[LastFmController] Callback hit — token " + (token != null ? "present" : "missing"));
         try {
-            if (token == null || token.isEmpty()) {
+            if (token == null || token.isEmpty())
                 return ResponseEntity.status(HttpStatus.FOUND)
                         .header("Location", frontendBaseUrl + "/lastfm/callback?lastfm_connected=false&error=missing_token")
                         .build();
-            }
 
             // Exchange token for session key via LastFmService
             String sessionKey = lastFmService.exchangeTokenForSession(token);
-            if (sessionKey == null) {
+
+            if (sessionKey == null)
                 return ResponseEntity.status(HttpStatus.FOUND)
                         .header("Location", frontendBaseUrl + "/lastfm/callback?lastfm_connected=false&error=session_key_failed")
                         .build();
-            }
 
             // Get Last.fm username via LastFmService
             String username = lastFmService.fetchUsername(sessionKey);
-            if (username == null) {
+
+            if (username == null)
                 return ResponseEntity.status(HttpStatus.FOUND)
                         .header("Location", frontendBaseUrl + "/lastfm/callback?lastfm_connected=false&error=username_failed")
                         .build();
-            }
 
             // Get current SoundCloud user ID
             Map<String, Object> profile = soundWrappedService.getUserProfile();
-            if (profile == null || profile.isEmpty()) {
+
+            if (profile == null || profile.isEmpty())
                 return ResponseEntity.status(HttpStatus.FOUND)
                         .header("Location", frontendBaseUrl + "/lastfm/callback?lastfm_connected=false&error=user_not_logged_in")
                         .build();
-            }
 
             String soundcloudUserId = String.valueOf(profile.getOrDefault("id", "unknown"));
-            if ("unknown".equals(soundcloudUserId)) {
+
+            if ("unknown".equals(soundcloudUserId))
                 return ResponseEntity.status(HttpStatus.FOUND)
                         .header("Location", frontendBaseUrl + "/lastfm/callback?lastfm_connected=false&error=invalid_user_id")
                         .build();
-            }
 
             // Save or update Last.fm token
             Optional<LastFmToken> existingToken = lastFmTokenRepository.findBySoundcloudUserId(soundcloudUserId);
@@ -177,7 +182,9 @@ public class LastFmController {
                 lastFmToken = existingToken.get();
                 lastFmToken.setLastFmUsername(username);
                 lastFmToken.setSessionKey(sessionKey);
-            } else {
+            }
+
+            else {
                 lastFmToken = new LastFmToken();
                 lastFmToken.setSoundcloudUserId(soundcloudUserId);
                 lastFmToken.setLastFmUsername(username);
@@ -189,23 +196,31 @@ public class LastFmController {
             // Trigger immediate sync
             try {
                 lastFmScrobblingService.syncUserScrobbles(lastFmToken);
-            } catch (Exception syncError) {
+            }
+
+            catch (Exception syncError) {
                 System.err.println("[LastFmController] Initial sync failed: " + syncError.getMessage());
             }
 
             System.out.println("[LastFmController] ✅ Last.fm connected for user: " + username);
+
             return ResponseEntity.status(HttpStatus.FOUND)
                     .header("Location", frontendBaseUrl + "/lastfm/callback?lastfm_connected=true&username=" + java.net.URLEncoder.encode(username, "UTF-8"))
                     .build();
 
-        } catch (Exception e) {
+        }
+
+        catch (Exception e) {
             System.err.println("[LastFmController] Error handling callback: " + e.getMessage());
             e.printStackTrace();
+
             try {
                 return ResponseEntity.status(HttpStatus.FOUND)
                         .header("Location", frontendBaseUrl + "/lastfm/callback?lastfm_connected=false&error=" + java.net.URLEncoder.encode(e.getMessage(), "UTF-8"))
                         .build();
-            } catch (Exception encodingError) {
+            }
+
+            catch (Exception encodingError) {
                 return ResponseEntity.status(HttpStatus.FOUND)
                         .header("Location", frontendBaseUrl + "/lastfm/callback?lastfm_connected=false&error=unknown")
                         .build();
@@ -222,37 +237,45 @@ public class LastFmController {
 
         try {
             Map<String, Object> profile = soundWrappedService.getUserProfile();
+
             if (profile == null || profile.isEmpty()) {
                 System.err.println("[LastFmController] getUserProfile returned null or empty");
                 response.put("connected", false);
                 response.put("error", "Unable to get user profile. Please ensure you are logged in.");
+
                 return ResponseEntity.ok().body(response);
             }
-            
+
             String soundcloudUserId = String.valueOf(profile.getOrDefault("id", "unknown"));
+
             if ("unknown".equals(soundcloudUserId) || soundcloudUserId == null) {
                 System.err.println("[LastFmController] Could not extract user ID from profile: " + profile);
                 response.put("connected", false);
                 response.put("error", "Unable to identify user. Please ensure you are logged in.");
+
                 return ResponseEntity.ok().body(response);
             }
 
             Optional<LastFmToken> token = lastFmTokenRepository.findBySoundcloudUserId(soundcloudUserId);
-            
+
             if (token.isPresent()) {
                 response.put("connected", true);
                 response.put("username", token.get().getLastFmUsername());
                 response.put("lastSyncAt", token.get().getLastSyncAt());
-            } else {
-                response.put("connected", false);
             }
 
+            else
+                response.put("connected", false);
+
             return ResponseEntity.ok().body(response);
-        } catch (Exception e) {
+        }
+
+        catch (Exception e) {
             System.err.println("[LastFmController] Error checking connection status: " + e.getMessage());
             e.printStackTrace();
             response.put("connected", false);
             response.put("error", "Failed to check connection status: " + e.getMessage());
+
             // Always return 200 (CORS is handled globally)
             return ResponseEntity.ok().body(response);
         }
@@ -273,15 +296,18 @@ public class LastFmController {
 
             response.put("success", true);
             response.put("message", "Last.fm account disconnected");
-            return ResponseEntity.ok()
-                    .body(response);
-        } catch (Exception e) {
+
+            return ResponseEntity.ok().body(response);
+        }
+
+        catch (Exception e) {
             System.err.println("[LastFmController] Error disconnecting: " + e.getMessage());
             e.printStackTrace();
             response.put("success", false);
             response.put("error", "Failed to disconnect: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.OK) // Return 200 instead of 500 to avoid CORS issues
-                    .body(response);
+
+            // Return 200 instead of 500 to avoid CORS issues
+            return ResponseEntity.status(HttpStatus.OK).body(response);
         }
     }
 
@@ -301,23 +327,26 @@ public class LastFmController {
             if (token.isEmpty()) {
                 response.put("success", false);
                 response.put("error", "Last.fm account not connected");
-                return ResponseEntity.ok()
-                        .body(response);
+
+                return ResponseEntity.ok().body(response);
             }
 
             lastFmScrobblingService.syncUserScrobbles(token.get());
 
             response.put("success", true);
             response.put("message", "Sync triggered successfully");
-            return ResponseEntity.ok()
-                    .body(response);
-        } catch (Exception e) {
+
+            return ResponseEntity.ok().body(response);
+        }
+
+        catch (Exception e) {
             System.err.println("[LastFmController] Error triggering sync: " + e.getMessage());
             e.printStackTrace();
             response.put("success", false);
             response.put("error", "Failed to trigger sync: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.OK) // Return 200 instead of 500 to avoid CORS issues
-                    .body(response);
+
+            // Return 200 instead of 500 to avoid CORS issues
+            return ResponseEntity.status(HttpStatus.OK).body(response);
         }
     }
 }

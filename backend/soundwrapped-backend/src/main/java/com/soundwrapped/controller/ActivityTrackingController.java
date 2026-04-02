@@ -16,7 +16,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/activity")
 public class ActivityTrackingController {
-
     private final ActivityTrackingService activityTrackingService;
     private final SoundWrappedService soundWrappedService;
 
@@ -38,17 +37,21 @@ public class ActivityTrackingController {
             // Get current user ID from profile
             Map<String, Object> profile = soundWrappedService.getUserProfile();
             String userId = String.valueOf(profile.getOrDefault("id", "unknown"));
-            
+
             activityTrackingService.trackPlay(userId, trackId, durationMs != null ? durationMs : 0L);
-            
+
             Map<String, Object> response = new HashMap<String, Object>();
             response.put("success", true);
             response.put("message", "Play event tracked");
+
             return ResponseEntity.ok(response);
-        } catch (Exception e) {
+        }
+
+        catch (Exception e) {
             Map<String, Object> error = new HashMap<String, Object>();
             error.put("success", false);
             error.put("message", "Failed to track play event: " + e.getMessage());
+
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
         }
     }
@@ -67,11 +70,15 @@ public class ActivityTrackingController {
             Map<String, Object> response = new HashMap<String, Object>();
             response.put("success", true);
             response.put("message", "Like event tracked");
+
             return ResponseEntity.ok(response);
-        } catch (Exception e) {
+        }
+
+        catch (Exception e) {
             Map<String, Object> error = new HashMap<String, Object>();
             error.put("success", false);
             error.put("message", "Failed to track like event: " + e.getMessage());
+
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
         }
     }
@@ -84,17 +91,21 @@ public class ActivityTrackingController {
         try {
             Map<String, Object> profile = soundWrappedService.getUserProfile();
             String userId = String.valueOf(profile.getOrDefault("id", "unknown"));
-            
+
             activityTrackingService.trackRepost(userId, trackId);
-            
+
             Map<String, Object> response = new HashMap<String, Object>();
             response.put("success", true);
             response.put("message", "Repost event tracked");
+
             return ResponseEntity.ok(response);
-        } catch (Exception e) {
+        }
+
+        catch (Exception e) {
             Map<String, Object> error = new HashMap<String, Object>();
             error.put("success", false);
             error.put("message", "Failed to track repost event: " + e.getMessage());
+
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
         }
     }

@@ -13,7 +13,6 @@ import java.time.LocalDateTime;
     @Index(name = "idx_city_country", columnList = "city,country")
 })
 public class UserLocation {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -138,4 +137,3 @@ public class UserLocation {
         this.lastUpdated = lastUpdated;
     }
 }
-

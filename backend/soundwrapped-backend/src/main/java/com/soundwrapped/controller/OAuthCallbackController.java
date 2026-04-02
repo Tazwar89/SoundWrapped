@@ -29,20 +29,22 @@ public class OAuthCallbackController {
 	@GetMapping
 	public ResponseEntity<Void> handleCallback(@RequestParam("code") String code) {
 		try {
-		//Exchange authorization code and persist tokens internally
-		Map<String, Object> tokens = soundWrappedService.exchangeAuthorizationCode(code);
+			//Exchange authorization code and persist tokens internally
+			Map<String, Object> tokens = soundWrappedService.exchangeAuthorizationCode(code);
 
-		String accessToken = (String) tokens.get("access_token");
-		String refreshToken = (String) tokens.get("refresh_token");
+			String accessToken = (String) tokens.get("access_token");
+			String refreshToken = (String) tokens.get("refresh_token");
 
-		//Persist tokens in database via TokenStore
-		tokenStore.saveTokens(accessToken, refreshToken);
+			//Persist tokens in database via TokenStore
+			tokenStore.saveTokens(accessToken, refreshToken);
 
 			//Redirect to frontend with success message
 			return ResponseEntity.status(HttpStatus.FOUND)
 				.location(URI.create(System.getenv().getOrDefault("APP_FRONTEND_BASE_URL", "http://localhost:3000") + "?auth=success"))
 				.build();
-		} catch (Exception e) {
+		}
+
+		catch (Exception e) {
 			//Redirect to frontend with error message
 			return ResponseEntity.status(HttpStatus.FOUND)
 				.location(URI.create(System.getenv().getOrDefault("APP_FRONTEND_BASE_URL", "http://localhost:3000") + "?auth=error"))
