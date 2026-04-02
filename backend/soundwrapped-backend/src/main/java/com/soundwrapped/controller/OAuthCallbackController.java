@@ -40,12 +40,12 @@ public class OAuthCallbackController {
 
 			//Redirect to frontend with success message
 			return ResponseEntity.status(HttpStatus.FOUND)
-				.location(URI.create("http://localhost:3000?auth=success"))
+				.location(URI.create(System.getenv().getOrDefault("APP_FRONTEND_BASE_URL", "http://localhost:3000") + "?auth=success"))
 				.build();
 		} catch (Exception e) {
 			//Redirect to frontend with error message
 			return ResponseEntity.status(HttpStatus.FOUND)
-				.location(URI.create("http://localhost:3000?auth=error"))
+				.location(URI.create(System.getenv().getOrDefault("APP_FRONTEND_BASE_URL", "http://localhost:3000") + "?auth=error"))
 				.build();
 		}
 	}

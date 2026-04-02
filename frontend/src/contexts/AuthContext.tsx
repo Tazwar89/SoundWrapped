@@ -48,7 +48,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // Real SoundCloud OAuth flow
       const clientId = '5pRC171gW1jxprhKPRMUJ5mpsCLRfmaM'
-      const redirectUri = encodeURIComponent('http://localhost:8080/callback')
+      const redirectUri = encodeURIComponent(import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080')
       const scope = '' // Empty scope as required by SoundCloud
       const responseType = 'code'
       const authUrl = `https://api.soundcloud.com/connect?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}`
