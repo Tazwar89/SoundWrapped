@@ -35,9 +35,6 @@ google:
   knowledge-graph:
     api-key: ${GOOGLE_KNOWLEDGE_GRAPH_API_KEY}
 
-openai:
-  api-key: ${OPENAI_API_KEY}
-
 groq:
   api-key: ${GROQ_API_KEY}
   base-url: https://api.groq.com/openai/v1
