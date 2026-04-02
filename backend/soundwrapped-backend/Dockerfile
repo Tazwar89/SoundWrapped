@@ -23,7 +23,7 @@ COPY --from=builder /app/target/*.jar app.jar
 EXPOSE 10000
 
 # JVM tuning + ensure binding to 0.0.0.0 and PORT env
-ENV JAVA_TOOL_OPTIONS="-Xms128m -Xmx400m -XX:TieredStopAtLevel=1 -Dserver.address=0.0.0.0 -Dserver.port=${PORT}"
+ENV JAVA_TOOL_OPTIONS="-Xms256m -Xmx600m -XX:TieredStopAtLevel=1"
 
 # Run the JAR file
 ENTRYPOINT ["java","-jar","app.jar"]
