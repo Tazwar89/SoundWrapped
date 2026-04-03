@@ -32,31 +32,35 @@ export function useRetry<T>(
           const delay = retryDelay * Math.pow(2, attempt - 1)
           await new Promise(resolve => setTimeout(resolve, delay))
         }
-        
+
         const result = await operation()
         setIsRetrying(false)
         setRetryCount(0)
+
         return result
-      } catch (error) {
+      }
+
+      catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error))
-        
+
         // Don't retry on 4xx errors (client errors)
         if (error && typeof error === 'object' && 'response' in error) {
           const status = (error as any).response?.status
-          if (status >= 400 && status < 500) {
+
+          if (status >= 400 && status < 500)
             throw lastError
-          }
         }
-        
+
         // If this was the last attempt, throw the error
         if (attempt === maxRetries) {
           setIsRetrying(false)
           setRetryCount(0)
+
           throw lastError
         }
       }
     }
-    
+
     setIsRetrying(false)
     setRetryCount(0)
     throw lastError || new Error('Operation failed after retries')
@@ -68,4 +72,3 @@ export function useRetry<T>(
     retryCount
   }
 }
-

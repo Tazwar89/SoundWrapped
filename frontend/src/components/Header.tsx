@@ -158,7 +158,7 @@ const Header: React.FC = () => {
                   </Link>
                 )
               })}
-              
+
               {isAuthenticated && (
                 <div className="pt-4 border-t border-white/10">
                   <button

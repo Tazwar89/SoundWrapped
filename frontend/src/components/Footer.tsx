@@ -107,7 +107,7 @@ const Footer: React.FC = () => {
               © 2026 SoundWrapped. All rights reserved.
             </p>
             <p className="text-slate-500 text-sm mt-2 md:mt-0">
-              Made with ❤️ for music lovers
+              Made by a SoundCloud fan, for SoundCloud fans.
             </p>
           </div>
         </div>

@@ -124,9 +124,10 @@ const MusicDataContext = createContext<MusicDataContextType | undefined>(undefin
 
 export const useMusicData = () => {
   const context = useContext(MusicDataContext)
-  if (context === undefined) {
+
+  if (context === undefined)
     throw new Error('useMusicData must be used within a MusicDataProvider')
-  }
+
   return context
 }
 
@@ -152,7 +153,7 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
   const fetchTracks = useCallback(async () => {
     try {
       setIsLoadingTracks(true)
-      
+
       // Real API call to get user's tracks
       const response = await api.get('/soundcloud/tracks')
       const tracksData = response.data.map((track: any) => ({
@@ -169,12 +170,16 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
         platform: 'soundcloud' as const
       }))
       // Tracks are already sorted by user's play count from backend
-      
+
       setTracks(tracksData)
-    } catch (error) {
+    }
+
+    catch (error) {
       console.error('Failed to fetch tracks:', error)
       toast.error('Failed to load tracks')
-    } finally {
+    }
+
+    finally {
       setIsLoadingTracks(false)
     }
   }, [])
@@ -184,9 +189,10 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
       setIsLoadingArtists(true)
       // This would be calculated from tracks data
       const artistMap = new Map<string, { playCount: number; listeningHours: number; trackCount: number }>()
-      
+
       tracks.forEach(track => {
         const artist = track.artist
+
         if (artist) {
           const existing = artistMap.get(artist) || { playCount: 0, listeningHours: 0, trackCount: 0 }
           existing.playCount += track.playCount
@@ -204,10 +210,14 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
       })).sort((a, b) => b.listeningHours - a.listeningHours)
 
       setArtists(artistsData)
-    } catch (error) {
+    }
+
+    catch (error) {
       console.error('Failed to fetch artists:', error)
       toast.error('Failed to load artists')
-    } finally {
+    }
+
+    finally {
       setIsLoadingArtists(false)
     }
   }, [tracks]) // Depends on tracks array
@@ -226,13 +236,17 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
         createdAt: playlist.created_at || new Date().toISOString(),
         artwork: playlist.artwork_url || playlist.user?.avatar_url || 'https://via.placeholder.com/300x300/ff6b6b/ffffff?text=Playlist'
       }))
-      
+
       setPlaylists(playlistsData)
-      
-    } catch (error) {
+
+    }
+
+    catch (error) {
       console.error('Failed to fetch playlists:', error)
       toast.error('Failed to load playlists')
-    } finally {
+    }
+
+    finally {
       setIsLoadingPlaylists(false)
     }
   }, [])
@@ -240,16 +254,20 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
   const fetchWrappedData = useCallback(async () => {
     try {
       setIsLoadingWrapped(true)
-      
+
       // Real API call to get wrapped data with longer timeout (60 seconds for wrapped)
       const response = await api.get('/soundcloud/wrapped/full', {
         timeout: 60000 // 60 seconds timeout for wrapped endpoint
       })
       setWrappedData(response.data)
-    } catch (error) {
+    }
+
+    catch (error) {
       console.error('Failed to fetch wrapped data:', error)
       toast.error('Failed to load your wrapped data. This may be due to rate limiting - please try again in a few moments.')
-    } finally {
+    }
+
+    finally {
       setIsLoadingWrapped(false)
     }
   }, [])
@@ -257,16 +275,19 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
   const fetchMusicTasteMap = useCallback(async () => {
     try {
       setIsLoadingMusicTasteMap(true)
-      
+
       // First, try to update user location (non-blocking)
       try {
         await api.post('/tracking/update-location')
-      } catch (e) {
+      }
+
+      catch (e) {
         // Silently fail - location update is optional
       }
-      
+
       // Then fetch the music taste map
       const response = await api.get('/soundcloud/music-taste-map')
+
       if (response?.data && Array.isArray(response.data)) {
         // Transform backend data to frontend format
         const locations: MusicTasteLocation[] = response.data.map((loc: any) => ({
@@ -278,14 +299,19 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
           coordinates: loc.coordinates || { lat: 0, lng: 0 }
         }))
         setMusicTasteLocations(locations)
-      } else {
-        setMusicTasteLocations([])
       }
-    } catch (error) {
+
+      else
+        setMusicTasteLocations([])
+    }
+
+    catch (error) {
       console.error('Failed to fetch music taste map data:', error)
       toast.error('Failed to load music taste map')
       setMusicTasteLocations([])
-    } finally {
+    }
+
+    finally {
       setIsLoadingMusicTasteMap(false)
     }
   }, [])
@@ -295,14 +321,16 @@ export const MusicDataProvider: React.FC<MusicDataProviderProps> = ({ children }
       // First fetch tracks, then calculate artists from them
       await fetchTracks()
       await fetchArtists()
-      
+
       // Then fetch other data in parallel
       await Promise.all([
         fetchPlaylists(),
         fetchWrappedData(),
         fetchMusicTasteMap()
       ])
-    } catch (error) {
+    }
+
+    catch (error) {
       console.error('Error refreshing all data:', error)
     }
   }, [fetchTracks, fetchArtists, fetchPlaylists, fetchWrappedData, fetchMusicTasteMap])

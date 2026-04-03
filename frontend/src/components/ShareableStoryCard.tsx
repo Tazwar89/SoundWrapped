@@ -24,28 +24,34 @@ const getGradientClasses = (theme: ColorTheme): string => {
   switch (theme) {
     case 'orange':
       return 'bg-gradient-to-br from-orange-500 to-pink-500'
+
     case 'blue':
       return 'bg-gradient-to-br from-blue-500 to-indigo-500'
+
     case 'purple':
       return 'bg-gradient-to-br from-purple-500 to-pink-500'
+
     case 'green':
       return 'bg-gradient-to-br from-green-500 to-blue-500'
+
     case 'red':
       return 'bg-gradient-to-br from-red-500 to-orange-500'
+
     case 'pink':
       return 'bg-gradient-to-br from-pink-500 to-purple-500'
+
     default:
       return 'bg-gradient-to-br from-gray-500 to-gray-800'
   }
 }
 
 const getFontSizeClasses = (size: FontSize, type: 'title' | 'subtitle' | 'body'): string => {
-  if (type === 'title') {
+  if (type === 'title')
     return size === 'small' ? 'text-2xl' : size === 'medium' ? 'text-4xl' : 'text-6xl'
-  }
-  if (type === 'subtitle') {
+
+  if (type === 'subtitle')
     return size === 'small' ? 'text-lg' : size === 'medium' ? 'text-2xl' : 'text-3xl'
-  }
+
   return size === 'small' ? 'text-sm' : size === 'medium' ? 'text-base' : 'text-lg'
 }
 
@@ -64,13 +70,15 @@ const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, on
   const topArtistName = wrappedData.topArtists[0]?.artist ?? 'Unknown Artist'
 
   const downloadCard = async () => {
-    if (!cardRef.current) return
+    if (!cardRef.current)
+      return
 
     setIsGenerating(true)
+
     try {
       // Dynamic import of html2canvas to avoid loading it if not needed
       const html2canvas = (await import('html2canvas')).default
-      
+
       const canvas = await html2canvas(cardRef.current, {
         backgroundColor: '#0f172a', // slate-900
         scale: 2, // Higher quality
@@ -80,8 +88,9 @@ const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, on
 
       // Convert canvas to blob and download
       canvas.toBlob((blob) => {
-        if (!blob) return
-        
+        if (!blob)
+          return
+
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
@@ -91,14 +100,18 @@ const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, on
         document.body.removeChild(link)
         URL.revokeObjectURL(url)
       }, 'image/png')
-    } catch (error) {
+    }
+
+    catch (error) {
       console.error('Error generating card:', error)
       const errorMessage = error instanceof Error ? error.message : 'Failed to generate card. Please try again.'
       toast.error(errorMessage, {
         icon: '❌',
         duration: 4000
       })
-    } finally {
+    }
+
+    finally {
       setIsGenerating(false)
     }
   }
@@ -394,4 +407,3 @@ const ShareableStoryCard: React.FC<ShareableStoryCardProps> = ({ wrappedData, on
 }
 
 export default ShareableStoryCard
-

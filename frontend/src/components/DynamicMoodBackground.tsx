@@ -45,13 +45,14 @@ const DynamicMoodBackground: React.FC<DynamicMoodBackgroundProps> = ({
       const genre = (track.genre || '').toLowerCase()
       let energy = 0.5 // Default medium energy
 
-      if (highEnergyGenres.some(g => genre.includes(g))) {
+      if (highEnergyGenres.some(g => genre.includes(g)))
         energy = 0.9
-      } else if (mediumEnergyGenres.some(g => genre.includes(g))) {
+
+      else if (mediumEnergyGenres.some(g => genre.includes(g)))
         energy = 0.6
-      } else if (lowEnergyGenres.some(g => genre.includes(g))) {
+
+      else if (lowEnergyGenres.some(g => genre.includes(g)))
         energy = 0.2
-      }
 
       // Boost energy based on engagement (high engagement = more energy)
       const playbackCount = track.playback_count || 0
@@ -71,7 +72,7 @@ const DynamicMoodBackground: React.FC<DynamicMoodBackgroundProps> = ({
     // Medium energy: Warm oranges/yellows (moderate tempo)
     // Low energy: Deep blues/purples (chill, ambient)
 
-    if (avgEnergy > 0.7) {
+    if (avgEnergy > 0.7)
       // High energy - Fiery reds and bright oranges
       return {
         color1: [1.0, 0.2, 0.0],    // Bright red-orange
@@ -79,7 +80,8 @@ const DynamicMoodBackground: React.FC<DynamicMoodBackgroundProps> = ({
         color3: [0.3, 0.0, 0.0],    // Dark red
         speed: 2.0                   // Faster animation
       }
-    } else if (avgEnergy > 0.4) {
+
+    else if (avgEnergy > 0.4)
       // Medium energy - Warm oranges (default SoundCloud style)
       return {
         color1: [1.0, 0.333, 0.0],  // Orange #FF5500
@@ -87,7 +89,8 @@ const DynamicMoodBackground: React.FC<DynamicMoodBackgroundProps> = ({
         color3: [0.0, 0.0, 0.0],    // Black
         speed: 1.5
       }
-    } else {
+
+    else
       // Low energy - Deep blues and purples (chill vibes)
       return {
         color1: [0.2, 0.3, 0.8],    // Deep blue
@@ -95,7 +98,6 @@ const DynamicMoodBackground: React.FC<DynamicMoodBackgroundProps> = ({
         color3: [0.0, 0.0, 0.1],    // Very dark blue
         speed: 0.8                   // Slower, more relaxed animation
       }
-    }
   }
 
   const energyConfig = analyzeEnergy()
@@ -112,4 +114,3 @@ const DynamicMoodBackground: React.FC<DynamicMoodBackgroundProps> = ({
 }
 
 export default DynamicMoodBackground
-

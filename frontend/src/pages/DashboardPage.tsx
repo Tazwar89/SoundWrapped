@@ -127,9 +127,8 @@ const DashboardPage: React.FC = () => {
 
     // Reset ref when navigating away
     return () => {
-      if (location.pathname !== '/dashboard') {
+      if (location.pathname !== '/dashboard')
         hasFetchedRef.current = false
-      }
     }
   }, [isAuthenticated, location.pathname]) // Remove function dependencies to prevent re-runs
 

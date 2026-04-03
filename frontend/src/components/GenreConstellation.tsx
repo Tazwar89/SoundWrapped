@@ -60,7 +60,8 @@ const GenreConstellation: React.FC<GenreConstellationProps> = ({
 
   // Generate nodes from genres
   useEffect(() => {
-    if (!genres || genres.length === 0) return
+    if (!genres || genres.length === 0)
+      return
 
     const maxCount = Math.max(...genres.map(g => g.trackCount || g.listeningMs || 1))
     const nodes: GenreNode[] = genres.map((genre, index) => {
@@ -75,7 +76,7 @@ const GenreConstellation: React.FC<GenreConstellationProps> = ({
 
       const count = genre.trackCount || genre.listeningMs || 1
       const normalizedSize = Math.max(10, Math.min(40, (count / maxCount) * 30 + 10))
-      
+
       const colorIndex = index % genreColors.length
       const color = genreColors[colorIndex]
 
@@ -105,10 +106,13 @@ const GenreConstellation: React.FC<GenreConstellationProps> = ({
   // Draw the constellation
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvas)
+      return
 
     const ctx = canvas.getContext('2d')
-    if (!ctx) return
+
+    if (!ctx)
+      return
 
     canvas.width = width
     canvas.height = height
@@ -167,7 +171,9 @@ const GenreConstellation: React.FC<GenreConstellationProps> = ({
           }
         })
         ctx.globalAlpha = 1
-      } else {
+      }
+
+      else {
         // Auto-generate connections based on proximity
         rotatedNodes.forEach((node, i) => {
           rotatedNodes.slice(i + 1).forEach(otherNode => {
@@ -176,6 +182,7 @@ const GenreConstellation: React.FC<GenreConstellationProps> = ({
               Math.pow(node.y - otherNode.y, 2) +
               Math.pow(node.z - otherNode.z, 2)
             )
+
             if (distance < 250) {
               const [x1, y1] = project3D(node.x, node.y, node.z, cameraZ)
               const [x2, y2] = project3D(otherNode.x, otherNode.y, otherNode.z, cameraZ)
@@ -202,9 +209,8 @@ const GenreConstellation: React.FC<GenreConstellationProps> = ({
 
         // Skip if off-screen
         if (x < -displaySize || x > width + displaySize || 
-            y < -displaySize || y > height + displaySize) {
+            y < -displaySize || y > height + displaySize)
           return
-        }
 
         // Glow effect
         const gradient = ctx.createRadialGradient(x, y, 0, x, y, displaySize * 2)
@@ -259,6 +265,7 @@ const GenreConstellation: React.FC<GenreConstellationProps> = ({
 
       const currentNodes: ScreenNode[] = nodesRef.current.map(node => {
         const [x, y] = project3D(node.x, node.y, node.z, cameraZ)
+
         return { ...node, screenX: x, screenY: y }
       })
 
@@ -267,6 +274,7 @@ const GenreConstellation: React.FC<GenreConstellationProps> = ({
           Math.pow(mouseX - node.screenX, 2) +
           Math.pow(mouseY - node.screenY, 2)
         )
+
         if (distance < node.size + 20 && distance < minDistance) {
           minDistance = distance
           closestNode = node
@@ -277,30 +285,28 @@ const GenreConstellation: React.FC<GenreConstellationProps> = ({
     }
 
     const handleClick = () => {
-      if (hoveredNode) {
+      if (hoveredNode)
         setSelectedNode(selectedNode === hoveredNode ? null : hoveredNode)
-      }
     }
 
     canvas.addEventListener('mousemove', handleMouseMove)
     canvas.addEventListener('click', handleClick)
 
     return () => {
-      if (animationFrameRef.current) {
+      if (animationFrameRef.current)
         cancelAnimationFrame(animationFrameRef.current)
-      }
+
       canvas.removeEventListener('mousemove', handleMouseMove)
       canvas.removeEventListener('click', handleClick)
     }
   }, [width, height, hoveredNode, selectedNode, connections])
 
-  if (!genres || genres.length === 0) {
+  if (!genres || genres.length === 0)
     return (
       <div className="flex items-center justify-center h-full text-white/60">
         <p>No genre data available</p>
       </div>
     )
-  }
 
   const selectedGenre = genres.find(genreItem => genreItem.genre === selectedNode)
 
@@ -335,4 +341,3 @@ const GenreConstellation: React.FC<GenreConstellationProps> = ({
 }
 
 export default GenreConstellation
-

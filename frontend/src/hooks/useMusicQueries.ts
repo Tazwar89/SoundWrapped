@@ -150,12 +150,14 @@ export const useArtists = (tracks?: Track[]) => {
   return useQuery({
     queryKey: musicQueryKeys.artists,
     queryFn: async () => {
-      if (!tracks || tracks.length === 0) return []
+      if (!tracks || tracks.length === 0)
+        return []
       
       const artistMap = new Map<string, { playCount: number; listeningHours: number; trackCount: number }>()
       
       tracks.forEach(track => {
         const artist = track.artist
+
         if (artist) {
           const existing = artistMap.get(artist) || { playCount: 0, listeningHours: 0, trackCount: 0 }
           existing.playCount += track.playCount
@@ -211,12 +213,15 @@ export const useMusicTasteMap = () => {
       // Update location (non-blocking)
       try {
         await api.post('/tracking/update-location')
-      } catch (e) {
+      }
+
+      catch (e) {
         // Silently fail
       }
-      
+
       const response = await api.get('/soundcloud/music-taste-map')
-      if (response?.data && Array.isArray(response.data)) {
+
+      if (response?.data && Array.isArray(response.data))
         return response.data.map((loc: any): MusicTasteLocation => ({
           city: loc.city || 'Unknown',
           country: loc.country || 'Unknown',
@@ -225,7 +230,7 @@ export const useMusicTasteMap = () => {
           topGenres: Array.isArray(loc.topGenres) ? loc.topGenres : [],
           coordinates: loc.coordinates || { lat: 0, lng: 0 }
         }))
-      }
+
       return []
     },
     staleTime: 10 * 60 * 1000,
@@ -315,4 +320,3 @@ export const usePrefetchDashboard = () => {
     queryClient.prefetchQuery({ queryKey: musicQueryKeys.playlists })
   }
 }
-

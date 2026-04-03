@@ -29,60 +29,65 @@ interface RecentActivityProps {
 const RecentActivity: React.FC<RecentActivityProps> = ({ activities }) => {
   // Memoize transformation to prevent unnecessary re-computation
   const transformedActivities: ActivityItem[] = useMemo(() => {
-    if (!activities || activities.length === 0) return []
-    
-    return activities.map((activity: any) => {
-    // Prioritize activity timestamp (when activity was performed) over track/user created_at
-    const activityTimestamp = activity.timestamp || activity.track?.created_at || activity.user?.created_at || ''
-    
-    const transformed: ActivityItem = {
-      type: activity.type || 'like',
-      timestamp: activityTimestamp
-    }
-    
-    if (activity.track) {
-      transformed.track = {
-        id: activity.track.id?.toString() || '',
-        title: activity.track.title || 'Unknown Track',
-        user: activity.track.user ? {
-          username: activity.track.user.username || 'Unknown Artist'
-        } : undefined,
-        duration: activity.track.duration || 0,
-        created_at: activity.track.created_at || activity.timestamp || ''
+    if (!activities || activities.length === 0)
+      return []
+
+    else
+      return activities.map((activity: any) => {
+      // Prioritize activity timestamp (when activity was performed) over track/user created_at
+      const activityTimestamp = activity.timestamp || activity.track?.created_at || activity.user?.created_at || ''
+
+      const transformed: ActivityItem = {
+        type: activity.type || 'like',
+        timestamp: activityTimestamp
       }
-    }
     
-    if (activity.user) {
-      transformed.user = {
-        id: activity.user.id?.toString() || '',
-        username: activity.user.username || 'Unknown User',
-        full_name: activity.user.full_name || undefined
+      if (activity.track) {
+        transformed.track = {
+          id: activity.track.id?.toString() || '',
+          title: activity.track.title || 'Unknown Track',
+          user: activity.track.user ? {
+            username: activity.track.user.username || 'Unknown Artist'
+          } : undefined,
+          duration: activity.track.duration || 0,
+          created_at: activity.track.created_at || activity.timestamp || ''
+        }
       }
-    }
-    
+
+      if (activity.user) {
+        transformed.user = {
+          id: activity.user.id?.toString() || '',
+          username: activity.user.username || 'Unknown User',
+          full_name: activity.user.full_name || undefined
+        }
+      }
+
       return transformed
     })
   }, [activities])
-  
-  if (transformedActivities.length === 0) {
+
+  if (transformedActivities.length === 0)
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <Play className="h-12 w-12 text-slate-400 mb-4" />
         <p className="text-slate-400">No recent activity</p>
       </div>
     )
-  }
 
   const getActivityIcon = (type: string) => {
     switch (type) {
       case 'like':
         return Heart
+
       case 'upload':
         return Upload
+
       case 'follow':
         return UserPlus
+
       case 'repost':
         return Share2
+
       default:
         return Play
     }
@@ -92,26 +97,31 @@ const RecentActivity: React.FC<RecentActivityProps> = ({ activities }) => {
     switch (activity.type) {
       case 'like':
         return 'liked'
+
       case 'upload':
         return 'uploaded'
+
       case 'follow':
         return 'followed'
+
       case 'repost':
         return 'reposted'
+
       default:
         return 'played'
     }
   }
 
   const getActivityDescription = (activity: ActivityItem) => {
-    if (activity.type === 'follow' && activity.user) {
+    if (activity.type === 'follow' && activity.user)
       return `You followed ${activity.user.username}`
-    }
+
     if (activity.track) {
       const artist = activity.track.user?.username || 'Unknown Artist'
       const trackTitle = activity.track.title || 'Unknown Track'
       return `You ${getActivityText(activity)} ${trackTitle} by ${artist}`
     }
+
     return `You ${getActivityText(activity)} this`
   }
 
@@ -120,12 +130,12 @@ const RecentActivity: React.FC<RecentActivityProps> = ({ activities }) => {
       {transformedActivities.map((activity, index) => {
         const ActivityIcon = getActivityIcon(activity.type)
         const description = getActivityDescription(activity)
-        
+
         // Get track/user info
         const title = activity.track?.title || activity.user?.username || 'Unknown'
         const artist = activity.track?.user?.username || activity.user?.full_name || ''
         const duration = activity.track?.duration || 0
-        
+
         return (
           <motion.div
             key={`${activity.type}-${activity.track?.id || activity.user?.id || index}`}

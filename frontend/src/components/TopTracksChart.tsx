@@ -9,14 +9,13 @@ interface TopTracksChartProps {
 }
 
 const TopTracksChart: React.FC<TopTracksChartProps> = ({ tracks }) => {
-  if (tracks.length === 0) {
+  if (tracks.length === 0)
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <Music className="h-12 w-12 text-slate-400 mb-4" />
         <p className="text-slate-400">No tracks available</p>
       </div>
     )
-  }
 
   const maxPlays = Math.max(...tracks.map(track => track.playCount))
 
@@ -24,7 +23,7 @@ const TopTracksChart: React.FC<TopTracksChartProps> = ({ tracks }) => {
     <div className="space-y-3">
       {tracks.map((track, index) => {
         const playPercentage = maxPlays > 0 ? (track.playCount / maxPlays) * 100 : 0
-        
+
         return (
           <motion.div
             key={track.id}
@@ -50,7 +49,7 @@ const TopTracksChart: React.FC<TopTracksChartProps> = ({ tracks }) => {
                   )}
                 </div>
                 <p className="text-sm text-slate-400 truncate">{track.artist}</p>
-                
+
                 {/* Progress Bar */}
                 <div className="mt-2">
                   <div className="flex items-center justify-between text-xs text-slate-500 mb-1">

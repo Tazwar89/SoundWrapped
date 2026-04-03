@@ -14,9 +14,10 @@ export const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('accessToken')
-    if (token) {
+
+    if (token)
       config.headers.Authorization = `Bearer ${token}`
-    }
+  
     return config
   },
   (error) => {
@@ -33,7 +34,7 @@ api.interceptors.response.use(
       // Server responded with error status
       const status = error.response.status
       const message = error.response.data?.message || error.response.data?.error || 'An error occurred'
-      
+
       switch (status) {
         case 401:
           // Token expired or invalid
@@ -41,31 +42,38 @@ api.interceptors.response.use(
           localStorage.removeItem('user')
           // Don't redirect immediately - let the component handle it
           break
+
         case 403:
           console.error('Forbidden: ', message)
           break
+
         case 404:
           console.error('Not found: ', message)
           break
+
         case 429:
           console.error('Rate limited: ', message)
           break
+
         case 500:
         case 502:
         case 503:
           console.error('Server error: ', message)
           break
+
         default:
           console.error(`API error (${status}): `, message)
       }
-    } else if (error.request) {
+    }
+
+    else if (error.request)
       // Request was made but no response received
       console.error('Network error: No response from server. Please check your connection.')
-    } else {
+
+    else
       // Something else happened
       console.error('Request error: ', error.message)
-    }
-    
+
     return Promise.reject(error)
   }
 )

@@ -26,7 +26,7 @@ const TopArtistsChart: React.FC<TopArtistsChartProps> = ({ artists }) => {
       {artists.map((artist, index) => {
         const hoursPercentage = maxHours > 0 ? (artist.listeningHours / maxHours) * 100 : 0
         const gradientColor = generateGradient(artist.name)
-        
+
         return (
           <motion.div
             key={artist.name}
@@ -64,7 +64,7 @@ const TopArtistsChart: React.FC<TopArtistsChartProps> = ({ artists }) => {
                     <span>{formatNumber(artist.playCount)} plays</span>
                   </div>
                 </div>
-                
+
                 {/* Progress Bar */}
                 <div className="mt-2">
                   <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
