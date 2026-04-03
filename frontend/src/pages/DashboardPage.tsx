@@ -53,15 +53,20 @@ const DashboardPage: React.FC = () => {
     try {
       setIsLoadingActivity(true)
       const response = await api.get('/soundcloud/recent-activity?limit=5')
-      if (response?.data && Array.isArray(response.data)) {
+
+      if (response?.data && Array.isArray(response.data))
         setRecentActivity(response.data)
-      } else {
+
+      else
         setRecentActivity([])
-      }
-    } catch (error: any) {
+    }
+
+    catch (error: any) {
       console.error('Failed to fetch recent activity:', error)
       setRecentActivity([])
-    } finally {
+    }
+
+    finally {
       setIsLoadingActivity(false)
     }
   }, [])
@@ -73,11 +78,12 @@ const DashboardPage: React.FC = () => {
         timeout: 30000 // 30 seconds
       })
       setAnalytics(response.data)
-    } catch (error: any) {
+    }
+
+    catch (error: any) {
       // Only log error, don't show toast for analytics (non-critical)
-      if (error.code !== 'ECONNABORTED') {
+      if (error.code !== 'ECONNABORTED')
         console.error('Failed to fetch analytics:', error)
-      }
       // Analytics is optional, so we don't show error toast
     }
   }, [])
@@ -88,15 +94,16 @@ const DashboardPage: React.FC = () => {
     const lastfmConnected = params.get('lastfm_connected')
     const lastfmUsername = params.get('username')
     const lastfmError = params.get('error')
-    
+
     if (lastfmConnected !== null) {
-      if (lastfmConnected === 'true') {
+      if (lastfmConnected === 'true')
         toast.success(`Last.fm connected successfully${lastfmUsername ? ` as ${lastfmUsername}` : ''}!`, { icon: '✅' })
-      } else {
+
+      else {
         const errorMsg = lastfmError ? `: ${lastfmError}` : ''
         toast.error(`Failed to connect Last.fm account${errorMsg}`, { icon: '❌' })
       }
-      
+
       // Clean up URL parameters
       window.history.replaceState({}, '', '/dashboard')
     }
@@ -106,7 +113,7 @@ const DashboardPage: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated && location.pathname === '/dashboard' && !hasFetchedRef.current && !isFetchingRef.current) {
       isFetchingRef.current = true
-      
+
       // Fetch data in parallel
       Promise.all([
         refreshAllData(),
@@ -117,7 +124,7 @@ const DashboardPage: React.FC = () => {
         isFetchingRef.current = false
       })
     }
-    
+
     // Reset ref when navigating away
     return () => {
       if (location.pathname !== '/dashboard') {
@@ -130,40 +137,43 @@ const DashboardPage: React.FC = () => {
     try {
       setIsRefreshing(true)
       hasFetchedRef.current = false // Reset to allow refresh
-      
+
       // Refresh all data in parallel for better performance
       await Promise.all([
         refreshAllData(), // Refreshes tracks, artists, playlists, wrapped data, music taste map
         fetchAnalytics(), // Refreshes analytics stats
         fetchRecentActivity() // Refreshes recent activity
       ])
-      
+
       toast.success('Dashboard refreshed successfully!', {
         icon: '✅',
         duration: 2000
       })
-    } catch (error) {
+    }
+
+    catch (error) {
       console.error('Error refreshing dashboard:', error)
       toast.error('Failed to refresh dashboard. Please try again.', {
         icon: '❌',
         duration: 2000
       })
-    } finally {
+    }
+
+    finally {
       setIsRefreshing(false)
       hasFetchedRef.current = true
     }
   }
 
   // Show loading state while checking authentication
-  if (authLoading) {
+  if (authLoading)
     return (
       <div className="flex items-center justify-center py-20">
         <LoadingSpinner />
       </div>
     )
-  }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated)
     return (
       <div className="flex items-center justify-center py-20">
         <div className="text-center">
@@ -175,7 +185,6 @@ const DashboardPage: React.FC = () => {
         </div>
       </div>
     )
-  }
 
   // Get stats from analytics (combines API data + tracked activity)
   // Note: SoundCloud API doesn't provide listening history, so we can only track in-app activity

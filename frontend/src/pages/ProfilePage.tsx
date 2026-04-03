@@ -9,7 +9,7 @@ const ProfilePage: React.FC = () => {
   const { user, logout } = useAuth()
   const { wrappedData } = useMusicData()
 
-  if (!user) {
+  if (!user)
     return (
       <div className="flex items-center justify-center py-20">
         <div className="text-center">
@@ -18,7 +18,6 @@ const ProfilePage: React.FC = () => {
         </div>
       </div>
     )
-  }
 
   return (
     <div className="py-8">

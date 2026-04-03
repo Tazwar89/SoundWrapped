@@ -18,7 +18,7 @@ const MusicTasteMapPage: React.FC = () => {
     }
   }, [isAuthenticated, fetchMusicTasteMap])
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated)
     return (
       <div className="flex items-center justify-center py-20">
         <div className="text-center">
@@ -27,19 +27,30 @@ const MusicTasteMapPage: React.FC = () => {
         </div>
       </div>
     )
-  }
 
   const getSimilarityColor = (similarity: number) => {
-    if (similarity >= 0.8) return 'from-green-500 to-emerald-500'
-    if (similarity >= 0.7) return 'from-yellow-500 to-orange-500'
-    if (similarity >= 0.6) return 'from-orange-500 to-red-500'
+    if (similarity >= 0.8)
+      return 'from-green-500 to-emerald-500'
+
+    if (similarity >= 0.7)
+      return 'from-yellow-500 to-orange-500'
+
+    if (similarity >= 0.6)
+      return 'from-orange-500 to-red-500'
+
     return 'from-red-500 to-pink-500'
   }
 
   const getSimilarityText = (similarity: number) => {
-    if (similarity >= 0.8) return 'Very High'
-    if (similarity >= 0.7) return 'High'
-    if (similarity >= 0.6) return 'Medium'
+    if (similarity >= 0.8)
+      return 'Very High'
+
+    if (similarity >= 0.7)
+      return 'High'
+
+    if (similarity >= 0.6)
+      return 'Medium'
+
     return 'Low'
   }
 

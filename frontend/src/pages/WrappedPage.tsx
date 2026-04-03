@@ -71,7 +71,7 @@ const WrappedPage: React.FC = () => {
             transition={{ duration: 0.8, delay: 0.3 }}
             className="text-5xl md:text-7xl font-bold gradient-text mb-4"
           >
-            Your 2024 Wrapped
+            Your 2026 Wrapped
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -646,7 +646,8 @@ const WrappedPage: React.FC = () => {
   ] : []
 
   useEffect(() => {
-    if (!wrappedData || !isAutoPlaying) return
+    if (!wrappedData || !isAutoPlaying)
+      return
 
     const interval = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % slides.length)
@@ -655,7 +656,7 @@ const WrappedPage: React.FC = () => {
     return () => clearInterval(interval)
   }, [wrappedData, isAutoPlaying, slides.length])
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated)
     return (
       <div className="flex items-center justify-center py-20">
         <div className="text-center">
@@ -664,17 +665,15 @@ const WrappedPage: React.FC = () => {
         </div>
       </div>
     )
-  }
 
-  if (isLoadingWrapped) {
+  if (isLoadingWrapped)
     return (
       <div className="flex items-center justify-center py-20">
         <LoadingSpinner />
       </div>
     )
-  }
 
-  if (!wrappedData) {
+  if (!wrappedData)
     return (
       <div className="flex items-center justify-center py-20">
         <div className="text-center">
@@ -683,7 +682,6 @@ const WrappedPage: React.FC = () => {
         </div>
       </div>
     )
-  }
 
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % slides.length)
@@ -700,41 +698,44 @@ const WrappedPage: React.FC = () => {
   }
 
   const getShareText = () => {
-    return `Check out my 2024 SoundWrapped! 🎵`
+    return `Check out my 2026 SoundWrapped! 🎵`
   }
 
   const handleShare = (platform: string) => {
     const url = encodeURIComponent(getShareUrl())
     const text = encodeURIComponent(getShareText())
-    
+
     let shareUrl = ''
-    
+
     switch (platform) {
       case 'twitter':
         shareUrl = `https://twitter.com/intent/tweet?text=${text}&url=${url}`
         break
+
       case 'facebook':
         shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`
         break
+
       case 'linkedin':
         shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${url}`
         break
+
       case 'copy':
         navigator.clipboard.writeText(getShareUrl())
         setCopiedToClipboard(true)
         setTimeout(() => setCopiedToClipboard(false), 2000)
         return
+
       default:
         return
     }
-    
-    if (shareUrl) {
+
+    if (shareUrl)
       window.open(shareUrl, '_blank', 'width=600,height=400')
-    }
   }
 
   console.log('WrappedPage rendering, wrappedData:', wrappedData, 'isLoadingWrapped:', isLoadingWrapped, 'isAuthenticated:', isAuthenticated)
-  
+
   return (
     <div className="py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -747,7 +748,7 @@ const WrappedPage: React.FC = () => {
             <ChevronLeft className="h-4 w-4" />
             <span>Previous</span>
           </button>
-          
+
           <div className="flex items-center space-x-2">
             <div className="flex space-x-2">
               {slides.map((_, index) => (
@@ -767,7 +768,7 @@ const WrappedPage: React.FC = () => {
               {currentSlide + 1} of {slides.length}
             </span>
           </div>
-          
+
           <button
             onClick={nextSlide}
             className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-orange-500/20 to-orange-600/20 hover:from-orange-500/30 hover:to-orange-600/30 border border-orange-500/30 rounded-lg transition-all text-white"
@@ -824,7 +825,7 @@ const WrappedPage: React.FC = () => {
               onClick={() => setIsShareModalOpen(false)}
               className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
             />
-            
+
             {/* Modal */}
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}

@@ -16,7 +16,7 @@ import { useFeaturedTrack, useFeaturedArtist, useFeaturedGenre, usePopularTracks
 import { api } from '../services/api'
 
 const HomePage: React.FC = () => {
-  const { isAuthenticated, login } = useAuth()
+  const { isAuthenticated, login, refreshUserData } = useAuth()
   const [searchParams] = useSearchParams()
   const [onlineUsers, setOnlineUsers] = useState<number>(0)
 
@@ -29,11 +29,10 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     const authStatus = searchParams.get('auth')
-    if (authStatus === 'success') {
+
+    if (authStatus === 'success')
       // Authentication successful - user data will be refreshed automatically
-    } else if (authStatus === 'error') {
-      // Authentication failed - error handling is done in AuthContext
-    }
+      refreshUserData()
   }, [searchParams])
 
   // Fetch currently online users count
@@ -41,10 +40,13 @@ const HomePage: React.FC = () => {
     const fetchOnlineUsers = async () => {
       try {
         const response = await api.get('/soundcloud/online-users')
-        if (response?.data?.onlineCount !== undefined) {
+
+        if (response?.data?.onlineCount !== undefined)
           setOnlineUsers(response.data.onlineCount)
-        }
-      } catch (e) {
+
+      }
+
+      catch (e) {
         console.error('[HomePage] Error fetching online users:', e)
         // Silently fail
       }
@@ -53,17 +55,16 @@ const HomePage: React.FC = () => {
     fetchOnlineUsers()
     // Refresh every 30 seconds, but only if tab is visible (performance optimization)
     const interval = setInterval(() => {
-      if (!document.hidden) {
+      if (!document.hidden)
         fetchOnlineUsers()
-      }
     }, 30000)
 
     // Also fetch when tab becomes visible
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
+      if (!document.hidden)
         fetchOnlineUsers()
-      }
     }
+
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {

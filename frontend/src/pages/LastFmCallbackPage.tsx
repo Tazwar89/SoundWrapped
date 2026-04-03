@@ -31,23 +31,32 @@ const LastFmCallbackPage: React.FC = () => {
       console.warn('[LastFmCallback] ⚠️ Received token from Last.fm but backend callback not processed. This should not happen.')
       console.warn('[LastFmCallback] Token:', token.substring(0, 10) + '...')
     }
-    
+
     if (isFullPageRedirect) {
       // Full-page redirect: redirect back to dashboard with status
       console.log('[LastFmCallback] Full-page redirect detected, redirecting to dashboard')
       const params = new URLSearchParams()
+
       if (connected === 'true') {
         params.set('lastfm_connected', 'true')
-        if (username) params.set('username', username)
-      } else {
-        params.set('lastfm_connected', 'false')
-        if (error) params.set('error', error)
+
+        if (username)
+          params.set('username', username)
       }
-      
+
+      else {
+        params.set('lastfm_connected', 'false')
+
+        if (error)
+          params.set('error', error)
+      }
+
       setTimeout(() => {
         window.location.href = `/dashboard?${params.toString()}`
       }, 2000) // Show message for 2 seconds before redirecting
-    } else {
+    }
+
+    else {
       // Popup: send message to parent window
       const message = {
         type: 'lastfm_callback',
@@ -55,29 +64,34 @@ const LastFmCallbackPage: React.FC = () => {
         username: username || null,
         error: error || null,
       }
+
       console.log('[LastFmCallback] 📤 Sending message to parent:', message, 'origin:', window.location.origin)
-      
+
       // Try multiple times to ensure message is sent
       const sendMessage = () => {
         try {
           window.opener.postMessage(message, window.location.origin)
           console.log('[LastFmCallback] ✅ Message sent to same origin')
-        } catch (e) {
+        }
+
+        catch (e) {
           console.warn('[LastFmCallback] Failed to send to same origin:', e)
         }
-        
+
         // Also try sending to '*' origin as fallback
         try {
           window.opener.postMessage(message, '*')
           console.log('[LastFmCallback] ✅ Message sent with wildcard origin')
-        } catch (e) {
+        }
+
+        catch (e) {
           console.warn('[LastFmCallback] Failed to send with wildcard origin:', e)
         }
       }
-      
+
       // Send immediately
       sendMessage()
-      
+
       // Send again after a short delay (in case first one didn't work)
       setTimeout(sendMessage, 300)
       setTimeout(sendMessage, 600)
@@ -114,4 +128,3 @@ const LastFmCallbackPage: React.FC = () => {
 }
 
 export default LastFmCallbackPage
-
