@@ -1,4 +1,4 @@
-# 🎵 SoundWrapped
+# 🎵 [SoundWrapped](https://soundwrapped.onrender.com/)
 
 A comprehensive music analytics platform that provides personalized insights from SoundCloud, inspired by Spotify Wrapped. SoundWrapped offers daily featured content, detailed analytics, and interactive visualizations to help users discover and understand their music taste.
 
@@ -390,8 +390,8 @@ SERPAPI_API_KEY=your_serpapi_api_key_here
 THEAUDIODB_API_KEY=your_theaudiodb_api_key_here
 
 # Last.fm API Configuration (Similar artists & scrobbling)
-LASTFM_API_KEY=7f8f8a603a92fcb664f136304d5a02e7
-LASTFM_API_SECRET=fc6b00d615146ceb667b8e4d9630a788
+LASTFM_API_KEY=your_lastfm_api_key_here
+LASTFM_API_SECRET=your_lastfm_api_secret_here
 LASTFM_CALLBACK_URL=http://localhost:8080/api/lastfm/callback
 APP_FRONTEND_BASE_URL=http://localhost:3000
 VITE_LASTFM_CALLBACK_URL=http://localhost:8080/api/lastfm/callback
