@@ -1392,16 +1392,19 @@ public class SoundWrappedService {
 						List<Map<String, Object>> directTracks = (List<Map<String, Object>>) tracksObj;
 						playlistTracksFromResponse = directTracks;
 						System.out.println("Found " + playlistTracksFromResponse.size() + " tracks directly in playlist response");
-					} else {
+					}
+
+					else {
 						// Tracks might not be included, try fetching them separately
 						Object playlistIdFromResponseObj = playlist.get("id");
+
 						if (playlistIdFromResponseObj != null) {
 							String playlistIdFromResponse = String.valueOf(playlistIdFromResponseObj);
 							System.out.println("Fetching tracks separately for playlist ID: " + playlistIdFromResponse);
 							playlistTracksFromResponse = getTracksFromPlaylistById(playlistIdFromResponse, accessToken);
 						}
 					}
-					
+
 					if (playlistTracksFromResponse != null && !playlistTracksFromResponse.isEmpty()) {
 						// Return the first 'limit' tracks in their original order (first tracks of the playlist)
 						// Don't sort - the playlist order is already the chart order
@@ -1561,7 +1564,16 @@ public class SoundWrappedService {
 			// Extract playlist IDs from the paginated response
 			Map<String, Object> body = playlistsResponse.getBody();
 			@SuppressWarnings("unchecked")
+
+			// In case body is null or doesn't contain "collection", try to handle it gracefully
+			if (body == null) {
+				System.err.println("[Buzzing] Playlists response body is null");
+
+				return new HashMap<String, Object>();
+			}
+
 			List<Map<String, Object>> playlists = (List<Map<String, Object>>) body.get("collection");
+
 			if (playlists == null) {
 				// Try direct list format
 				if (body instanceof List) {
@@ -1573,7 +1585,8 @@ public class SoundWrappedService {
 
 			if (playlists == null || playlists.isEmpty()) {
 				System.err.println("[Buzzing] No playlists found for buzzing-playlists user");
-				return new HashMap<>();
+
+				return new HashMap<String, Object>();
 			}
 
 			System.out.println("[Buzzing] Found " + playlists.size() + " playlist(s), collecting tracks...");
@@ -1582,19 +1595,26 @@ public class SoundWrappedService {
 			List<Map<String, Object>> allTracks = new ArrayList<>();
 			for (Map<String, Object> playlist : playlists) {
 				Object idObj = playlist.get("id");
-				if (idObj == null) continue;
+
+				if (idObj == null)
+					continue;
+
 				String playlistId = String.valueOf(idObj);
+
 				try {
 					List<Map<String, Object>> tracks = getTracksFromPlaylistById(playlistId, accessToken);
 					allTracks.addAll(tracks);
-				} catch (Exception e) {
+				}
+
+				catch (Exception e) {
 					System.err.println("[Buzzing] Error fetching tracks from playlist " + playlistId + ": " + e.getMessage());
 				}
 			}
 
 			if (allTracks.isEmpty()) {
 				System.err.println("[Buzzing] No tracks found across all buzzing playlists");
-				return new HashMap<>();
+
+				return new HashMap<String, Object>();
 			}
 
 			System.out.println("[Buzzing] Total tracks collected: " + allTracks.size());
@@ -1604,17 +1624,21 @@ public class SoundWrappedService {
 			Random rng = new Random(seed);
 			int index = rng.nextInt(allTracks.size());
 
-			Map<String, Object> picked = new HashMap<>(allTracks.get(index));
+			Map<String, Object> picked = new HashMap<String, Object>(allTracks.get(index));
 			picked.put("buzzing_label", "Artist to watch out for");
 			System.out.println("[Buzzing] Today's buzzing track (#" + index + "): " + picked.get("title"));
 
 			cachedBuzzingTrack = picked;
 			cachedBuzzingDate = today;
+
 			return picked;
-		} catch (Exception e) {
+		}
+
+		catch (Exception e) {
 			System.err.println("[Buzzing] Error: " + e.getMessage());
 			e.printStackTrace();
-			return new HashMap<>();
+
+			return new HashMap<String, Object>();
 		}
 	}
 
@@ -1631,50 +1655,58 @@ public class SoundWrappedService {
 		try {
 			// Check if we have a cached track for today
 			LocalDate today = LocalDate.now();
+
 			if (cachedSongOfTheDay != null && cachedSongDate != null && cachedSongDate.equals(today)) {
 				System.out.println("Returning cached song of the day: " + cachedSongOfTheDay.get("title") + " (cached on " + cachedSongDate + ")");
+
 				return cachedSongOfTheDay;
 			}
-			
+
 			// Primary Strategy: Discovery tracks (high engagement, rising tracks)
 			// These are tracks with good engagement metrics but not necessarily in top charts
 			System.out.println("Fetching Song of the Day from discovery tracks...");
 			List<Map<String, Object>> discoveryTracks = getDiscoveryTracks(20);
+
 			if (!discoveryTracks.isEmpty()) {
 				// Use date-based seed to select a track consistently throughout the day
 				long seed = today.toEpochDay();
 				Random random = new Random(seed);
 				int selectedIndex = random.nextInt(Math.min(discoveryTracks.size(), 10));
 				Map<String, Object> selectedTrack = discoveryTracks.get(selectedIndex);
-				
+
 				// Fetch lyrics for the track (async/non-blocking)
 				try {
 					Object userObj = selectedTrack.get("user");
+
 					if (userObj instanceof Map<?, ?> userMap) {
 						@SuppressWarnings("unchecked")
 						Map<String, Object> userMapTyped = (Map<String, Object>) userMap;
 						String artist = (String) userMapTyped.getOrDefault("username", "");
 						String title = (String) selectedTrack.getOrDefault("title", "");
+
 						if (!artist.isEmpty() && !title.isEmpty()) {
 							String lyrics = lyricsService.getLyrics(artist, title);
-							if (lyrics != null && !lyrics.isEmpty()) {
+
+							if (lyrics != null && !lyrics.isEmpty())
 								selectedTrack.put("lyrics", lyrics);
-							}
 						}
 					}
-				} catch (Exception e) {
+				}
+
+				catch (Exception e) {
 					System.out.println("Error fetching lyrics for featured track: " + e.getMessage());
 					// Continue without lyrics - not critical
 				}
-				
+
 				// Cache the result for today
 				cachedSongOfTheDay = selectedTrack;
 				cachedSongDate = today;
-				
+
 				System.out.println("Song of the day (from discovery): " + selectedTrack.get("title") + " (cached for " + today + ")");
+
 				return selectedTrack;
 			}
-			
+
 			// Fallback: Use popular tracks positions 11-30 (avoiding top 10 which might overlap with Popular Now)
 			System.out.println("Discovery method returned no tracks, using popular tracks 11-30 as fallback...");
 			List<Map<String, Object>> popularTracks = getPopularTracks(50);

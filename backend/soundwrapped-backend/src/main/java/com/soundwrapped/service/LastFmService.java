@@ -228,20 +228,22 @@ public class LastFmService {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private Map<String, Object> safeMap(Object obj) {
-        if (!(obj instanceof Map<?, ?>)) return null;
+        if (!(obj instanceof Map<?, ?>))
+            return null;
+
         Map<String, Object> out = new HashMap<>();
-        for (Map.Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet()) {
-            if (entry.getKey() instanceof String) {
+
+        for (Map.Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet())
+            if (entry.getKey() instanceof String)
                 out.put((String) entry.getKey(), entry.getValue());
-            }
-        }
+
         return out;
     }
 
     private String extractString(Map<String, Object> map, String key) {
         Object val = map.get(key);
+
         return val instanceof String ? (String) val : null;
     }
 
@@ -250,13 +252,20 @@ public class LastFmService {
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] hash = md.digest(input.getBytes("UTF-8"));
             StringBuilder hex = new StringBuilder(hash.length * 2);
+
             for (byte b : hash) {
                 String h = Integer.toHexString(0xff & b);
-                if (h.length() == 1) hex.append('0');
+
+                if (h.length() == 1)
+                    hex.append('0');
+
                 hex.append(h);
             }
+
             return hex.toString();
-        } catch (Exception e) {
+        }
+
+        catch (Exception e) {
             throw new RuntimeException("MD5 hashing failed", e);
         }
     }
