@@ -33,7 +33,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Service
 public class LastFmScrobblingService {
-
     private final LastFmService lastFmService;
     private final LastFmTokenRepository lastFmTokenRepository;
     private final UserActivityRepository userActivityRepository;
@@ -204,11 +203,14 @@ public class LastFmScrobblingService {
                 url, HttpMethod.GET, req,
                 new ParameterizedTypeReference<List<Map<String, Object>>>() {});
 
-            if (resp.getStatusCode().is2xxSuccessful() && resp.getBody() != null) {
-                for (Map<String, Object> track : resp.getBody()) {
+            List<Map<String, Object>> respBody = resp.getBody();
+
+            if (resp.getStatusCode().is2xxSuccessful() && respBody != null) {
+                for (Map<String, Object> track : respBody) {
                     String scTitle  = (String) track.get("title");
                     Object userObj  = track.get("user");
                     String scArtist = null;
+
                     if (userObj instanceof Map) {
                         @SuppressWarnings("unchecked")
                         Map<String, Object> userMap = (Map<String, Object>) userObj;
@@ -218,15 +220,19 @@ public class LastFmScrobblingService {
                     if (fuzzyMatch(artist, scArtist) && fuzzyMatch(title, scTitle)) {
                         String id = String.valueOf(track.get("id"));
                         scTrackCache.put(cacheKey, id);
+
                         return id;
                     }
                 }
             }
-        } catch (Exception e) {
+        }
+
+        catch (Exception e) {
             // Track may simply not exist on SoundCloud — that's fine
         }
 
         scTrackCache.put(cacheKey, ""); // negative cache
+
         return null;
     }
 
@@ -241,12 +247,15 @@ public class LastFmScrobblingService {
      */
     private String extractArtistName(Map<String, Object> track) {
         Object artistObj = track.get("artist");
+
         if (artistObj instanceof Map) {
             @SuppressWarnings("unchecked")
             Map<String, Object> map = (Map<String, Object>) artistObj;
             Object text = map.get("#text");
+
             return text instanceof String ? (String) text : null;
         }
+
         return artistObj instanceof String ? (String) artistObj : null;
     }
 
@@ -257,33 +266,46 @@ public class LastFmScrobblingService {
      */
     private Long extractScrobbleTimestamp(Map<String, Object> track) {
         Object dateObj = track.get("date");
+
         if (dateObj instanceof Map) {
             @SuppressWarnings("unchecked")
             Map<String, Object> dateMap = (Map<String, Object>) dateObj;
             Object uts = dateMap.get("uts");
+
             if (uts instanceof String) {
-                try { return Long.parseLong((String) uts); }
-                catch (NumberFormatException ignored) {}
-            } else if (uts instanceof Number) {
-                return ((Number) uts).longValue();
+                try {
+                    return Long.parseLong((String) uts);
+                }
+
+                catch (NumberFormatException ignored) {
+                    // If parsing fails, we'll return null below and skip this track
+                }
             }
+
+            else if (uts instanceof Number)
+                return ((Number) uts).longValue();
         }
+
         return null;
     }
 
     /** Check whether the track is a "now playing" entry (no completed timestamp). */
     private boolean isNowPlaying(Map<String, Object> track) {
         Object attr = track.get("@attr");
+
         if (attr instanceof Map) {
             @SuppressWarnings("unchecked")
             Map<String, Object> attrMap = (Map<String, Object>) attr;
+
             return "true".equals(String.valueOf(attrMap.get("nowplaying")));
         }
+
         return track.get("date") == null;
     }
 
     private String extractString(Map<String, Object> map, String key) {
         Object v = map.get(key);
+
         return v instanceof String ? (String) v : null;
     }
 
@@ -292,11 +314,14 @@ public class LastFmScrobblingService {
      * collapse whitespace.
      */
     static String normalize(String s) {
-        if (s == null) return "";
-        return s.toLowerCase()
-            .replaceAll("[^a-z0-9\\s]", "")
-            .replaceAll("\\s+", " ")
-            .trim();
+        if (s == null)
+            return "";
+
+        else
+            return s.toLowerCase()
+                .replaceAll("[^a-z0-9\\s]", "")
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     /**
@@ -304,9 +329,12 @@ public class LastFmScrobblingService {
      * (covers cases like "Artist - Track (Remix)" matching "Track").
      */
     static boolean fuzzyMatch(String a, String b) {
-        if (a == null || b == null) return false;
+        if (a == null || b == null)
+            return false;
+
         String na = normalize(a);
         String nb = normalize(b);
+
         return na.equals(nb) || na.contains(nb) || nb.contains(na);
     }
 }

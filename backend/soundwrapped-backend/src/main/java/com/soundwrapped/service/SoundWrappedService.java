@@ -17,8 +17,6 @@ import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.Arrays;
-import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import jakarta.annotation.PostConstruct;
@@ -1563,7 +1561,6 @@ public class SoundWrappedService {
 
 			// Extract playlist IDs from the paginated response
 			Map<String, Object> body = playlistsResponse.getBody();
-			@SuppressWarnings("unchecked")
 
 			// In case body is null or doesn't contain "collection", try to handle it gracefully
 			if (body == null) {
@@ -1572,6 +1569,7 @@ public class SoundWrappedService {
 				return new HashMap<String, Object>();
 			}
 
+			@SuppressWarnings("unchecked")
 			List<Map<String, Object>> playlists = (List<Map<String, Object>>) body.get("collection");
 
 			if (playlists == null) {
