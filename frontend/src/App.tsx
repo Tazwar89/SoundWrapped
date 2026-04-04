@@ -37,9 +37,10 @@ function App() {
           <MusicDataProvider>
             <Helmet>
               <title>SoundWrapped - Your Music Journey</title>
-              <meta name="description" content="Discover your music taste with SoundWrapped - personalized insights from SoundCloud and Spotify" />
+              <link rel="icon" type="image/gif" href="https://imgur.com/a/MxTDzSt"/>
+              <meta name="description" content="Discover your music taste with SoundWrapped - personalized insights from SoundCloud" />
             </Helmet>
-            
+
             <Layout>
               <Suspense fallback={<LoadingSpinner />}>
                 <Routes>
