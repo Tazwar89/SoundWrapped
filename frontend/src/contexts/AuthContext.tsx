@@ -48,8 +48,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(true)
 
       // Real SoundCloud OAuth flow
-      const clientId = '5pRC171gW1jxprhKPRMUJ5mpsCLRfmaM'
-      const redirectUri = encodeURIComponent(import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080')
+      const clientId = '5pRC171gW1jxprhKPRMUJ5mpsCLRfmaM' //TODO: Move to backend .env and proxy through backend for better security
+      const redirectUri = encodeURIComponent(import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080') + '/lastfm/callback'
       const scope = '' // Empty scope as required by SoundCloud
       const responseType = 'code'
       const authUrl = `https://api.soundcloud.com/connect?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}`
