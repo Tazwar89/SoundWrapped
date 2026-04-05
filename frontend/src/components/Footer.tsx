@@ -10,7 +10,7 @@ const Footer: React.FC = () => {
           {/* Brand */}
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center space-x-2 mb-4">
-              <Music className="h-8 w-8 text-orange-500" />
+              <Music className="h-8 w-8 text-orange-500 group-hover:text-orange-400 transition-colors"/>
               <span className="text-2xl font-bold gradient-text">SoundWrapped</span>
             </div>
             <p className="text-slate-400 mb-4 max-w-md">
@@ -22,7 +22,7 @@ const Footer: React.FC = () => {
             </p>
             <div className="flex space-x-4">
               <a
-                href="https://github.com"
+                href="https://github.com/Tazwar89/SoundWrapped"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
@@ -30,7 +30,7 @@ const Footer: React.FC = () => {
                 <Github className="h-5 w-5 text-slate-400" />
               </a>
               <a
-                href="https://twitter.com"
+                href="https://twitter.com/Tazwar89"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
@@ -38,7 +38,7 @@ const Footer: React.FC = () => {
                 <Twitter className="h-5 w-5 text-slate-400" />
               </a>
               <a
-                href="mailto:hello@soundwrapped.com"
+                href="mailto:tazwar.sikder@outlook.com"
                 className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
               >
                 <Mail className="h-5 w-5 text-slate-400" />

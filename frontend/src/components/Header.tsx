@@ -29,7 +29,7 @@ const Header: React.FC = () => {
               <Music className="h-8 w-8 text-orange-500 group-hover:text-orange-400 transition-colors" />
               <div className="absolute -top-1 -right-1 h-3 w-3 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full animate-pulse" />
             </div>
-            <span className="text-xl font-bold gradient-text">SoundWrapped</span>
+            <span className="text-2xl font-bold gradient-text">SoundWrapped</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -42,13 +42,14 @@ const Header: React.FC = () => {
                   to={item.href}
                   onMouseEnter={() => {
                     // Prefetch route on hover
-                    if (item.href === '/dashboard') {
+                    if (item.href === '/dashboard')
                       import('../pages/DashboardPage')
-                    } else if (item.href === '/wrapped') {
+
+                    else if (item.href === '/wrapped')
                       import('../pages/WrappedPage')
-                    } else if (item.href === '/music-taste-map') {
+
+                    else if (item.href === '/music-taste-map')
                       import('../pages/MusicTasteMapPage')
-                    }
                   }}
                   className={cn(
                     'flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
@@ -137,13 +138,14 @@ const Header: React.FC = () => {
                     to={item.href}
                     onMouseEnter={() => {
                       // Prefetch route on hover
-                      if (item.href === '/dashboard') {
+                      if (item.href === '/dashboard')
                         import('../pages/DashboardPage')
-                      } else if (item.href === '/wrapped') {
+
+                      else if (item.href === '/wrapped')
                         import('../pages/WrappedPage')
-                      } else if (item.href === '/music-taste-map') {
+
+                      else if (item.href === '/music-taste-map')
                         import('../pages/MusicTasteMapPage')
-                      }
                     }}
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={cn(
