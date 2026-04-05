@@ -520,7 +520,7 @@ mvn verify                  # Integration tests with Testcontainers
 ### Frontend Tests
    ```bash
 cd frontend
-npm test                    # Unit tests
+npm test                   # Unit tests
 npm run test:coverage      # Coverage report
 ```
 
@@ -579,7 +579,7 @@ SoundWrapped/
 - **Wikipedia REST API**: Artist biographies
 - **Google Knowledge Graph API**: Entity descriptions
 - **Groq API**: AI-powered descriptions and poetry generation using `llama-3.3-70b-versatile` (free tier)
-- **SerpAPI**: Comprehensive web search for additional context (optional)
+- **SerpAPI**: Comprehensive web search for additional context
 - **TheAudioDB API**: Enhanced artist profiles, artwork, discographies (optional)
 - **Lyrics.ovh**: Lyrics fetching (free, no auth required)
 
@@ -589,11 +589,11 @@ See [LICENSE](LICENSE) file for details.
 
 ## Author
 
-**Tazwar Sikder**
+[**Tazwar Sikder**](https://www.linkedin.com/in/tazwar89/)
 
 ## Acknowledgments
 
-- Inspired by Spotify Wrapped, SoundCloud Playback 2025, and volt.fm
+- Inspired by Spotify Wrapped, SoundCloud Playback, and volt.fm
 - SoundCloud API for music data
 - Last.fm for scrobbling and similar artists
 - Wikipedia and Google Knowledge Graph for rich descriptions
