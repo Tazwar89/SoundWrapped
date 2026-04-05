@@ -2,14 +2,14 @@
 
 A comprehensive music analytics platform that provides personalized insights from SoundCloud, inspired by Spotify Wrapped. SoundWrapped offers daily featured content, detailed analytics, and interactive visualizations to help users discover and understand their music taste.
 
-## ✨ Features
+## Features
 
-### 🏠 Homepage - Daily Featured Content
+### Homepage - Daily Featured Content
 ![home](https://github.com/user-attachments/assets/df0bfcb0-3a8a-4ad2-982a-1766367fe507)
 
 The homepage showcases three daily rotating features that persist throughout the day using time-seed based caching:
 
-#### 🎵 Song of the Day
+#### Song of the Day
 - **Feature**: Displays a featured track selected from popular SoundCloud tracks
 - **Technical Implementation**: 
   - **Selection Algorithm** (prioritized order):
@@ -19,7 +19,7 @@ The homepage showcases three daily rotating features that persist throughout the
   - Uses date-based seed (`LocalDate.now().toEpochDay()`) for deterministic daily selection
   - Cached for 24 hours to ensure consistency
 
-#### 🎤 Artist of the Day
+#### Artist of the Day
 <img width="1149" height="516" alt="artist of the day" src="https://github.com/user-attachments/assets/3993eda9-20e3-43b3-a537-0ed82b3657a8" />
 
 - **Feature**: Highlights a featured artist with their popular tracks and biography
@@ -29,10 +29,10 @@ The homepage showcases three daily rotating features that persist throughout the
     1. **Research Phase**: Aggregates data from multiple sources:
        - **Wikipedia API** (`/api/rest_v1/page/summary/`): Fetches full extract paragraph from Wikipedia articles
        - **Google Knowledge Graph API**: Retrieves detailed descriptions from Google's Knowledge Graph
-       - **SerpAPI**: Comprehensive web search for additional context (optional)
+       - **SerpAPI**: Comprehensive web search for additional context
     2. **AI Generation**: Uses Groq API (`llama-3.3-70b-versatile`) to synthesize research into 2-3 sentence description (50-100 words)
     3. **Fallback**: SoundCloud bio or generic description if AI generation fails
-  - **Verification Criteria**: More lenient - attempts description generation for all artists, with quality checks
+  - **Verification Criteria**: More lenient: attempts description generation for all artists, with quality checks
   - **Track Fetching**: Uses multiple fallback strategies:
     - Attempts `popular-tracks` URL resolution
     - Falls back to direct user URN track fetching
@@ -40,7 +40,7 @@ The homepage showcases three daily rotating features that persist throughout the
   - **Name Matching**: Tries multiple name variations (case-insensitive, camelCase) to find Wikipedia pages
   - Cached for 24 hours using date-based seed
 
-#### 🎸 Genre of the Day
+#### Genre of the Day
 <img width="1147" height="508" alt="genre of the day" src="https://github.com/user-attachments/assets/1ecf2b0b-01b1-4ab4-9cd9-adaa71fe6269" />
 
 - **Feature**: Features a music genre with popular tracks and description
@@ -58,7 +58,7 @@ The homepage showcases three daily rotating features that persist throughout the
     - English titles preferred
   - Cached for 24 hours using date-based seed
 
-#### 🔥 Popular Now
+#### Popular Now
 <img width="1149" height="480" alt="popular now" src="https://github.com/user-attachments/assets/1ee63981-0fd5-4144-882a-48efb3161952" />
 
 - **Feature**: Displays the first 5 tracks from the US Top 50 charts playlist
@@ -67,7 +67,7 @@ The homepage showcases three daily rotating features that persist throughout the
   - Returns tracks in their original playlist order (no sorting) to show the actual top 5
   - Uses `/playlists/{id}/tracks` endpoint with pagination support
 
-#### 🐝 Buzzing
+#### Buzzing
 - **Feature**: Highlights an up-and-coming artist/track daily from SoundCloud's buzzing playlists
 - **Technical Implementation**:
   - Fetches playlists from SoundCloud user `buzzing-playlists` (`/users/buzzing-playlists/playlists?limit=50`)
@@ -77,7 +77,7 @@ The homepage showcases three daily rotating features that persist throughout the
   - Labels track with "Artist to watch out for"
   - Manual in-memory field caching (not Caffeine-managed)
 
-### 📊 Dashboard Analytics
+### Dashboard Analytics
 
 Comprehensive analytics dashboard showing:
 - **Top Tracks**: User's most played tracks
@@ -89,7 +89,7 @@ Comprehensive analytics dashboard showing:
 - **Listening Patterns**: Peak hours, peak days, and listening persona (Early Bird, Afternoon Listener, Evening Vibes, Night Owl)
 - **Genre Constellation**: Interactive 3D visualization of genre relationships (HTML5 Canvas)
 
-### 🎁 SoundCloud Wrapped
+### SoundCloud Wrapped
 
 A Spotify Wrapped-style summary featuring:
 - **Personalized Stories**: Slide-by-slide presentation of music insights
@@ -119,7 +119,7 @@ A Spotify Wrapped-style summary featuring:
 - **Error Boundary & Retry**: React error boundaries for graceful crash handling, exponential backoff retry hook for failed API calls
 - **Caffeine Caching**: In-memory caching for Groq descriptions (1h), enhanced artists (24h), similar artists (12h), lyrics (7d), popular tracks (30m), SoundCloud track search (24h)
 
-### 🗺️ Music Taste Map
+### Music Taste Map
 
 Interactive world map visualization showing:
 - **Similar Listeners by City**: Geographic distribution of similar music tastes
@@ -127,7 +127,7 @@ Interactive world map visualization showing:
 - **Top Genres by Location**: Genre analysis for each city
 - **Interactive Visualization**: Click cities to see detailed insights
 
-### 👥 Music Doppelgänger
+### Music Doppelgänger
 
 Finds users with similar music taste by:
 - Analyzing liked tracks and playlists
@@ -135,7 +135,7 @@ Finds users with similar music taste by:
 - Matching with followed users
 - Calculating similarity scores
 
-### 🎨 Artist Analytics
+### Artist Analytics
 
 For users who upload tracks:
 - **Track Performance**: Playback counts, likes, reposts
@@ -143,7 +143,7 @@ For users who upload tracks:
 - **Top Performing Tracks**: Best performing uploads
 - **Recommendations**: Artist recommendations based on track analysis
 
-### 🎵 Last.fm Scrobbling Integration
+### Last.fm Scrobbling Integration
 <img width="1280" height="535" alt="last fm connection" src="https://github.com/user-attachments/assets/807546d7-ede8-4789-a577-b74b35687cd3" />
 
 Integrates with Last.fm via Web Auth OAuth to pull long-term listening history beyond SoundCloud limits.
@@ -166,7 +166,7 @@ Integrates with Last.fm via Web Auth OAuth to pull long-term listening history b
 - Unmatched Last.fm scrobbles are still stored for analytics
 - Uses `soundcloudTrackSearch` Caffeine cache (5000 entries, 24h TTL) to avoid redundant search API calls
 
-## 🏗️ Technical Architecture
+## Technical Architecture
 
 SoundWrapped follows a **Model-View-Controller (MVC)** architectural pattern, providing clear separation of concerns and maintainable code structure.
 
@@ -233,8 +233,9 @@ SoundWrapped follows a **Model-View-Controller (MVC)** architectural pattern, pr
 - **Wikipedia API**: REST API (`/api/rest_v1/page/summary/`) for artist biographies
 - **Google Knowledge Graph API**: Entity search API for descriptions and genre information
 - **Groq API**: AI-powered description and poetry generation using `llama-3.3-70b-versatile` model (free tier, OpenAI-compatible)
-- **SerpAPI**: Comprehensive web search for additional context (optional)
-- **Token Management**: Automatic refresh, secure storage in H2/PostgreSQL database
+- **SerpAPI**: Comprehensive web search for further context
+- **TheAudioDB**: (Optional) Additional audio artwork and metadata context
+- **Token Management**: Automatic refresh, secure storage in PostgreSQL database
 
 #### Caching Strategy
 - **Caffeine In-Memory Cache**: Spring Cache with Caffeine for expensive external API calls:
@@ -287,13 +288,13 @@ SoundWrapped follows a **Model-View-Controller (MVC)** architectural pattern, pr
 - **MusicTasteMapPage**: Interactive geographic taste visualization
 - **LastFmCallbackPage**: Last.fm OAuth callback handler
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - Java 17+
 - Node.js 18+
 - Maven 3.6+
-- PostgreSQL 15+ (optional, H2 used by default)
+- PostgreSQL 18+
 
 ### Backend Setup
 
@@ -303,6 +304,9 @@ cd backend/soundwrapped-backend
 # Configure API keys in application.yml
 # - SoundCloud Client ID & Secret
 # - Google Knowledge Graph API Key
+# - Groq API Key
+# - SerpAPI Key
+# - TheAudioDB API Key
 
 # Run with Maven
 mvn spring-boot:run
@@ -342,13 +346,13 @@ docker-compose up --build
 
 # Services will be available at:
 # - Frontend: http://localhost:3000
-# - Backend: http://localhost:8081
+# - Backend: http://localhost:8080
 # - Database: localhost:5432
 ```
 
 **Note**: The Dockerfile uses `eclipse-temurin:17-jre` as the base image. Environment variables should be provided via `docker-compose.yml` or `.env` file, not baked into the image.
 
-## 🔧 Configuration
+## Configuration
 
 ### Backend Configuration
 
@@ -410,14 +414,14 @@ soundcloud:
 
 google:
   knowledge-graph:
-    api-key: ${GOOGLE_KNOWLEDGE_GRAPH_API_KEY:}
+    api-key: ${GOOGLE_KNOWLEDGE_GRAPH_API_KEY}
 
 groq:
-  api-key: ${GROQ_API_KEY:}
+  api-key: ${GROQ_API_KEY}
   base-url: https://api.groq.com/openai/v1
 
 serpapi:
-  api-key: ${SERPAPI_API_KEY:}
+  api-key: ${SERPAPI_API_KEY}
 ```
 
 **Note**: The `${VARIABLE_NAME:default_value}` syntax means "use environment variable if available, otherwise use default value". For production, always use environment variables to keep secrets secure.
@@ -429,7 +433,7 @@ VITE_API_BASE_URL=http://localhost:8080/api
 VITE_SOUNDCLOUD_CLIENT_ID=YOUR_SOUNDCLOUD_CLIENT_ID
 ```
 
-## 📡 API Endpoints
+## API Endpoints
 
 ### User Data
 - `GET /api/soundcloud/profile` — User profile
@@ -482,7 +486,7 @@ VITE_SOUNDCLOUD_CLIENT_ID=YOUR_SOUNDCLOUD_CLIENT_ID
 - `GET /api/soundcloud/debug/tokens` — Token status
 - `GET /api/soundcloud/debug/oauth-url` — Generate OAuth URL
 
-## 🔐 Authentication Flows
+## Authentication Flows
 
 ### SoundCloud OAuth2
 1. User clicks "Connect SoundCloud" on homepage
@@ -504,7 +508,7 @@ VITE_SOUNDCLOUD_CLIENT_ID=YOUR_SOUNDCLOUD_CLIENT_ID
 
 **Note**: Last.fm Web Auth uses only `api_key` + `cb` (callback URL) in the auth URL — no request token is included, which ensures Last.fm uses its Web Auth flow and properly redirects back to the application.
 
-## 🧪 Testing
+## QA Testing
 
 ### Backend Tests
 ```bash
@@ -520,7 +524,7 @@ npm test                    # Unit tests
 npm run test:coverage      # Coverage report
 ```
 
-## 📦 Project Structure
+## Project Structure
 
 ```
 SoundWrapped/
@@ -547,7 +551,7 @@ SoundWrapped/
 └── docker-compose.yml           # Docker orchestration (frontend, backend, postgres)
 ```
 
-## 🛠️ Technologies Used
+## Tech Stack
 
 ### Backend
 - **Spring Boot 3.5.5**: Application framework
@@ -579,15 +583,15 @@ SoundWrapped/
 - **TheAudioDB API**: Enhanced artist profiles, artwork, discographies (optional)
 - **Lyrics.ovh**: Lyrics fetching (free, no auth required)
 
-## 📝 License
+## License
 
 See [LICENSE](LICENSE) file for details.
 
-## 👤 Author
+## Author
 
 **Tazwar Sikder**
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Inspired by Spotify Wrapped, SoundCloud Playback 2025, and volt.fm
 - SoundCloud API for music data
@@ -598,7 +602,7 @@ See [LICENSE](LICENSE) file for details.
 - TheAudioDB for enhanced artist profiles
 - Lyrics.ovh for lyrics data
 
-## 📚 Additional Documentation
+## Additional Documentation
 
 - [API Documentation](docs/API.md) - Full REST API reference
 - [API Keys Setup](docs/API_KEYS_SETUP.md) - How to obtain and configure API keys
