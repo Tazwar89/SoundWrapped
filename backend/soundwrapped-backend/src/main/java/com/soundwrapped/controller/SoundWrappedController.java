@@ -621,8 +621,8 @@ public class SoundWrappedController {
 	@GetMapping("/debug/oauth-url")
 	public Map<String, Object> getOAuthUrl() {
 		Map<String, Object> result = new HashMap<String, Object>();
-		String clientId = "5pRC171gW1jxprhKPRMUJ5mpsCLRfmaM";
-		String redirectUri = "http://localhost:8080/callback";
+		String clientId = System.getenv().getOrDefault("SOUNDCLOUD_CLIENT_ID", "");
+		String redirectUri = System.getenv().getOrDefault("REDIRECT_URI", "http://localhost:8080/callback");
 		String scope = "";
 		String responseType = "code";
 		String authUrl = String.format("https://api.soundcloud.com/connect?client_id=%s&redirect_uri=%s&response_type=%s&scope=%s",

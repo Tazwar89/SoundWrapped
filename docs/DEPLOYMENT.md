@@ -1,440 +1,218 @@
 # 🚀 SoundWrapped Deployment Guide
 
-This guide covers deploying SoundWrapped to production environments including cloud platforms like Render, Fly.io, and Railway.
+This guide covers SoundWrapped's production deployment on Render.com, as well as local development setup and alternative deployment options.
 
-## 📋 Prerequisites
+## 📋 Production Architecture
 
-- Docker and Docker Compose installed
-- Domain name (optional but recommended)
-- SSL certificate (for HTTPS)
-- Cloud platform account (Render, Fly.io, Railway, etc.)
+SoundWrapped is deployed on [Render](https://render.com) with three services:
+
+| Component | Service Type | URL |
+|-----------|-------------|-----|
+| **Frontend** | Static Site | [soundwrapped.onrender.com](https://soundwrapped.onrender.com) |
+| **Backend** | Web Service (Docker) | [soundwrapped-backend.onrender.com](https://soundwrapped-backend.onrender.com) |
+| **Database** | PostgreSQL Add-on | Managed by Render (internal connection string) |
 
 ## 🏗️ Local Development Setup
 
 ### 1. Clone and Setup
 ```bash
-git clone https://github.com/your-username/SoundWrapped.git
+git clone https://github.com/tazwarsikder/SoundWrapped.git
 cd SoundWrapped
 ```
 
 ### 2. Environment Configuration
 ```bash
-# Create environment files
-cp .env.example .env
-cp frontend/.env.example frontend/.env
+# Backend: create .env in backend/soundwrapped-backend/
+cp backend/soundwrapped-backend/.env.example backend/soundwrapped-backend/.env
+nano backend/soundwrapped-backend/.env
 
-# Edit configuration files
-nano .env
+# Frontend: create .env in frontend/
+cp frontend/env.example frontend/.env
 nano frontend/.env
 ```
 
 ### 3. Start Development Environment
 ```bash
-# Start all services
+# Start all services with Docker Compose
 docker-compose up --build
 
-# Or start individual services
-docker-compose up db backend frontend
+# Or run individually:
+# Backend:
+cd backend/soundwrapped-backend && mvn spring-boot:run
+
+# Frontend (separate terminal):
+cd frontend && npm install && npm run dev
 ```
 
 ### 4. Access Application
 - Frontend: http://localhost:3000
-- Backend API: http://localhost:8081
+- Backend API: http://localhost:8080
 - Database: localhost:5432
 
-## 🌐 Production Deployment
+## 🌐 Render.com Deployment (Production)
 
-### Option 1: Render.com Deployment
+### Backend — Web Service (Docker)
 
-#### Backend Deployment
-1. **Create Render Web Service**
+1. **Create a Render Web Service**
    - Connect your GitHub repository
-   - Select `backend/soundwrapped-backend` as root directory
-   - Build command: `mvn clean package -DskipTests`
-   - Start command: `java -jar target/soundwrapped-backend-0.0.1-SNAPSHOT.jar`
+   - **Environment**: Docker
+   - **Docker Context Directory**: `backend/soundwrapped-backend`
+   - **Dockerfile Path**: `backend/soundwrapped-backend/Dockerfile`
+   - Render auto-detects the multi-stage Maven build
 
-2. **Environment Variables**
+2. **Environment Variables** (set in Render dashboard)
    ```env
-   SPRING_PROFILES_ACTIVE=production
-   SPRING_DATASOURCE_URL=jdbc:postgresql://your-db-url
-   SPRING_DATASOURCE_USERNAME=your-username
-   SPRING_DATASOURCE_PASSWORD=your-password
-   SOUNDCLOUD_CLIENT_ID=your-client-id
-   SOUNDCLOUD_CLIENT_SECRET=your-client-secret
+   SPRING_PROFILES_ACTIVE=default
+   SPRING_DATASOURCE_URL=jdbc:postgresql://<render-internal-db-host>:5432/<db-name>
+   SPRING_DATASOURCE_USERNAME=<db-user>
+   SPRING_DATASOURCE_PASSWORD=<db-password>
+   SOUNDCLOUD_CLIENT_ID=<your-client-id>
+   SOUNDCLOUD_CLIENT_SECRET=<your-client-secret>
+   REDIRECT_URI=https://soundwrapped-backend.onrender.com/callback
+   APP_FRONTEND_BASE_URL=https://soundwrapped.onrender.com
+   LASTFM_API_KEY=<your-lastfm-key>
+   LASTFM_API_SECRET=<your-lastfm-secret>
+   LASTFM_CALLBACK_URL=https://soundwrapped-backend.onrender.com/api/lastfm/callback
+   GROQ_API_KEY=<your-groq-key>
+   GOOGLE_KNOWLEDGE_GRAPH_API_KEY=<your-google-key>
+   SERPAPI_API_KEY=<your-serpapi-key>
+   THEAUDIODB_API_KEY=<your-theaudiodb-key>
    ```
 
-3. **Create PostgreSQL Database**
-   - Add PostgreSQL add-on in Render
-   - Copy connection details to backend environment variables
+3. **Create PostgreSQL Add-on**
+   - Add a PostgreSQL instance from the Render dashboard
+   - Copy the internal connection string into `SPRING_DATASOURCE_URL`
+   - Render manages backups, scaling, and access control
 
-#### Frontend Deployment
-1. **Create Static Site**
-   - Connect GitHub repository
-   - Select `frontend` as root directory
-   - Build command: `npm install && npm run build`
-   - Publish directory: `dist`
+4. **Notes**
+   - The Dockerfile `EXPOSE`s port 10000; Render sets the `PORT` environment variable accordingly
+   - The app binds to `0.0.0.0:${PORT:8080}` via `application.yml`
+   - JVM flags: `-Xms256m -Xmx600m -XX:+TieredCompilation -XX:TieredStopAtLevel=1`
+   - Schema management: Hibernate `ddl-auto: update` (no Flyway/Liquibase migrations)
 
-2. **Environment Variables**
+### Frontend — Static Site
+
+1. **Create a Render Static Site**
+   - Connect your GitHub repository
+   - **Root Directory**: `frontend`
+   - **Build Command**: `npm install && npm run build`
+   - **Publish Directory**: `dist`
+
+2. **Environment Variables** (set in Render dashboard)
    ```env
-   VITE_API_BASE_URL=https://your-backend-url.onrender.com/api
-   VITE_SOUNDCLOUD_CLIENT_ID=your-client-id
-   VITE_SPOTIFY_CLIENT_ID=your-spotify-client-id
+   VITE_API_BASE_URL=https://soundwrapped-backend.onrender.com/api
+   VITE_BACKEND_URL=https://soundwrapped-backend.onrender.com
    ```
 
-### Option 2: Fly.io Deployment
+3. **SPA Routing**
+   - `frontend/public/_redirects` contains `/* /index.html 200` for client-side routing
+   - This ensures React Router handles all paths (Render respects `_redirects` files like Netlify)
 
-#### 1. Install Fly CLI
-```bash
-# macOS
-brew install flyctl
+### SoundCloud OAuth Redirect URI
 
-# Linux/Windows
-curl -L https://fly.io/install.sh | sh
+The SoundCloud app dashboard must have the production callback URL registered:
+```
+https://soundwrapped-backend.onrender.com/callback
 ```
 
-#### 2. Deploy Backend
-```bash
-cd backend/soundwrapped-backend
+This is the URL SoundCloud redirects to after user authorization. The backend's `OAuthCallbackController` handles it and redirects the user to the frontend (`APP_FRONTEND_BASE_URL`).
 
-# Initialize Fly app
-fly launch
+### Last.fm Callback URL
 
-# Set environment variables
-fly secrets set SPRING_DATASOURCE_URL="your-db-url"
-fly secrets set SPRING_DATASOURCE_USERNAME="your-username"
-fly secrets set SPRING_DATASOURCE_PASSWORD="your-password"
-fly secrets set SOUNDCLOUD_CLIENT_ID="your-client-id"
-fly secrets set SOUNDCLOUD_CLIENT_SECRET="your-client-secret"
-
-# Deploy
-fly deploy
+The Last.fm callback URL must be accessible from the internet:
+```
+https://soundwrapped-backend.onrender.com/api/lastfm/callback
 ```
 
-#### 3. Deploy Frontend
-```bash
-cd frontend
-
-# Initialize Fly app
-fly launch
-
-# Set environment variables
-fly secrets set VITE_API_BASE_URL="https://your-backend-app.fly.dev/api"
-
-# Deploy
-fly deploy
-```
-
-### Option 3: Railway Deployment
-
-#### 1. Connect Repository
-- Go to Railway dashboard
-- Click "New Project" → "Deploy from GitHub repo"
-- Select your SoundWrapped repository
-
-#### 2. Configure Services
-- **Backend Service**: Set root directory to `backend/soundwrapped-backend`
-- **Frontend Service**: Set root directory to `frontend`
-- **Database Service**: Add PostgreSQL add-on
-
-#### 3. Environment Variables
-Set the same environment variables as in other platforms.
-
-### Option 4: Docker Compose (VPS)
-
-#### 1. Server Setup
-```bash
-# Update system
-sudo apt update && sudo apt upgrade -y
-
-# Install Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sh get-docker.sh
-
-# Install Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
-```
-
-#### 2. Deploy Application
-```bash
-# Clone repository
-git clone https://github.com/your-username/SoundWrapped.git
-cd SoundWrapped
-
-# Configure environment
-cp .env.example .env
-nano .env
-
-# Start services
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-#### 3. SSL Configuration
-```bash
-# Install Certbot
-sudo apt install certbot
-
-# Get SSL certificate
-sudo certbot certonly --standalone -d yourdomain.com
-
-# Update nginx configuration
-sudo nano nginx/nginx.conf
-```
+For local development, use [ngrok](https://ngrok.com) to expose `localhost:8080` with a public URL.
 
 ## 🔧 Configuration
 
 ### Environment Variables
 
-#### Backend (.env)
+#### Backend
 ```env
-# Database
-POSTGRES_DB=soundwrapped
-POSTGRES_USER=soundwrapped_user
-POSTGRES_PASSWORD=your_secure_password
+# Required
+SOUNDCLOUD_CLIENT_ID=<your-client-id>
+SOUNDCLOUD_CLIENT_SECRET=<your-client-secret>
+SPRING_DATASOURCE_URL=jdbc:postgresql://host:5432/dbname
+SPRING_DATASOURCE_USERNAME=<db-user>
+SPRING_DATASOURCE_PASSWORD=<db-password>
+REDIRECT_URI=https://soundwrapped-backend.onrender.com/callback
+APP_FRONTEND_BASE_URL=https://soundwrapped.onrender.com
 
-# SoundCloud API
-SOUNDCLOUD_CLIENT_ID=your_client_id
-SOUNDCLOUD_CLIENT_SECRET=your_client_secret
+# Recommended
+GROQ_API_KEY=<your-groq-key>
+LASTFM_API_KEY=<your-lastfm-key>
+LASTFM_API_SECRET=<your-lastfm-secret>
+LASTFM_CALLBACK_URL=https://soundwrapped-backend.onrender.com/api/lastfm/callback
 
-# Spring Configuration
-SPRING_PROFILES_ACTIVE=production
-SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+# Optional
+GOOGLE_KNOWLEDGE_GRAPH_API_KEY=<your-google-key>
+SERPAPI_API_KEY=<your-serpapi-key>
+THEAUDIODB_API_KEY=<your-theaudiodb-key>
 ```
 
-#### Frontend (.env)
+#### Frontend
 ```env
-# API Configuration
-VITE_API_BASE_URL=https://your-backend-url.com/api
-
-# SoundCloud Configuration
-VITE_SOUNDCLOUD_CLIENT_ID=your_client_id
-
-# Spotify Configuration
-VITE_SPOTIFY_CLIENT_ID=your_spotify_client_id
-VITE_SPOTIFY_REDIRECT_URI=https://your-frontend-url.com/callback/spotify
-```
-
-### Nginx Configuration
-
-Create `nginx/nginx.conf`:
-```nginx
-events {
-    worker_connections 1024;
-}
-
-http {
-    upstream backend {
-        server backend:8081;
-    }
-
-    upstream frontend {
-        server frontend:80;
-    }
-
-    server {
-        listen 80;
-        server_name yourdomain.com;
-        return 301 https://$server_name$request_uri;
-    }
-
-    server {
-        listen 443 ssl;
-        server_name yourdomain.com;
-
-        ssl_certificate /etc/nginx/ssl/cert.pem;
-        ssl_certificate_key /etc/nginx/ssl/key.pem;
-
-        location / {
-            proxy_pass http://frontend;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-        }
-
-        location /api/ {
-            proxy_pass http://backend/api/;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-        }
-    }
-}
+VITE_API_BASE_URL=https://soundwrapped-backend.onrender.com/api
+VITE_BACKEND_URL=https://soundwrapped-backend.onrender.com
 ```
 
 ## 🔍 Monitoring and Logs
 
+### Render Dashboard
+- **Logs**: Available in real-time via the Render dashboard for each service
+- **Metrics**: CPU, memory, and request metrics visible per service
+- **Deploys**: Auto-deploy on push to the connected branch
+
 ### Health Checks
 ```bash
-# Check backend health
-curl https://your-backend-url.com/actuator/health
+# Check backend API
+curl https://soundwrapped-backend.onrender.com/api/soundcloud/debug/test-api
 
 # Check frontend
-curl https://your-frontend-url.com
+curl https://soundwrapped.onrender.com
 ```
 
-### Logs
+### Local Docker Logs
 ```bash
-# Docker Compose logs
 docker-compose logs -f backend
 docker-compose logs -f frontend
-
-# Individual container logs
-docker logs soundwrapped-backend
-docker logs soundwrapped-frontend
 ```
-
-### Monitoring Setup
-1. **Uptime Monitoring**: Use services like UptimeRobot
-2. **Error Tracking**: Integrate Sentry for error monitoring
-3. **Performance Monitoring**: Use New Relic or DataDog
-4. **Database Monitoring**: Set up PostgreSQL monitoring
 
 ## 🔒 Security Considerations
 
-### 1. Environment Variables
-- Never commit `.env` files to version control
-- Use secure password generation
-- Rotate API keys regularly
-
-### 2. Database Security
-- Use strong passwords
-- Enable SSL connections
-- Regular backups
-- Access restrictions
-
-### 3. Application Security
-- Enable HTTPS
-- Set security headers
-- Regular dependency updates
-- Input validation
-
-### 4. API Security
-- Rate limiting
-- CORS configuration
-- Authentication tokens
-- Input sanitization
-
-## 📊 Performance Optimization
-
-### 1. Frontend Optimization
-- Enable gzip compression
-- Use CDN for static assets
-- Implement caching strategies
-- Optimize images and assets
-
-### 2. Backend Optimization
-- Database query optimization
-- Connection pooling
-- Caching strategies
-- Load balancing
-
-### 3. Database Optimization
-- Proper indexing
-- Query optimization
-- Connection pooling
-- Regular maintenance
+- **Environment Variables**: Never commit `.env` files to version control (the `.gitignore` already excludes them). All secrets are configured via the Render dashboard.
+- **CORS**: `CorsConfig.java` allows `https://soundwrapped.onrender.com` and localhost origins for API endpoints. Extension tracking endpoints use `allowedOriginPatterns("*")`.
+- **HTTPS**: Render provides free TLS certificates for all services.
+- **Database**: Render PostgreSQL uses internal connection strings not accessible from the public internet.
+- **Token Storage**: OAuth tokens are stored in the database, not in cookies or localStorage on the backend side.
 
 ## 🚨 Troubleshooting
 
-### Common Issues
+### Render Backend Spins Down (Free Tier)
+Render free-tier Web Services spin down after 15 minutes of inactivity. The first request after spin-down takes 30-60 seconds while the container restarts.
 
-#### 1. Database Connection Issues
-```bash
-# Check database status
-docker-compose ps db
+### SoundCloud OAuth Callback Fails
+- Ensure `REDIRECT_URI` matches the URL registered in the SoundCloud app dashboard exactly
+- Ensure `APP_FRONTEND_BASE_URL` is set so the backend redirects to the frontend after auth
 
-# Check database logs
-docker-compose logs db
+### Last.fm Callback Fails
+- Ensure `LASTFM_CALLBACK_URL` points to the deployed backend, not localhost
+- For local development, use ngrok to expose `localhost:8080` with a public URL
 
-# Test connection
-docker-compose exec backend curl http://db:5432
-```
+### Frontend API Calls Fail
+- Ensure `VITE_API_BASE_URL` points to the deployed backend URL (including `/api` suffix)
+- Check browser console for CORS errors — the backend must include the frontend origin in `CorsConfig.java`
 
-#### 2. Frontend Build Issues
-```bash
-# Clear npm cache
-npm cache clean --force
+### Database Schema Changes
+The app uses Hibernate `ddl-auto: update`. New entity fields are added automatically, but column renames or deletions require manual migration.
 
-# Reinstall dependencies
-rm -rf node_modules package-lock.json
-npm install
+## 🔄 CI/CD
 
-# Check build logs
-npm run build
-```
+GitHub Actions workflow (`.github/workflows/ci.yml`) runs on push:
+- **backend-test**: Maven build + JaCoCo coverage against PostgreSQL 15
+- **frontend-test**: npm test (continue-on-error)
 
-#### 3. Backend Startup Issues
-```bash
-# Check Java version
-java -version
-
-# Check Maven build
-mvn clean package
-
-# Check application logs
-docker-compose logs backend
-```
-
-### Debug Commands
-```bash
-# Check all services
-docker-compose ps
-
-# View logs
-docker-compose logs -f
-
-# Restart services
-docker-compose restart
-
-# Rebuild and restart
-docker-compose up --build --force-recreate
-```
-
-## 📈 Scaling
-
-### Horizontal Scaling
-- Use load balancers
-- Multiple backend instances
-- Database read replicas
-- CDN for static assets
-
-### Vertical Scaling
-- Increase server resources
-- Optimize database performance
-- Implement caching layers
-- Monitor resource usage
-
-## 🔄 CI/CD Pipeline
-
-### GitHub Actions
-The project includes a comprehensive CI/CD pipeline:
-- Automated testing
-- Docker image building
-- Security scanning
-- Deployment automation
-
-### Manual Deployment
-```bash
-# Build and push images
-docker-compose -f docker-compose.prod.yml build
-docker-compose -f docker-compose.prod.yml push
-
-# Deploy to production
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-## 📞 Support
-
-For deployment issues:
-- Check the logs first
-- Review environment variables
-- Verify network connectivity
-- Check resource usage
-
-For additional help:
-- GitHub Issues
-- Documentation
-- Community Discord
-- Email support
-
----
-
-**Happy Deploying! 🚀**
+Render auto-deploys from the connected Git branch on every push.

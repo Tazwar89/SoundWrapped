@@ -332,7 +332,7 @@ cp env.example .env
 npm run dev
 ```
 
-### Docker Setup
+### Docker Setup (Local Development)
 
 ```bash
 # From project root
@@ -351,6 +351,22 @@ docker-compose up --build
 ```
 
 **Note**: The Dockerfile uses `eclipse-temurin:17-jre` as the base image. Environment variables should be provided via `docker-compose.yml` or `.env` file, not baked into the image.
+
+### Production Deployment (Render)
+
+SoundWrapped is deployed on [Render](https://render.com):
+
+| Component | Render Service Type | URL |
+|-----------|-------------------|-----|
+| **Frontend** | Static Site | [soundwrapped.onrender.com](https://soundwrapped.onrender.com) |
+| **Backend** | Web Service (Docker) | [soundwrapped-backend.onrender.com](https://soundwrapped-backend.onrender.com) |
+| **Database** | PostgreSQL Add-on | Managed by Render |
+
+- **Backend**: Deployed via the `Dockerfile` in `backend/soundwrapped-backend/` (multi-stage Maven build → `eclipse-temurin:17-jre`). Render sets the `PORT` environment variable; the app binds to `0.0.0.0:${PORT}` (default 10000).
+- **Frontend**: Built with `npm install && npm run build`, Render serves the `dist/` directory. A `public/_redirects` file (`/* /index.html 200`) handles SPA client-side routing.
+- **Environment variables**: All API keys and database credentials are configured in Render's dashboard, never committed to the repository.
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment instructions.
 
 ## Configuration
 
@@ -582,6 +598,27 @@ SoundWrapped/
 - **SerpAPI**: Comprehensive web search for additional context
 - **TheAudioDB API**: Enhanced artist profiles, artwork, discographies (optional)
 - **Lyrics.ovh**: Lyrics fetching (free, no auth required)
+
+## Known Limitations / Architecture Tradeoffs
+
+### Single-User Token Storage
+The backend stores one SoundCloud OAuth token at a time (via the `tokens` table). If two users share the same deployed backend, they will overwrite each other's session. This is by design — SoundWrapped is a **personal analytics tool** meant for a single user's SoundCloud account.
+
+### In-App vs. Last.fm Play Tracking
+SoundWrapped does **not** provide in-app playback. Play tracking relies entirely on **Last.fm via [Web Scrobbler](https://webscrobbler.com)**, which captures all plays on SoundCloud.com across any browser or device. Both Last.fm-sourced and any legacy in-app activity records are merged in the `user_activities` table with a `source` column (`INAPP` or `LASTFM`).
+
+### trackId Column Duality
+In the `user_activities` table, `trackId` serves a dual purpose:
+- For Last.fm scrobbles **matched** to a SoundCloud track: stores the numeric SoundCloud track ID
+- For **unmatched** scrobbles: stores a composite `artist|title` string
+
+Queries that assume `trackId` is always a numeric ID must account for this. The `matchedSoundCloudTrackId` column provides the canonical SoundCloud ID when a match was found.
+
+### Phase Documentation & localhost URLs
+The phase docs (`docs/PHASE_1_2_IMPLEMENTATION.md`, `docs/PHASE_3_COMPLETE.md`, etc.) are accurate historical records of feature development. They reference `localhost` URLs throughout — these reflect the development environment and do not affect the deployed application.
+
+### Frontend Performance Optimizations
+`frontend/PERFORMANCE_OPTIMIZATIONS.md` documents frontend-specific optimizations (code splitting, React Query, PWA/Service Worker, bundle chunking). `MusicDataContext` is still available for backward compatibility, but new code should prefer the React Query hooks in `useMusicQueries.ts`.
 
 ## License
 

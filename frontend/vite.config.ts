@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'robots.txt'],
+      includeAssets: ['back.gif', 'icon.png'],
       manifest: {
         name: 'SoundWrapped',
         short_name: 'SoundWrapped',
@@ -19,12 +19,12 @@ export default defineConfig({
         display: 'standalone',
         icons: [
           {
-            src: '/icon-192.png',
+            src: '/icon.png',
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: '/icon-512.png',
+            src: '/icon.png',
             sizes: '512x512',
             type: 'image/png',
           },
