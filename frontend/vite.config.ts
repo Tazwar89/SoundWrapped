@@ -31,7 +31,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,svg,woff2}'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\.soundcloud\.com\/.*/i,
@@ -45,6 +45,15 @@ export default defineConfig({
               cacheableResponse: {
                 statuses: [0, 200],
               },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/soundwrapped-backend\.onrender\.com\/api\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-cache',
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 5 }, // 5 minutes
+              cacheableResponse: { statuses: [0, 200] },
             },
           },
           {
