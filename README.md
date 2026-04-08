@@ -1,4 +1,4 @@
-[<img width="1026" height="280" alt="Screenshot 2026-04-03 at 6 35 00 AM" src="https://github.com/user-attachments/assets/0f379770-4b6d-47c1-8c3d-8444ed6db4f1" />](https://soundwrapped.onrender.com/)
+[<img width="1026" height="280" alt="SoundWrapped" src="https://github.com/user-attachments/assets/0f379770-4b6d-47c1-8c3d-8444ed6db4f1" />](https://soundwrapped.onrender.com/)
 
 A comprehensive music analytics platform that provides personalized insights from SoundCloud, inspired by Spotify Wrapped. SoundWrapped offers daily featured content, detailed analytics, and interactive visualizations to help users discover and understand their music taste.
 
